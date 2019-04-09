@@ -1,0 +1,178 @@
+###########################################
+#
+#  Octo-jam 2016
+#
+#  A casual Chip8 game jam.
+#
+#  This title card demonstrates runtime
+#  disambiguation of CHIP8 on a COSMAC
+#  VIP, the SCHIP interpreter and the
+#  Octo emulator itself. This year's
+#  unofficial theme is pedantic emulation.
+#
+###########################################
+
+: main
+	detect-platform
+	loop
+		va :=  0 # str-offset
+		vb := 17 # x
+		vc := 24 # y
+		loop
+			i := sub-string
+			i += va
+			load v0
+			while v0 != -1
+
+			i := sub-slice
+			i += v0
+			sprite vb vc 5
+
+			va += 1
+			vb += 1
+
+			sync
+		again
+	again
+
+: detect-platform
+	v1 := 56
+	v2 := 0
+
+	# the COSMAC VIP will have the CHIP8 interpreter
+	# loaded into low RAM. Reading the first byte
+	# lets us disambiguate this from a conventional
+	# emulator which stores hex font data in 0x000 - 0x200.
+	i := 0
+	load v0
+	if v0 == 0x91 then jump v-i-p
+
+	# the SCHIP interpreter has many oddities.
+	# Let's use an easy one: shifts ignore register Y,
+	# instead shifting X in place.
+	v0 := 0
+	vf := 1
+	v0 <<= vf
+	if v0 == 0 then jump s-c-h-i-p
+
+	# we're probably either octo
+	# or a CHIP8 compliant modern emulator:
+
+: o-c-t-o
+	v0 := 5 # x
+	v1 := 8 # y
+	i  := let-O
+	sprite v0 v1 11
+	v0 += 9
+	i  := let-C
+	sprite v0 v1 11
+	v0 += 9
+	i  := let-T
+	sprite v0 v1 11
+	v0 += 9
+	i  := let-O
+	sprite v0 v1 11
+	jump jam
+
+: s-c-h-i-p
+	v0 := 1
+	v1 := 8
+	i  := let-S
+	sprite v0 v1 11
+	v0 += 9
+	i  := let-C
+	sprite v0 v1 11
+	v0 += 9
+	i  := let-H
+	sprite v0 v1 11
+	v0 += 8
+	i  := let-I
+	sprite v0 v1 11
+	v0 += 8
+	i  := let-P
+	sprite v0 v1 11
+	jump jam
+
+: v-i-p
+	v0 := 10
+	v1 := 8
+	i  := let-V
+	sprite v0 v1 11
+	v0 += 8
+	i  := let-I
+	sprite v0 v1 11
+	v0 += 8
+	i  := let-P
+	sprite v0 v1 11
+
+: jam
+	v0 += 9
+	v1 += 2
+	i  := jam-0
+	sprite v0 v1 10
+	v0 += 8
+	i  := jam-1
+	sprite v0 v1 10
+	v0 += 8
+	i  := jam-2
+	sprite v0 v1 10
+;
+
+: sync
+	loop
+		vf := delay
+		if vf != 0 then
+	again
+	vf := 2
+	delay := vf
+;
+
+# Graphics Data:
+
+: let-O 0x7E 0xFF 0xFF 0xFF 0xFF 0xFF 0xFB 0xF3 0xF3 0xFF 0x7E
+: let-C 0x7E 0xFF 0xFF 0xFF 0xFF 0xFF 0xFB 0xF0 0xF3 0xFF 0x7E
+: let-T 0x7F 0xFF 0xFF 0xFF 0xFE 0xFE 0xBE 0x3E 0x3E 0x3E 0x7C
+: let-S 0x7E 0xFF 0xFF 0xFF 0xFF 0xF9 0x7E 0x7F 0x9F 0xFF 0x7E
+: let-H 0x4E 0xDF 0xDF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFB 0xFB 0x72
+: let-I 0x7C 0x7C 0x7C 0x00 0x7E 0x7C 0x7C 0x7C 0x7C 0x7E 0x3E
+: let-P 0x7E 0xFF 0xFF 0xFF 0xFF 0xFB 0xF3 0xFF 0xFE 0xF8 0x7C
+: let-V 0x67 0xE7 0xE7 0xE7 0xE7 0xEF 0xEF 0xFE 0x7E 0x7C 0x38
+
+: jam-0 0x18 0x18 0x00 0x3B 0x7B 0x1B 0x3B 0x3B 0x71 0xE0
+: jam-1 0x00 0x00 0x00 0x9B 0xDF 0x6F 0xED 0x65 0x21 0x00
+: jam-2 0x00 0x00 0x00 0x80 0xC0 0x60 0xA0 0x80 0x00 0x00
+
+# exercise for the reader (see, I caught you!)-
+# how can the sprites in this table be overlapped
+# to minimize storage?
+: sub-slice
+	0x00 0x00 0x00 0x00 0x00 #  0
+	0x80 0x00 0x00 0x00 0x00 #  5
+	0x80 0x80 0x80 0x80 0x80 # 10
+	0x00 0x80 0x00 0x00 0x00 # 15
+	0x80 0x00 0x80 0x00 0x80 # 20
+	0x80 0x00 0x00 0x00 0x80 # 25
+	0x80 0x00 0x80 0x80 0x80 # 30
+	0x80 0x00 0x80 0x00 0x00 # 35
+	0x00 0x80 0x00 0x80 0x80 # 40
+	0x00 0x80 0x80 0x80 0x80 # 45
+
+: sub-string
+	 5 10  5   # T
+	10 15 10 0 # H
+	10 20 25   # E
+	 0  0  0   # _
+	 5 10  5   # T
+	10 15 10 0 # H
+	30  0      # i
+	10 35 40 0 # R
+	10 25 45   # D
+
+	# delay
+	0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0
+
+	# sentinel
+	-1

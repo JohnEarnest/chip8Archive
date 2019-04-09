@@ -1,0 +1,137 @@
+###########################################
+#
+#  Octo-jam 2017
+#
+#  A casual Chip8 game jam.
+#
+#  This title card demonstrates the new
+#  :macro and :calc directives in a variety
+#  of applications.
+#
+###########################################
+
+:alias speed va
+:alias x-j   vb
+:alias x-a   vc
+:alias x-m   vd
+:alias index ve
+
+:macro sync {
+	delay := speed
+	loop
+		vf := delay
+		if vf != 0 then
+	again
+}
+
+: main
+	# save one cycle in the main loop by
+	# having this constant loaded in a register.
+	# we have several free, so might as well use 'em!
+	speed := 2
+
+	# main title 'OCTO'
+	v0  := 6
+	v1  := 2
+	v2  := 15
+	:macro big-letter BASE {
+		# macros can compact repetitive patterns
+		# in your code without introducing the
+		# overhead of a subroutine call
+		i  := BASE
+		sprite v0 v1 15
+		v0 += 8
+		i  += v2
+		sprite v0 v1 15
+		v0 += 5
+	}
+	big-letter t-O
+	big-letter t-C
+	big-letter t-T
+	big-letter t-O
+
+	# main title '4'
+	v0 := 43
+	v1 := 18
+	i  := t-4
+	sprite v0 v1 11
+
+	# animated 'jam'
+	x-j := 13
+	x-a := 22
+	x-m := 31
+	:macro draw-jam {
+		i := t-j  sprite x-j v0 9
+		i := t-a  sprite x-a v1 9
+		i := t-m  sprite x-m v3 9
+	}
+	:macro get-jam {
+		i := wave
+		i += index
+		load v3
+		draw-jam
+	}
+	get-jam
+
+	loop
+		# animate the 'jam'
+		draw-jam
+		index += 3
+		if index == 126 then index := 0
+		get-jam
+
+		# here's lookin' at you, kid!
+		vf := random 0xFF
+		if vf == 1 begin
+			v6 := 11 # x of left  pupil
+			v7 := 50 # x of right pupil
+			v8 := 7  # y of pupils
+			:macro wink FRAME {
+				i := FRAME
+				sprite v6 v8 5
+				sprite v7 v8 5
+				sync
+			}
+			wink wink-1
+			wink wink-2
+			wink wink-2
+			wink wink-1
+		end
+
+		# attempt vsync
+		sync
+	again
+
+: t-j 0x03 0x03 0x00 0x03 0x63 0x63 0x73 0x3F 0x1E
+: t-a 0x00 0x3D 0x7F 0xE7 0xC3 0xC3 0xE3 0x7F 0x3F
+: t-m 0x00 0xF6 0xFF 0xDB 0xDB 0xC3 0xC3 0xC3 0xC3
+: t-4 0x06 0x0E 0x1E 0x36 0x66 0xC6 0xFF 0xFF 0x06 0x06 0x06
+
+: wave
+	# nested macro expansion offers a nice way
+	# to generate lookup tables, in this case driving
+	# the 'bounce' animation of the word 'jam':
+	:macro S2 {
+		:calc rads { ( HERE - wave ) * ( 2 * PI ) / 64 }
+		:calc val { 20 + 3 * sin rads } :byte val
+	}
+	:macro S1 { S2 S2 S2 S2 S2 S2 S2 S2 }
+	:macro S0 { S1 S1 S1 S1 S1 S1 S1 S1 S1 }
+	:macro P1 { 20 20 20 20 20 20 20 20 }
+	:macro P0 { P1 P1 P1 P1 P1 P1 P1 P1 P1 }
+	S0 P0
+
+: wink-1 0xC0 0x00 0x00 0x00 0xC0
+: wink-2 0x00 0xC0 0xC0 0xC0 0x00
+
+: t-O 0x3F 0x7F 0xF0 0xF0 0xF0 0xF6 0xF6 0xF6 
+      0xF6 0xF6 0xF0 0xF0 0xF0 0x7F 0x3F
+      0xC0 0xE0 0xF0 0xF0 0xF0 0xF0 0xF0 0xF0 
+      0xF0 0xF0 0xF0 0xF0 0xF0 0xE0 0xC0 
+: t-C 0x3F 0x7F 0xF0 0xF0 0xF0 0xF0 0xF0 0xF0 
+      0xF0 0xF0 0xF0 0xF0 0xF0 0x7F 0x3F 
+      0xC0 0xE0 0xF0 0xF0 0xF0 0x00 0x00 0xF0 
+      0xF0 0xF0 0xF0 0xF0 0xF0 0xE0 0xC0 
+: t-T 0xFF 0xFF 0xEF 0x0F 0x0F 0x0F 0x0F 0x0F 
+      0x0F 0x0F 0x0F 0x0F 0x0F 0x0F 0x0F 
+	  0xF0 0xF0 0x70 

@@ -1,0 +1,1667 @@
+###########################################
+#
+#  Black Rainbow
+#
+#  An action-roguelike(?) developed for
+#  Octojam The Third (2016). Designed
+#  to run within the quirks of the original
+#  SCHIP as well as its rough speed limits.
+#
+#  Plumb the depths of your subconscious
+#  and bring back the motherlode...
+#
+#  ASWD move, X pauses and displays current
+#  timer. Collecting fragments of your inner
+#  eye will replentish time.
+#
+#  John Earnest
+#
+###########################################
+
+# v0-v2 are reserved as temporaries
+# ve reserved for comparator pseudo-ops
+# and can be used elsewhere with care.
+
+# leftover ideas for a future iteration:
+#
+# - brick mob. create/destroy an impassable wall on a timer.
+# - randomize decals for 'scramble' effect
+# - more elaborate animated intro sequence
+# - periodic interstitial dialog
+#   tied to the countdown timer. preferably with enough
+#   variety to be different on separate playthroughs.
+# - bit pack gems-taken?
+# - alias gems-taken or world against title sprites (25-50 bytes)
+# - special case layout 0 to reclaim its memory (42 bytes)
+
+:alias mob-1     v3 # mob 1 state
+:alias mob-2     v4 # mob 2 state
+:alias px        v5 # player sprite x, in pixels
+:alias py        v6 # player sprite y, in pixels
+:alias tick      v7 # global timer least significant figure
+:alias r-x-coord v8 # constant mask for board coords
+:alias r-y-coord vb # constant mask for board coords (overlapped)
+:alias key-up    v9 # constant 5 for movement input
+:alias key-dn    va # constant 8 for movement input
+:alias key-lf    vb # constant 7 for movement input
+:alias key-rt    vc # constant 9 for movement input
+:alias mob-aux   vd # semi-shared mob state
+
+:const tile-size    8
+:const screen-w   128
+:const x-coord    0b01111000 # board x bits
+:const y-coord    0b00000111 # board y bits 
+:const tick-max    64        # global timer wrap point
+:const key-pause    0
+:const gem-time     2        # minor ticks earned per gem
+
+:alias tile-x v1 # used for tile-based
+:alias tile-y v2 # board collision detection
+
+: main
+	hires
+	title
+
+	reset-everything
+	loop
+		# move player
+		tile-x := 2
+		tile-y := 2
+		if key-up key then move-up
+		if key-dn key then move-down
+		if key-lf key then move-left
+		if key-rt key then move-right
+
+		# global timer
+		tick += 1
+		if tick == tick-max then global-timer
+		vf := key-pause
+		if vf key then show-score
+
+		# update any mobs for this room:
+		: mob-run-slot-1 v0 := v0 # nop
+		: mob-run-slot-2 v0 := v0 # nop
+
+		loop
+			vf := delay
+			if vf != 0 then
+		again
+		vf := 1
+		delay := vf
+
+	again
+
+: startup-registers
+	0x00       # v0 - temporary 
+	0x00       # v1 - temporary
+	0x00       # v2 - temporary
+	0x00       # v3 - mob-1
+	0x00       # v4 - mob-2
+	0          # v5 - initial px
+	41         # v6 - initial py
+	0x00       # v7 - tick
+	0b01111000 # v8 - bitmask
+	5          # v9 - up key
+	8          # va - down key
+	7          # vb - left key / bitmask
+	9          # vc - right key
+	0x00       # vd - mob-aux
+
+###########################################
+#
+#  Title Sequence
+#
+###########################################
+
+: title-1
+	0xE4 0x31 0x94 0x4A 0xE4 0x7A 0x94 0x4A 
+	0x94 0x4A 0xE7 0x49 0x00 0x00 0x00 0x00 
+	0xE3 0x2E 0x94 0xA9 0xE7 0xA9 0x94 0xA9 
+	0x94 0xA9 0x94 0xA9 0x00 0x00 0x00 0x00 
+: title-2
+	0xA2 0x00 0x2C 0x00 0x30 0x00 0x28 0x00 
+	0x24 0x00 0xA2 0x00 0x00 0x00 0x00 0x00 
+	0x71 0x91 0x4A 0x51 0x72 0x55 0x4A 0x55 
+	0x4A 0x55 0x71 0x9A 0x00 0x00 0x00 0x00 
+
+: title
+	# title itself
+	v0 := 20
+	v1 := 25
+	i := title-1
+	sprite v0 v1 0
+	v0 += 16
+	i := title-2
+	sprite v0 v1 0
+
+	# player
+	px := 100
+	py := 41
+	draw-player
+
+	# tunnel
+	v0 := 0
+	v1 := 32
+	v4 := 48
+	loop
+		i := tile-solid
+		sprite v0 v1 8
+		i := tile-wall
+		sprite v0 v4 8
+		timer-wait
+		v0 += 8
+		if v2 != 16 then
+	again
+
+	# walk right
+	loop
+		vf := 9
+		if vf key begin
+			draw-player
+			px += 1
+			draw-player
+		end
+		timer-wait
+		if px != 122 then
+	again
+	clear
+;
+
+###########################################
+#
+#  Board drawing, and all associated
+#  buffers and data.
+#
+#  Board drawing is partially unrolled,
+#  based on careful profiling. By storing
+#  the board in vertical 8-tile stripes,
+#  we can combine 8 memory loads at a time.
+#
+###########################################
+
+:alias draw-x v8
+:alias draw-y v9
+:alias draw-used v9
+
+: draw-board
+	clear
+
+	i := draw-reg-buffer
+	save draw-used
+	draw-x := 0
+	loop
+		draw-y := -8 
+		i := board
+		i += draw-x
+
+		load v7    draw-tile
+		v0 := v1   draw-tile
+		v0 := v2   draw-tile
+		v0 := v3   draw-tile
+		v0 := v4   draw-tile
+		v0 := v5   draw-tile
+		v0 := v6   draw-tile
+		v0 := v7   draw-tile
+
+		draw-x += tile-size
+		if draw-x != screen-w then
+	again
+	i := draw-reg-buffer
+	load draw-used
+
+	draw-player
+
+	: mob-init-slot-1 v0 := v0 # nop
+	: mob-init-slot-2 v0 := v0 # nop
+;
+
+: draw-tile
+	draw-y += tile-size
+	# shave a small number of dynamic cycles
+	# by not drawing empty space on the board:
+	if v0 == 0 then return
+	i := tiles
+	i += v0
+	sprite draw-x draw-y tile-size
+;
+
+: board # 16x8 tiles, 128 bytes:
+	16 16 16 16  8  0  8 16
+	16  0  0  0  0  0  0 16
+	16  0  0  0  0  0  0 16
+	16  0  0  8  8  8  0 16
+	16  0  0  0  0  0  0 16
+	16  0  0  0  0  0  0 16
+	 8  0  0  0  0  0  0  8
+	 0  0  0  0  0  0  0  0
+	 8  0  0  0 24  0  0  8
+	16  0  0  0  0  0  0 16
+	 8  0  8  0 24  0  0  8
+	0   0  8  0  0  0  0  0
+	 8  0  8  0 24  0  0  8
+	16  0  0  0  0  0  0 16
+	16  0  0  0  0  0  0 16
+	16 16 16 16  8  0  8 16
+
+: digit-buffer
+	# 3 bytes for BCD, aliased.
+: draw-reg-buffer
+	0x00 # space for low 10 registers
+: digit-buffer-low
+	0x00
+: tiles
+	0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+: tile-wall
+	0x69 0x7F 0xFF 0xDE 0xFF 0xFA 0x7F 0xD7
+: tile-solid
+	0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF
+: tile-gem
+	0x00 0x38 0x44 0x92 0x44 0x38 0x00 0x00
+: tile-stump
+	0x00 0x7E 0x81 0xA2 0x45 0x81 0x89 0xF7 
+: tile-crystal
+	0x18 0x34 0x7A 0x85 0x4A 0x66 0x5A 0xFF
+: tile-top-left
+	0xFF 0xFE 0xFC 0xF8 0xF0 0xE0 0xC0 0x80
+: tile-top-right
+	0xFF 0x7F 0x3F 0x1F 0x0F 0x07 0x03 0x01
+: tile-bottom-left
+	0x80 0xC0 0xE0 0xF0 0xF8 0xFC 0xFE 0xFF
+: tile-bottom-right
+	0x01 0x03 0x07 0x0F 0x1F 0x3F 0x7F 0xFF 
+
+###########################################
+#
+#  Layouts
+#
+#  The interior of a board is 6x14.
+#  Each pair of tiles is nybble-packed,
+#  for 16 possible tiles per position.
+#
+#  0 - empty
+#  1 - stone wall
+#  2 - solid
+#  3 - gem
+#  4 - stump
+#  5 - crystal
+#  6 - top-left
+#  7 - top-right
+#  8 - bottom-left
+#  9 - bottom-right
+#
+###########################################
+
+: layout-0
+	0x00 0x00 0x00 # this space left intentionally blank
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+: layout-1
+	0x00 0x00 0x00 # x marks the spot
+	0x30 0x00 0x03
+	0x41 0x00 0x41
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x00 0x41 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x00 0x41 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x41 0x00 0x41
+	0x30 0x00 0x03
+	0x00 0x00 0x00
+: layout-2
+	0x00 0x00 0x00 # hot box
+	0x01 0x11 0x10
+	0x01 0x00 0x10
+	0x02 0x33 0x20
+	0x02 0x00 0x10
+	0x01 0x00 0x10
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x01 0x00 0x10
+	0x02 0x00 0x20
+	0x01 0x33 0x20
+	0x02 0x00 0x10
+	0x01 0x12 0x10
+	0x00 0x00 0x00
+: layout-3
+	0x00 0x00 0x00 # coming and going
+	0x01 0x21 0x20
+	0x00 0x00 0x20
+	0x00 0x03 0x10
+	0x00 0x00 0x10
+	0x01 0x11 0x20
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x01 0x21 0x10
+	0x01 0x00 0x00
+	0x02 0x30 0x00
+	0x02 0x00 0x00
+	0x01 0x11 0x10
+	0x00 0x00 0x00
+: layout-4
+	0x00 0x10 0x00 # the wall
+	0x00 0x20 0x00
+	0x00 0x10 0x00
+	0x00 0x10 0x00
+	0x00 0x10 0x00
+	0x00 0x20 0x00
+	0x00 0x20 0x00
+	0x00 0x10 0x00
+	0x00 0x10 0x00
+	0x00 0x10 0x00
+	0x00 0x20 0x00
+	0x00 0x10 0x00
+	0x00 0x10 0x00
+	0x00 0x10 0x00
+: layout-5
+	0x00 0x00 0x00 # isolated
+	0x00 0x00 0x00
+	0x03 0x33 0x30
+	0x03 0x33 0x30
+	0x11 0x12 0x12
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x00 0x05 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+: layout-6
+	0x00 0x00 0x00 # spiral
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x01 0x11 0x10
+	0x01 0x00 0x00
+	0x01 0x00 0x00
+	0x01 0x01 0x10
+	0x01 0x03 0x10
+	0x01 0x03 0x10
+	0x01 0x00 0x10
+	0x01 0x11 0x10
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+: layout-7
+	0x00 0x00 0x00 # zigzag
+	0x22 0x22 0x00
+	0x00 0x00 0x00
+	0x04 0x11 0x11
+	0x00 0x00 0x00
+	0x22 0x22 0x20
+	0x00 0x00 0x00
+	0x04 0x11 0x11
+	0x00 0x00 0x00
+	0x22 0x22 0x20
+	0x00 0x00 0x00
+	0x04 0x11 0x11
+	0x00 0x33 0x00
+	0x00 0x00 0x00
+: layout-8
+	0x60 0x00 0x08 # big octagon
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x70 0x00 0x09
+: layout-9
+	0x60 0x00 0x08 # pyramids
+	0x00 0x00 0x00
+	0x00 0x00 0x90
+	0x00 0x00 0x80
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x09 0x03 0x00
+	0x08 0x03 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x90
+	0x00 0x00 0x80
+	0x00 0x00 0x00
+	0x70 0x00 0x09
+: layout-10
+	0x00 0x00 0x00 # mixed cover
+	0x01 0x12 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x00 0x40 0x20
+	0x00 0x00 0x20
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x01 0x21 0x00
+	0x01 0x00 0x00
+	0x02 0x30 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+: layout-11
+	0x00 0x00 0x00 # balance
+	0x04 0x01 0x10
+	0x04 0x05 0x10
+	0x04 0x00 0x10
+	0x04 0x00 0x10
+	0x04 0x00 0x10
+	0x04 0x00 0x10
+	0x04 0x00 0x10
+	0x04 0x00 0x10
+	0x04 0x00 0x10
+	0x04 0x00 0x10
+	0x04 0x30 0x10
+	0x04 0x40 0x10
+	0x00 0x00 0x00
+: layout-12
+	0x00 0x00 0x00 # envy
+	0x02 0x22 0x20
+	0x02 0x33 0x20
+	0x02 0x33 0x20
+	0x02 0x33 0x20
+	0x02 0x22 0x20
+	0x02 0x00 0x00
+	0x00 0x00 0x20
+	0x02 0x22 0x20
+	0x02 0x33 0x20
+	0x02 0x33 0x20
+	0x02 0x33 0x20
+	0x02 0x22 0x20
+	0x00 0x00 0x00
+: layout-13
+	0x00 0x00 0x00 # ruin
+	0x00 0x40 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x00 0x01 0x10
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x00 0x10 0x00
+	0x40 0x10 0x00
+	0x00 0x10 0x40
+	0x00 0x10 0x00
+	0x00 0x10 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+: layout-14
+	0x60 0x00 0x08 # focus
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x00 0x33 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x00 0x50 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x70 0x00 0x09
+: layout-15
+	0x60 0x00 0x08 # shelter
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x09 0x11 0x60
+	0x01 0x30 0x00
+	0x01 0x30 0x00
+	0x08 0x11 0x70
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x00 0x00 0x00
+	0x70 0x00 0x09
+
+: board-layouts
+	i := layout-0
+	i := layout-1
+	i := layout-2
+	i := layout-3
+	i := layout-4
+	i := layout-5
+	i := layout-6
+	i := layout-7
+	i := layout-8
+	i := layout-9
+	i := layout-10
+	i := layout-11
+	i := layout-12
+	i := layout-13
+	i := layout-14
+	i := layout-15
+
+###########################################
+#
+#  World
+#
+#  The world is unpacked into the board
+#  as the player moves from room to room.
+#
+###########################################
+
+# each room consists of 2 bytes of data:
+# 0: [ 4-bit layout ][ 4-bit doors ] layout
+# 1: [ 4-bit NPC 2  ][ 4-bit NPC 1 ] npcs
+
+:const door-right-1 0b00000001
+:const door-right-2 0b00000010
+:const door-down-1  0b00000100
+:const door-down-2  0b00001000
+
+: world
+	0xAF 0x70  0x00 0x00  0x00 0x00  0x00 0x00  0x01 0xFF
+	0x00 0x00  0x00 0x00  0x00 0x00  0x00 0x00  0x00 0x00
+	0x00 0x00  0x00 0x00  0x00 0x00  0x00 0x00  0x00 0x00
+	0x00 0x00  0x00 0x00  0x00 0x00  0x00 0x00  0x00 0x00
+	0x0F 0x00  0x00 0x00  0x00 0x00  0x00 0x00  0x00 0x00
+
+# additionally, we must track whether the gems
+# from a room have been taken (coarse but sufficient to avoid exploitation):
+
+: gems-taken
+	0x00 0x00 0x00 0x00 0x00
+	0x00 0x00 0x00 0x00 0x00
+	0x00 0x00 0x00 0x00 0x00
+	0x00 0x00 0x00 0x00 0x00
+	0x00 0x00 0x00 0x00 0x00
+
+: gem-address
+	i  := current-room-x
+	load v1
+	i  := gems-taken
+	i  += v0 # x
+	v0 := v1
+	v1 += v1
+	v1 += v1
+	v0 += v1
+	i  += v0 # 5 * y
+;
+
+# these are pretty important pieces of
+# game state, but they're referenced
+# so infrequently that it doesn't make
+# sense to stash them in registers:
+
+: current-room-x  0x00
+: current-room-y  0x00
+
+:const max-room-x 4
+:const max-room-y 4
+
+: goto-room-up
+	i := current-room-y
+	load v0
+	v0 += -1
+	if v0 == -1 then v0 := max-room-y
+	i := current-room-y
+	save v0
+;
+
+: goto-room-down
+	i := current-room-y
+	load v0
+	if v0 == max-room-y then v0 := -1
+	v0 += 1
+	i := current-room-y
+	save v0
+;
+
+: goto-room-left
+	i := current-room-x
+	load v0
+	v0 += -1
+	if v0 == -1 then v0 := max-room-x
+	i := current-room-x
+	save v0
+;
+
+: goto-room-right
+	i := current-room-x
+	load v0
+	if v0 == max-room-x then v0 := -1
+	v0 += 1
+	i := current-room-x
+	save v0
+;
+
+:const tile-empty-index  0
+:const tile-wall-index   8
+:const tile-solid-index 16
+:const tile-gem-index   24
+
+: wall-center  16  0  0  0  0  0  0 16
+: wall-edge    16 16 16 16 16 16 16 16
+
+:alias room-layout   v6
+:alias room-contents v7
+
+: load-room-data
+	# read both bytes of a room description into regs:
+	i := current-room-x
+	load v1
+	i  := world
+	i  += v0
+	i  += v0 # 2 * x
+	v0 := v1
+	v1 += v1
+	v1 += v1
+	v0 += v1
+	i  += v0
+	i  += v0 # 10 * y
+	load v1
+	room-layout   := v0
+	room-contents := v1
+;
+
+: vert-door
+	# v0 is the door mask
+	# vf is the board offset
+	v0 &= room-layout
+	if v0 == 0 then return
+
+	i  := board
+	i  += vf
+	v0 := tile-wall-index
+	v1 := tile-empty-index
+	v2 := tile-wall-index
+	save v2
+;
+
+: horiz-door
+	# v0 is the door mask
+	# vf is the board offset
+	v0 &= room-layout
+	if v0 == 0 then return
+
+	i  := board
+	i  += vf
+	v0 := tile-wall-index
+	save v0
+	vf += 8
+	i  := board
+	i  += vf
+	v0 := tile-empty-index
+	save v0
+	vf += 8
+	i  := board
+	i  += vf
+	v0 := tile-wall-index
+	save v0
+;
+
+: layout-chunk
+	# byte is in v0.
+	# dest offset is in v4.
+	# ve is 0x00 if gems have been collected, otherwise 0xFF.
+	# we can touch v0, v1, vf
+	if v0 != 0x00 begin
+		v1 := v0
+		vf := 0xF0
+		v0 &= vf
+		v0 >>= v0 # high nybble * 8
+		if v0 == tile-gem-index then v0 &= ve
+		vf := 0x0F
+		v1 &= vf
+		v1 <<= v1
+		v1 <<= v1
+		v1 <<= v1 # low nybble * 8
+		if v1 == tile-gem-index then v1 &= ve
+		i := board
+		i += v4
+		save v1
+	end
+	v4 += 2
+;
+
+: load-board
+	i := draw-reg-buffer
+	save draw-used
+
+	# fill board outline:
+	v8 := 0
+	loop
+		# read a vertical slice:
+		i := wall-center
+		if v8 == 0   then i := wall-edge
+		if v8 == 120 then i := wall-edge
+		load v7
+
+		# write a vertical slice:
+		i := board
+		i += v8
+		save v7
+
+		# 16x8 slices:
+		v8 += 8
+		if v8 != 128 then
+	again
+
+	# load doors:
+	goto-room-left
+	load-room-data
+	v0 := door-right-1
+	vf := 4
+	vert-door
+	v0 := door-right-2
+	vf := 1
+	vert-door
+	goto-room-right
+
+	goto-room-up
+	load-room-data
+	v0 := door-down-1
+	vf := 24
+	horiz-door
+	v0 := door-down-2
+	vf := 80
+	horiz-door
+	goto-room-down
+
+	load-room-data
+	v0 := door-right-1
+	vf := 124
+	vert-door
+	v0 := door-right-2
+	vf := 121
+	vert-door
+	v0 := door-down-1
+	vf := 31
+	horiz-door
+	v0 := door-down-2
+	vf := 87
+	horiz-door
+
+	# copy/unpack layout
+	i := board-layouts
+	v0 := room-layout
+	vf := 0xF0
+	v0 &= vf
+	v0 >>= v0
+	v0 >>= v0
+	v0 >>= v0 # high nybble * 2
+	i += v0
+	load v1
+	i := source-layout
+	save v1
+
+	gem-address
+	load v0
+	ve := 0xFF
+	if v0 != 0 then ve := 0x00
+
+	v3 := 0 # source offset
+	v4 := 9 # dest offset
+	loop
+		: source-layout 0x00 0x00
+		i += v3
+		load v2
+		v5 := v1
+		layout-chunk
+		v0 := v5
+		layout-chunk
+		v0 := v2
+		layout-chunk
+		v4 += 2
+		v3 += 3
+		if v3 != 42 then
+	again
+
+	# install mob handlers:
+	if room-contents == 0xFF begin
+		# a room containing xFF is the final room:
+		:unpack 0x2 motherlode-init # CALL
+		i := mob-init-slot-1
+		save v1
+		:unpack 0x2 motherlode # CALL
+		i := mob-run-slot-1
+		save v1
+		v0 := 0x80 # nop
+		v1 := 0x00 
+		i := mob-init-slot-2
+		save v1
+		i := mob-run-slot-2
+		save v1
+	else
+		v0 := room-contents
+		v1 := 0x0F
+		v1 &= v0
+		v1 <<= v1
+		v1 <<= v1 # low nybble * 4
+		i := mob-table-1
+		i += v1
+		load v3
+		i := mob-init-slot-1
+		save v1
+		v0 := v2
+		v1 := v3
+		i := mob-run-slot-1
+		save v1
+
+		v0 := room-contents
+		v1 := 0xF0
+		v1 &= v0
+		v1 >>= v1
+		v1 >>= v1 # high nybble * 4
+		i := mob-table-2
+		i += v1
+		load v3
+		i := mob-init-slot-2
+		save v1
+		v0 := v2
+		v1 := v3
+		i := mob-run-slot-2
+		save v1
+	end
+
+	i := draw-reg-buffer
+	load draw-used
+;
+
+: build-world
+	v2 := 0
+	loop
+		i  := world
+		i  += v2
+		v0 := random 0b11111111 # any layout/doors
+		v1 := random 0b01110111 # populated mobs
+		save v1
+		v2 += 2
+		if v2 != 50 then
+	again
+
+	# The starting room should be empty
+	# and densely connected:
+	i  := world
+	v0 := 0x0F
+	v1 := 0x00
+	save v1
+
+	# The room to the left of the starting room
+	# should have an entrance for the player:
+	i  := world
+	v1 := 8
+	i  += v1
+	load v0
+	vf := door-right-1
+	v0 |= vf
+	i  := world
+	i  += v1
+	save v0
+
+	# The ending room should contain the Motherlode
+	# and be densely connected:
+	i  := world
+	v1 := 36
+	i  += v1
+	v0 := 0x8F
+	v1 := 0xFF
+	save v1
+;
+
+###########################################
+#
+#  Scramble the display,
+#  as a death animation.
+#
+###########################################
+
+: scramble
+	vf := 30
+	buzzer := vf
+	delay  := vf
+
+	v2 := 0
+	loop
+		v0 := random 0xFF
+		v1 := random 0xFF
+		i  := tile-wall
+		sprite v0 v1 tile-size
+		v2 += 1
+		if v2 != 32 then
+	again
+
+	loop
+		vf := delay
+		if vf != 0 then
+	again
+
+	load-player-pos
+	jump draw-board
+
+###########################################
+#
+#  The Player
+#
+#  Movement code is all part of the game's
+#  hot main loop, so many repeated routines
+#  have been inlined for speed.
+#
+###########################################
+
+:const player-size   6
+:const max-y        58 #  64 - player-size
+:const max-x       122 # 128 - player-size
+:const gem-code     24
+
+: room-start-pos
+	0x00 0x00
+
+: save-player-pos
+	i := room-start-pos
+	v0 := px
+	v1 := py
+	save v1
+;
+
+: load-player-pos
+	i := room-start-pos
+	load v1
+	px := v0
+	py := v1
+;
+
+: player-sprite
+	0x70 0x10 0xF8 0xF8 0x70 0x50
+
+: draw-player
+	# for efficiency's sake this is often
+	# going to be inlined:
+	i := player-sprite
+	sprite px py player-size
+;
+
+: board-tile
+	# probe the board at coordinates
+	# (px + v1, py + v2) and get tile addr
+	# for speed, depends on pre-initialized
+	# bitmasks in registers.
+	i := board
+
+	tile-x +=  px
+	tile-x &=  r-x-coord
+	i      +=  tile-x
+
+	tile-y +=  py
+	tile-y >>= tile-y
+	tile-y >>= tile-y
+	tile-y >>= tile-y
+	i      +=  tile-y
+;
+
+: take-gem
+	# remove from board
+	i := board
+	i += tile-x
+	i += tile-y
+	v0 := 0
+	save v0
+
+	# erase gem
+	tile-y <<= tile-y
+	tile-y <<= tile-y
+	tile-y <<= tile-y
+	i := tile-gem
+	sprite tile-x tile-y tile-size
+
+	# this room's gem has been taken
+	gem-address
+	v0 := 1
+	save v0
+
+	# award time
+	i := timer-data
+	load v1
+	vf := gem-time
+	v0 -= vf
+	if vf == 0 begin
+		v1 += -1
+		if v1 == -1 begin
+			v1 := 0
+			v0 := 0
+		else
+			v0 += 100
+		end
+	end
+	i := timer-data
+	save v1
+;
+
+: move-up
+	if py == 0 then jump room-up
+
+	tile-y := -1
+	board-tile
+	load v0
+	if v0 == gem-code then take-gem
+	if v0 != 0 then return
+
+	i := player-sprite
+	sprite px py player-size
+	py += -1
+	sprite px py player-size
+;
+: room-up
+	goto-room-up
+	load-board
+	py := max-y
+	save-player-pos
+	jump draw-board
+
+: move-down
+	if py == max-y then jump room-down
+
+	tile-y := player-size
+	board-tile
+	load v0
+	if v0 == gem-code then take-gem
+	if v0 != 0 then return
+
+	i := player-sprite
+	sprite px py player-size
+	py += 1
+	sprite px py player-size
+;
+: room-down
+	goto-room-down
+	load-board
+	py := 0
+	save-player-pos
+	jump draw-board
+
+: move-left
+	if px == 0 then jump room-left
+
+	tile-x := -1
+	board-tile
+	load v0
+	if v0 == gem-code then take-gem
+	if v0 != 0 then return
+
+	i := player-sprite
+	sprite px py player-size
+	px += -1
+	sprite px py player-size
+;
+: room-left
+	goto-room-left
+	load-board
+	px := max-x
+	save-player-pos
+	jump draw-board
+
+: move-right
+	if px == max-x then jump room-right
+
+	tile-x := 5 #player-size-1
+	board-tile
+	load v0
+	if v0 == gem-code then take-gem
+	if v0 != 0 then return
+
+	i := player-sprite
+	sprite px py player-size
+	px += 1
+	sprite px py player-size
+;
+: room-right
+	goto-room-right
+	load-board
+	px := 0
+	save-player-pos
+	jump draw-board
+
+###########################################
+#
+#  Timer and Pause Screen
+#
+###########################################
+
+: timer-data
+	00 # least significant in v0
+: timer-data-high
+	00 # most  significant in v1
+
+: global-timer
+	tick := 0
+	i := timer-data
+	load v1
+	v0 += 1
+	if v0 == 100 begin
+		v0 := 0
+		v1 += 1
+		# the global score/time counter
+		# saturates at 9999 units:
+		if v1 == 100 begin
+			v1 := 99
+			v0 := 99
+		end
+	end
+	i := timer-data
+	save v1
+;
+
+: show-score
+	draw-score
+	loop
+		vf := key-pause
+		if vf key then
+	again
+	vf := key
+	
+	# fall through to draw-score
+	# and save two instructions:
+
+: draw-score
+	v2 := 74 # x position (rightmost digit)
+
+	# draw low two digits:
+	i := timer-data
+	draw-score-byte
+
+	# draw high two digits:
+	i := timer-data-high
+
+	# fall through to draw-score-byte
+	# and save two instructions:
+
+: draw-score-byte
+	load v0
+	i := digit-buffer
+	bcd v0
+	i := digit-buffer-low
+	load v1
+
+	i := bighex v1
+	vf := 27 # y position
+	sprite v2 vf 10
+	v2 += -10
+	i := bighex v0
+	vf := 27 # y position
+	sprite v2 vf 10
+	v2 += -10
+;
+
+###########################################
+#
+#  Mobs
+#
+#  Mobs are allowed to touch v0,v1,v2,ve,vf
+#  and additionally their own mob-1 or mob-2
+#  internal state registers. Many will make
+#  use of 'tick', the global timer.
+#
+###########################################
+
+: mob-danger-sprite
+	0x99 0x33 0x66 0xCC 0x99 0x33 0x66 0xCC
+
+: mob-table-1
+	v0 += 0            v0 += 0      # 0
+	mob-1-hslice-init  mob-1-hslice # 1
+	ghost-init         ghost        # 2
+	sentionaut-init    sentionaut   # 3
+	wisp-init          wisp         # 4
+	bomb-1-init        bomb-1       # 5
+	bomb-1-init        bomb-1       # 6
+	sentionaut-init    sentionaut   # 7
+	v0 += 0            v0 += 0      # 8
+	v0 += 0            v0 += 0      # 9
+	v0 += 0            v0 += 0      # A
+	v0 += 0            v0 += 0      # B
+	v0 += 0            v0 += 0      # C
+	v0 += 0            v0 += 0      # D
+	v0 += 0            v0 += 0      # E
+	v0 += 0            v0 += 0      # F
+
+: mob-table-2
+	v0 += 0            v0 += 0      # 0
+	mob-2-hslice-init  mob-2-hslice # 1
+	vlunge-1-init      vlunge-1     # 2
+	vlunge-2-init      vlunge-2     # 3
+	m-sentionaut-init  m-sentionaut # 4
+	plant-1-init       plant-1      # 5
+	plant-2-init       plant-2      # 6
+	bomb-2-init        bomb-2       # 7
+	v0 += 0            v0 += 0      # 8
+	v0 += 0            v0 += 0      # 9
+	v0 += 0            v0 += 0      # A
+	v0 += 0            v0 += 0      # B
+	v0 += 0            v0 += 0      # C
+	v0 += 0            v0 += 0      # D
+	v0 += 0            v0 += 0      # E
+
+# horizontal slicer 1: left to right
+: mob-1-hslice-init
+	mob-1 := 16
+	v0 := 16
+	i := mob-danger-sprite
+	sprite mob-1 v0 8
+;
+: mob-1-hslice
+	v0 := 16
+	i := mob-danger-sprite
+	sprite mob-1 v0 8
+	mob-1 += 2
+	if mob-1 == 106 then mob-1 := 16
+	sprite mob-1 v0 8
+	if vf == 0 then return
+	draw-player
+	i := mob-danger-sprite
+	sprite mob-1 v0 8
+	sprite mob-1 v0 8
+	if vf != 0 then jump draw-player
+	jump scramble
+
+# horizontal slicer 2: right to left
+: mob-2-hslice-init
+	mob-2 := 106
+	v0 := 40
+	i := mob-danger-sprite
+	sprite mob-2 v0 8
+;
+: mob-2-hslice
+	v0 := 40
+	i := mob-danger-sprite
+	sprite mob-2 v0 8
+	mob-2 += -2
+	if mob-2 == 16 then mob-2 := 106
+	sprite mob-2 v0 8
+	if vf == 0 then return
+	draw-player
+	i := mob-danger-sprite
+	sprite mob-2 v0 8
+	sprite mob-2 v0 8
+	if vf != 0 then jump draw-player
+	jump scramble
+
+: motherlode-sprite
+	0x00 0x00 0x00 0x00 0x00 0x00 0x07 0xE0 
+	0x18 0x18 0x20 0x04 0x40 0x02 0x80 0x01 
+	0x40 0x02 0x20 0x04 0x18 0x18 0x07 0xE0 
+: motherlode-closing-1
+	0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 
+	0x07 0xE0 0x19 0x98 0x62 0x46 0x82 0x41 
+	0x62 0x46 0x19 0x98 0x07 0xE0 0x00 0x00 
+: motherlode-closing-2
+	0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 
+	0x00 0x00 0x00 0x00 0x07 0xE0 0xF8 0x1F 
+	0x07 0xE0 0x00 0x00 0x00 0x00 0x00 0x00 
+	0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+: motherlode-pupil
+	0x60 0xD0 0xD0 0xF0 0x60
+
+: motherlode-init
+	mob-1 := 62 # pupil x pos
+	mob-2 := 29 # pupil y pos
+	i := motherlode-sprite
+	v0 := 56
+	v1 := 24
+	sprite v0 v1 0
+	i := motherlode-pupil
+	sprite mob-1 mob-2 5
+;
+: motherlode
+	i := motherlode-pupil
+	sprite mob-1 mob-2 5
+	vf := 0b0111
+	vf &= tick
+	if vf == 7 begin
+		if mob-1 != 59 begin
+			if px < mob-1 then mob-1 += -1
+		end
+		if mob-1 != 65 begin
+			if px > mob-1 then mob-1 += 1
+		end
+	end
+	sprite mob-1 mob-2 5
+	if vf == 0 then return
+
+	# end game sequence:
+	clear
+	i := motherlode-sprite
+	v0 := 56
+	v1 := 24
+	sprite v0 v1 0
+	i := motherlode-pupil
+	v3 := 62
+	v4 := 29
+	sprite v3 v4 5
+
+	v2 := 0
+	loop
+		sprite v3 v4 5
+		timer-wait
+		if v2 != 60 then
+	again
+	clear
+
+	i := motherlode-closing-1
+	motherlode-anim
+	i := motherlode-closing-2
+	motherlode-anim
+
+	show-score
+
+: reset-everything
+	build-world
+
+	i := current-room-x
+	v0 := 0
+	v1 := 0
+	save v1
+
+	i := timer-data
+	save v1
+
+	loop
+		i := gems-taken
+		i += v1
+		save v0
+		v1 += 1
+		if v1 != 25 then
+	again
+
+	i := startup-registers
+	load vd
+	load-board
+	save-player-pos
+	draw-board
+;
+
+: motherlode-anim
+	v2 := 0
+	loop
+		sprite v0 v1 0
+		timer-wait
+		if v2 != 60 then
+	again
+	clear
+;
+
+: timer-wait
+	loop
+		vf := delay
+		if vf != 0 then
+	again
+	vf := 2
+	delay := vf
+	v2 += 1
+;
+
+: ghost-init ;
+: ghost
+	v0 := 120
+	v1 := 58
+	v0 -= px
+	v1 -= py
+	i := player-sprite
+	sprite v0 v1 player-size
+	v0 := v0 # nop
+	v0 := v0 # nop
+	v0 := v0 # nop
+	v0 := v0 # nop
+	sprite v0 v1 player-size
+;
+
+: vlunge-1-init
+	v0    := 32 # x pos
+: vlunge-init-shared
+	mob-2 :=  8 # y pos
+	i := tile-gem
+	sprite v0 mob-2 8
+;
+: vlunge-1
+	v0 := 40 # 32 + 8
+	v0 -= px
+	if v0 > 8 then return
+	v0 := 32
+: vlunge-shared
+	i := tile-gem
+	sprite v0 mob-2 8
+	if mob-2 > py begin
+		mob-2 += -1
+	else
+		mob-2 += 1
+	end
+	sprite v0 mob-2 8
+	if vf == 0 then return
+	draw-player
+	i := tile-gem
+	sprite v0 mob-2 8
+	sprite v0 mob-2 8
+	if vf != 0 then jump draw-player
+	jump scramble
+
+: vlunge-2-init
+	v0    := 88 # x pos
+	jump vlunge-init-shared
+
+: vlunge-2
+	v0 := 96 # 88 + 8
+	v0 -= px
+	if v0 > 8 then return
+	v0 := 88
+	jump vlunge-shared
+
+: sentionaut-sprite
+	0x18 0x7E 0xE7 0xDB 0x99 0x99 0xA5 0x24 
+	0x66 0x42 0x42 0x24 0x42
+:const sentionaut-size 13
+: sentionaut-init
+	mob-1   := 60 # x position
+	mob-aux := 15 # y position
+	i := sentionaut-sprite
+	sprite mob-1 mob-aux sentionaut-size
+;
+: sentionaut
+	vf := 1
+	vf &= tick
+	if vf != 1 then return
+	i := sentionaut-sprite
+	sprite mob-1 mob-aux sentionaut-size
+	px += -1
+	py += -6
+	if mob-1   < px then mob-1   += 1
+	if mob-1   > px then mob-1   += -1
+	if mob-aux < py then mob-aux += 1
+	if mob-aux > py then mob-aux += -1
+	px += 1
+	py += 6
+	sprite mob-1 mob-aux sentionaut-size
+	if vf == 0 then return
+	draw-player
+	i := sentionaut-sprite
+	sprite mob-1 mob-aux sentionaut-size
+	sprite mob-1 mob-aux sentionaut-size
+	if vf != 0 then jump draw-player
+	jump scramble
+
+: m-prev-pos 0x00 0x00
+: m-sentionaut-init
+	v0 := 120
+	v1 := 58
+	v0 -= mob-1
+	v1 -= mob-aux
+	i := sentionaut-sprite
+	sprite v0 v1 sentionaut-size
+	i := m-prev-pos
+	save v1
+;
+: m-sentionaut
+	i := m-prev-pos
+	load v1
+	i := sentionaut-sprite
+	sprite v0 v1 sentionaut-size
+	v0 := 120
+	v1 := 58
+	v0 -= mob-1
+	v1 -= mob-aux
+	sprite v0 v1 sentionaut-size
+	i := m-prev-pos
+	save v1
+	if vf == 0 then return
+	draw-player
+	i := sentionaut-sprite
+	sprite v0 v1 sentionaut-size
+	sprite v0 v1 sentionaut-size
+	if vf != 0 then jump draw-player
+	jump scramble
+
+: wisp-sprite
+	0x38 0x44 0xBA 0xBA 0xBA 0x44 0x38
+:const wisp-size 7
+: wisp-init
+	mob-1   := random 64 # 0 or 64
+	mob-1   += 32        # x position
+	mob-aux := 15        # y position
+	i := wisp-sprite
+	sprite mob-1 mob-aux wisp-size
+;
+: wisp
+	vf := 0b11
+	vf &= tick
+	if vf != 1 then return
+	i := wisp-sprite
+	sprite mob-1 mob-aux wisp-size
+	px += -1
+	if mob-1   < px then mob-1   += 1
+	if mob-1   > px then mob-1   += -1
+	if mob-aux < py then mob-aux += 1
+	if mob-aux > py then mob-aux += -1
+	px += 1
+	# leave a smear. Harmless, but confusing...
+;
+
+: plant-1-sprite
+	0x10 0x20 0x68 0x6A 0x34 0x14 0x3C 0x42 0x81 0x81 0x42 0x3C
+: plant-1-anim
+	0x30 0x24 0xAC 0xA8 0x60 0x34 0x5A
+: plant-1-init
+	v0    := 30        # y position
+	mob-2 := random 63 # x position
+	mob-2 += 32
+	i := plant-1-sprite
+	sprite mob-2 v0 12
+;
+: plant-1
+	vf := 0b11
+	vf &= tick
+	if vf != 1 then return
+	v0 := 30
+	i := plant-1-anim
+	sprite mob-2 v0 7
+;
+
+: plant-2-sprite
+	0x10 0x28 0x44 0x82 0x44 0x28 0x10
+: plant-2-anim
+	0x00 0x38 0x54 0x6C 0x54 0x38
+: plant-2-init
+	v0    := 16        # y position
+	mob-2 := random 63 # x position
+	mob-2 += 32
+	i := plant-2-sprite
+	sprite mob-2 v0 7
+;
+: plant-2
+	vf := 0b111
+	vf &= tick
+	if vf != 3 then return
+	v0 := 16
+	i := plant-2-anim
+	sprite mob-2 v0 6
+;
+
+: bomb-sprite
+	0x03 0xE0 0x17 0xF4 0x7F 0xF0 0x7B 0xB6 
+	0xFD 0xB7 0xFD 0xE7 0xFE 0xCF 0xFE 0x3F 
+	0xFE 0x7E 0xF4 0x3C 0x7B 0x82 0x86 0xBD 
+	0x37 0x6C 0x30 0x7C 0x02 0x38 0x10 0x00
+: bomb-warning
+	0x36 0x6C 0x00 0x00 0x80 0x01 0x80 0x01 
+	0x00 0x00 0x80 0x01 0x80 0x01 0x00 0x00 
+	0x00 0x00 0x80 0x01 0x80 0x01 0x00 0x00 
+	0x80 0x01 0x80 0x01 0x00 0x00 0x36 0x6C 
+
+: bomb-1
+	if tick < 32 then return
+	i := bomb-warning
+	sprite mob-1 mob-aux 0
+	if tick == 57 begin
+		i := bomb-sprite
+		sprite mob-1 mob-aux 0
+		v0 := px
+		v0 += 5
+		if v0 < mob-1 then return
+		v0 := py
+		v0 += 5
+		if v0 < mob-aux then return
+		v0 := mob-1
+		v0 += 16
+		if px > v0 then return
+		v0 := mob-aux
+		v0 += 16
+		if py > v0 then return
+		tick := 0
+		jump scramble
+	end
+	if tick != 63 then return
+	i := bomb-sprite
+	sprite mob-1 mob-aux 0
+: bomb-1-init
+	mob-1 := random 63 
+	mob-1 += 32 # x position
+	mob-aux := random 31
+	mob-aux += 16 # y position
+;
+
+: bomb-2
+	if tick < 32 then return
+	v1 := 36 # y position	
+	i := bomb-warning
+	sprite mob-2 v1 0
+	if tick == 58 begin
+		i := bomb-sprite
+		sprite mob-2 v1 0
+		v0 := px
+		v0 += 5
+		if v0 < mob-2 then return
+		v0 := py
+		v0 += 5
+		if v0 < v1 then return
+		v0 := mob-2
+		v0 += 16
+		if px > v0 then return
+		v0 := v1
+		v0 += 16
+		if py > v0 then return
+		tick := 0
+		jump scramble
+	end
+	if tick != 63 then return
+	i := bomb-sprite
+	sprite mob-2 v1 0
+: bomb-2-init
+	mob-2 := random 63 
+	mob-2 += 32 # x position
+;

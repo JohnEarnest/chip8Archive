@@ -1,0 +1,245 @@
+<body>
+	<div>
+		<h3><a href="http://johnearnest.github.io/Octo/index.html?key=KAGi-5TD">Slippery Slope</a> Level Editor</h3>
+		<canvas id='level' width='600' height='300'></canvas>
+		<textarea id='data' spellcheck='false' rows='13' cols='40'>
+	00 00 00 00 00 00
+	00 00 00 20 00 00
+	00 00 15 00 05 00
+	00 00 00 00 00 00
+	00 00 00 00 00 00
+	00 00 00 00 00 00
+	00 00 00 00 00 00
+	00 00 00 00 00 00
+	00 00 00 00 00 00
+	00 00 00 00 00 00
+	00 00 00 00 00 00
+	00 00 00 00 00 00
+	10 03 02 03
+		</textarea>
+		<span>W/S/Up/Down keys change the current tile.</span>
+		<span>Ground tiles will automatically "anneal" themselves.</span>
+	</div>
+	<div>
+		<canvas id='tiles' width='25' height='250'></canvas>
+	</div>
+</body>
+
+<style>
+body     { display: flex; flex-direction: row; justify-content: center; }
+body>div { display: flex; flex-direction: column; }
+#level   { margin-bottom: 10px; }
+#tiles   { margin-top: 100px; margin-left: 10px; }
+#data    { margin-bottom: 10px; font-family: monospace; }
+</style>
+
+<script>
+// data
+
+const MAPW   = 12
+const MAPH   = 6
+const GND    = 7
+const FORE   = 'Navy'
+const BACK   = 'PowderBlue'
+const FOCUS  = 'HotPink'
+const FOCUS2 = 'BlueViolet'
+const gfx = [
+	0x00, 0x00, 0x00, 0x00, 0x00,
+	0xF8, 0xF8, 0xF8, 0xF8, 0xF8,
+	0x88, 0x50, 0x20, 0x50, 0x88,
+	0x80, 0x40, 0x20, 0x10, 0x08,
+	0x08, 0x10, 0x20, 0x40, 0x80,
+    0x80, 0x60, 0x50, 0x30, 0x08,
+    0x08, 0x30, 0x70, 0x60, 0x80, 	
+	0x50, 0x88, 0x88, 0x88, 0x70,
+	0x58, 0x80, 0x80, 0x80, 0x78,
+	0x88, 0x88, 0x88, 0x88, 0x70,
+	0x80, 0x80, 0x80, 0x80, 0x78,
+	0x50, 0x08, 0x08, 0x08, 0xF0,
+	0x58, 0x00, 0x00, 0x00, 0xF8,
+	0x08, 0x08, 0x08, 0x08, 0xF0,
+	0x00, 0x00, 0x00, 0x00, 0xF8,
+	0x50, 0x88, 0x88, 0x88, 0x88,
+	0x58, 0x80, 0x80, 0x80, 0x80,
+	0x88, 0x88, 0x88, 0x88, 0x88,
+	0x80, 0x80, 0x80, 0x80, 0x80,
+	0x50, 0x08, 0x08, 0x08, 0x08,
+	0x58, 0x00, 0x00, 0x00, 0x00,
+	0x08, 0x08, 0x08, 0x08, 0x08,
+	0x00, 0x00, 0x00, 0x00, 0x00,
+	0xF8, 0x80, 0xF8, 0x08, 0xF8,
+	0xF8, 0x80, 0xF0, 0x80, 0x80,
+]
+const palette = [0,1,2,3,4,5,6,7,23,24]
+const level = document.getElementById('level')
+const tiles = document.getElementById('tiles')
+const data  = document.getElementById('data')
+
+// state
+
+var currentTile = 3
+var startPos    = [-1,-1]
+var finishPos   = [-1,-1]
+var levelData   = []
+
+function getTile(x, y)    { return (x<0||x>=MAPW||y<0||y>=MAPH) ? GND : levelData[x*6+y] || 0 }
+function setTile(x, y, i) { levelData[x*6+y] = i }
+
+function annealGround() {
+	for (var y = 0; y < MAPH; y++) {
+		for (var x = 0; x < MAPW; x++) {
+			if (getTile(x, y) < GND) continue
+			
+			var i = (getTile(x+1, y) >= GND ? 1 : 0) | // e
+			        (getTile(x, y-1) >= GND ? 2 : 0) | // n
+			        (getTile(x-1, y) >= GND ? 4 : 0) | // w
+			        (getTile(x, y+1) >= GND ? 8 : 0)   // s
+
+			setTile(x, y, GND+i)
+		}
+	}
+}
+
+// rendering
+
+function readData() {
+	levelData = []
+	data.value.split('\n').map((col, x) => {
+		if (x == 12) {
+			[gx,gy,sx,sy] = col.split(' ').map(x => +x)
+			finishPos = [gx, gy]
+			startPos =  [sx, sy]
+			return
+		}
+		col.trim().split(' ').map((i, y) => {
+			setTile(x, y, (+i)/5)
+		})
+	})
+	annealGround()
+}
+readData()
+function writeData() {
+	var r = ''
+	for (var x = 0; x < MAPW; x++) {
+		r += '\t' + [0,1,2,3,4,5].map(y => {
+			var t = getTile(x, y)*5
+			return t > 9 ? t : '0'+t
+		}).join(' ') + '\n'
+	}
+	r += '\t' + finishPos.concat(startPos).map(
+		x => x > 9 ? x : '0'+x
+	).join(' ')
+	data.value = r
+}
+function drawTile(g, color, scale, x, y, index) {
+	g.fillStyle = color
+	for (var a = 0; a < 5; a++) {
+		for (var b = 0; b < 5; b++) {
+			if (gfx[index*5 + b] & (1 << (7-a))) {
+				g.fillRect(x+(a*scale), y+(b*scale), scale, scale)
+			}
+		}
+	}
+}
+function drawLevel() {
+	const g = level.getContext('2d')
+	g.fillStyle = BACK
+	g.fillRect(0, 0, 10*5*MAPW, 10*5*MAPH)
+	for (var y = 0; y < MAPH; y++) {
+		for (var x = 0; x < MAPW; x++) {
+			if (getTile(x, y) >= GND) {
+				g.fillStyle = FOCUS2
+				g.fillRect(x*5*10, y*5*10, 5*10, 5*10)
+			}
+			drawTile(g, FORE, 10, x*5*10, y*5*10, getTile(x, y))
+		}
+	}
+	drawTile(g, FOCUS, 10, startPos [0]*5*10, startPos [1]*5*10, 23)
+	drawTile(g, FOCUS, 10, finishPos[0]*5*10, finishPos[1]*5*10, 24)
+}
+drawLevel()
+function drawTiles() {
+	const g = tiles.getContext('2d')
+	g.fillStyle = BACK
+	g.fillRect(0, 0, 25, palette.length*5*5)
+	palette.forEach((x,i) => {
+		if (i == currentTile) {
+			g.fillStyle = FOCUS
+			g.fillRect(0, i*5*5, 5*5, 5*5)
+		}
+		drawTile(g, i == currentTile ? FOCUS2 : FORE, 5, 0, i*5*5, x)
+	})
+}
+drawTiles()
+
+// input
+
+function canvasXY(canvas, event) {
+	var r = canvas.getBoundingClientRect()
+	return {
+		x: event.clientX - r.left,
+		y: event.clientY - r.top,
+	}
+}
+
+var mouseMode = 0 // 0:none, 1:hold-draw, 2:hold-erase
+function paint(event) {
+	var {x,y} = canvasXY(level, event)
+	var tx = Math.floor(x / (5*10))
+	var ty = Math.floor(y / (5*10))
+	var t  = palette[currentTile]
+	if (t == 23) {
+		setTile(tx, ty, 0)
+		startPos = [tx, ty]
+	}
+	else if (t == 24) {
+		setTile(tx, ty, 0)
+		finishPos = [tx, ty]
+	}
+	else {
+		setTile(tx, ty, mouseMode == 1 ? t : 0)
+	}
+	annealGround()
+	drawLevel()
+	writeData()
+}
+level.addEventListener('contextmenu', event => {
+	event.preventDefault()
+	event.stopPropagation()
+})
+level.addEventListener('mousedown', event => {
+	mouseMode = event.button == 2 ? 2 : 1
+	paint(event)
+})
+level.addEventListener('mousemove', event => {
+	if (mouseMode == 0) return
+	paint(event)
+})
+document.addEventListener('mouseup', event => {
+	mouseMode = 0
+})
+
+
+tiles.addEventListener('mousedown', event => {
+	var {x,y} = canvasXY(tiles, event)
+	currentTile = Math.floor(y / (5*5))
+	drawTiles()
+})
+
+document.addEventListener('keydown', event => {
+	if (event.key in {'ArrowUp':0,'w':0}) {
+		currentTile = Math.max(0, currentTile-1)
+		drawTiles()
+	}
+	if (event.key in {'ArrowDown':0,'s':0}) {
+		currentTile = Math.min(currentTile+1, palette.length-1)
+		drawTiles()
+	}
+})
+
+data.addEventListener('change', event => {
+	readData()
+	drawLevel()
+})
+
+</script>
