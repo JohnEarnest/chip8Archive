@@ -210,5 +210,52 @@
 			"enableXO":false,
 			"screenRotation":0
 		}
+	},
+	"chipwar": {
+		"title":    "ChipWar",
+		"authors":  ["JohnEarnest"],
+		"images":   ["chipwar.gif"],
+		"desc":     "A (loose) adaptation of the classic DiceWars.",
+		"release":  "2014-06-06",
+		"platform": "chip8",
+		"options":  {
+			"tickrate":"15",
+			"backgroundColor":"#6699FF",
+			"fillColor":"#000066",
+			"buzzColor":"#FFAA00",
+			"quietColor":"#000000"
+		}
+	},
+	"caveexplorer": {
+		"title":    "Cave Explorer",
+		"authors":  ["JohnEarnest"],
+		"images":   ["cave1.gif", "cave2.gif"],
+		"desc":     "Do you have what it takes to be a Cave Explorer?",
+		"release":  "2014-06-22",
+		"platform": "chip8",
+		"options":  {
+			"tickrate":"20",
+			"backgroundColor":"#996600",
+			"fillColor":"#FFCC00",
+			"buzzColor":"#FFAA00",
+			"quietColor":"#000000"
+		}
+	},
+	"sweetcopter": {
+		"title":    "Sweet Copter",
+		"authors":  ["JohnEarnest"],
+		"images":   ["sweetcopter.gif"],
+		"desc":     "An adaptation of \"Swing Copters\" for the Super Chip8.",
+		"release":  "2014-09-2",
+		"platform": "schip",
+		"options":  {
+			"tickrate":"100",
+			"backgroundColor":"#117799",
+			"fillColor":"white",
+			"buzzColor":"#1166DD",
+			"quietColor":"#000000",
+			"shiftQuirks":false,
+			"loadStoreQuirks":false
+		}
 	}
 }
