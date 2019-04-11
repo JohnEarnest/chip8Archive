@@ -257,5 +257,20 @@
 			"shiftQuirks":false,
 			"loadStoreQuirks":false
 		}
+	},
+	"wonkypong": {
+		"title":	"Wonky Pong",
+		"authors":	["TomRintjema"],
+		"images":	["wonkypong.gif"],
+		"desc":		"Pong, but wonky. Made for Octojam IV.",
+		"release":	"2018-11-01",
+		"platform":	"xochip",
+		"options":	{
+			"tickrate":"100"
+			"backgroundColor":"#FFFFFF",
+			"fillColor":"#000000",
+			"buzzColor":"#666666",
+			"quietColor":"#000000"
+		}
 	}
 }
