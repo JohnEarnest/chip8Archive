@@ -1,0 +1,266 @@
+﻿: ball
+	0b01100000
+	0b11010000
+	0b11110000
+	0b01100000
+
+: paddleup
+	0b10000000
+	0b10000000
+	0b01000000
+	0b01000000
+
+: paddledown
+	0b01000000
+	0b01000000
+	0b10000000
+	0b10000000
+
+: p1
+0x18 0x80 0x15 0x80 0x14 0x80 0x14 0x80 
+0x18 0x80 0x10 0x80 0x11 0xC0 0x00 0x00 
+0x00 0x00 0x8A 0x08 0x88 0x08 0xAA 0xE8 
+0xAA 0xA8 0xAA 0xA8 0xAA 0xA0 0x52 0xA8 
+
+
+: p2
+0x18 0x80 0x15 0x40 0x15 0x40 0x14 0x40 
+0x18 0x80 0x11 0x00 0x11 0xC0 0x00 0x00 
+0x00 0x00 0x8A 0x08 0x88 0x08 0xAA 0xE8 
+0xAA 0xA8 0xAA 0xA8 0xAA 0xA0 0x52 0xA8 
+
+
+: bounce
+0x55 0xAA 0x55 0xAA 0x55 0xAA 0x55 0xAA 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+
+: sync
+	loop
+		vf := delay
+		if vf != 0 then
+	again
+
+	# delay for up to 1/60th of a second
+	# using the fixed-rate delay timer
+	vf := 1
+	delay := vf
+;
+
+: collide
+	if va < 64 begin
+		if v8 == v5 begin
+			v4 := 0
+			vc := random 0b01111111
+			v3 += vc
+			v2 += 1
+		else
+			v4 := 0
+			v2 += 1
+		end
+	else
+		if v9 == v5 begin
+			v4 := 1
+			vc := random 0b01111111
+			v3 += vc
+			v2 += 1
+		else
+			v4 := 1
+			v2 += 1
+		end
+	end
+;
+
+: gameover
+	clear
+	lores
+	if vd == 127 then jump main
+	if vd > 127 then jump playeronewins
+	if vd < 127 then jump playertwowins
+;
+
+: playeronewins
+	i := p1
+	v0 := 26
+	v1 := 8
+	sprite v0 v1 0
+	vc := 0
+	loop
+		sync
+		vc += 1
+		if vc != 255 then
+	again
+	jump main
+;
+
+: playertwowins
+	i := p2
+	v0 := 26
+	v1 := 8
+	sprite v0 v1 0
+	vc := 0
+	loop
+		sync
+		vc += 1
+		if vc != 255 then
+	again
+	jump main
+;
+
+
+: main
+	hires
+
+	va :=  6 # x position of ball (pixels)
+	vb := 10 # y position of ball (pixels)
+	v0 :=  0 # x position of ball (fractional)
+	v1 :=  0 # y position of ball (fractional)
+	v2 := 50 # x velocity of ball
+	v3 := 50 # y velocity of ball
+	v4 :=  0 # x ball direction
+	v5 :=  0 # y ball direction
+	v6 := 30 # paddle one position
+	v7 := 30 # paddle two position
+	v8 := 0  # paddle one state
+	v9 := 0  # paddle two state
+	vd := 127
+
+	loop
+		# move ball left or right
+		if v4 == 0 begin
+			v0 += v2
+			va += vf
+		else
+			v0 += v2
+			va -= vf
+		end
+		
+		audio
+		i := bounce
+		vc := 8
+
+		# ball hits right
+		if va == 124 begin
+			v4 := 1
+			v3 := random 0b01111111
+			v2 += 10
+			buzzer := vc
+			vd += 1
+		end
+		
+		# ball hits left
+		if va == 0 begin
+			v4 := 0
+			v3 := random 0b01111111
+			v2 += 10
+			buzzer := vc
+			vd += -1
+		end
+		
+		# check to see if the game is over
+		if v2 > 245 then jump gameover
+
+		# apply gravity to ball
+		if v4 == 0 then vc := v6
+		if v4 == 1 then vc := v7
+		vc += 2
+		if vb > vc begin
+			vc := 1 # gravity constant
+			if v5 == 0 begin
+				if v3 > 0 begin
+					v3 -= vc
+				else
+					v5 := 1
+				end
+			else
+				if v3 < 255 begin
+					v3 += vc
+				end
+			end
+		else
+			vc := 1 # gravity constant
+			if v5 == 1 begin
+				if v3 > 0 begin
+					v3 -= vc
+				else
+					v5 := 0
+				end
+			else
+				if v3 < 255 begin
+					v3 += vc
+				end
+			end
+		end
+			
+		# move ball up or down
+		if v5 == 0 begin
+			v1 += v3
+			vb += vf
+		else
+			v1 += v3
+			vb -= vf
+		end
+
+		# ball hits bottom
+		if vb == 59 begin
+			v5 := 1
+		end
+
+		# ball hits top
+		if vb == 1 begin
+			v5 := 0
+		end
+		
+		# input
+		vc := 7  
+		if vc key then v6 += -1 # up
+		if vc key then v8 :=  0 # up
+
+		vc := 10
+		if vc key then v6 +=  1 # down
+		if vc key then v8 :=  1 # down
+
+		vc := 14
+		if vc key then v7 += -1 # up
+		if vc key then v9 :=  1 # up
+
+		vc := 15
+		if vc key then v7 +=  1 # down
+		if vc key then v9 :=  0 # down
+		
+		# keep paddles in play area
+		if v6 ==  0 then v6 :=  1
+		if v6 == 60 then v6 := 59
+		if v7 ==  0 then v7 :=  1
+		if v7 == 60 then v7 := 59
+		
+		# draw the paddles
+		if v8 == 0 then i := paddleup
+		if v8 == 1 then i := paddledown
+		vc := 1
+		sprite vc v6 4
+		if v9 == 0 then i := paddleup
+		if v9 == 1 then i := paddledown
+		vc := 125
+		sprite vc v7 4
+
+		# draw the ball
+		i := ball
+		sprite va vb 4
+
+		if vf != 0 then collide		
+
+		sync # wait
+		
+		# erase the ball
+		i := ball
+		sprite va vb 4
+
+		# erase the paddles
+		if v8 == 0 then i := paddleup
+		if v8 == 1 then i := paddledown
+		vc := 1
+		sprite vc v6 4
+		if v9 == 0 then i := paddleup
+		if v9 == 1 then i := paddledown
+		vc := 125
+		sprite vc v7 4	
+	again
