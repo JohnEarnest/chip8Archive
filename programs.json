@@ -322,5 +322,23 @@
 			"buzzColor":"coral",
 			"quietColor":"#000000"
 		}
+	},
+	"outlaw": {
+		"title":    "RPS",
+		"authors":  ["SystemLogoff"],
+		"images":   ["rps_oj1.gif"],
+		"desc":     "Classic \"Rock Paper Scissors\" game for the Chip8.",
+		"release":  "2014-07-17",
+		"platform": "chip8",
+		"options":  { 
+			"tickrate":"7",
+			"backgroundColor":"#AA9999",
+			"fillColor":"#220000",
+			"buzzColor":"FFAA00",
+			"quietColor":"#000000",
+			"shiftQuirks":false,
+			"loadStoreQuirks":false,
+			"vfOrderQuirks":false
+		}
 	}
 }
