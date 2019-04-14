@@ -330,8 +330,8 @@
 		"desc":     "Classic \"Rock Paper Scissors\" game for the Chip8.",
 		"release":  "2015-10-25",
 		"platform": "chip8",
+		"event":"Octojam1",
 		"options":  { 
-			"event":"Octojam1",
 			"tickrate":"7",
 			"backgroundColor":"#AA9999",
 			"fillColor":"#220000",
