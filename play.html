@@ -1,0 +1,71 @@
+<body>
+<div id='game'>
+	<div class='heading'><h1 id='title'></h1><span id='by'></span></div>
+	<div id='play'><canvas id='target' width=512 height=256></canvas></div>
+</div>
+<h3>Released <span id='release'></span>.</h3>
+</body>
+
+<style>
+body{font-family:Helvetica;margin-left:10%;margin-right:10%;margin-top:5%;}
+h1{font-family:Futura;display:inline-block;margin:20px;}
+.heading{background:gray;}
+canvas{border:1px solid black;}
+#game{background:gray;border-radius:14px;background:lightgray;overflow:hidden;border:1px solid;}
+#play{display:flex;justify-content:center;padding:20px;}
+</style>
+
+<script src='http://johnearnest.github.io/Octo/js/emulator.js'></script>
+<script src='http://johnearnest.github.io/Octo/js/shared.js'></script>
+<script>
+id=x=>document.querySelector('#'+x)
+send=(u,t)=>{let r=new XMLHttpRequest();return r.open('GET',u),r.responseType=t,r.send(),r}
+ajax=(u,t,f)=>{let r=send(u,t);r.onreadystatechange=_=>r.readyState==4&&f(r.response)}
+
+const emulator = new Emulator()
+
+function run(options,rom) {
+	unpackOptions(emulator, options)
+	setRenderTarget(4, 'target')
+	emulator.init(rom)
+	emulator.importFlags = _=> JSON.parse(localStorage.getItem('octoFlagRegisters'))
+	emulator.exportFlags = x=> localStorage.setItem('octoFlagRegisters', JSON.stringify(x))
+	window.addEventListener('keydown',e=>{
+		if (!(e.keyCode in emulator.keys)) emulator.keys[e.keyCode]=true
+	}, false)
+	window.addEventListener('keyup', e=>{
+		if (event.keyCode in emulator.keys) delete emulator.keys[event.keyCode]
+		if (!emulator.waiting) return
+		for(var z=0; z<16; z++) {
+			if (keymap[z] != event.keyCode) continue
+			emulator.waiting=false
+			emulator.v[emulator.waitReg]=z
+			break
+		}
+	}, false)
+	intervalHandle = setInterval(_=>{
+		if (emulator.halted) return
+		for(var z = 0; (z<emulator.tickrate) && (!emulator.waiting); z++) emulator.tick()
+		if (emulator.dt > 0) emulator.dt--
+		if (emulator.st > 0) emulator.st--
+		renderDisplay(emulator)
+		id('game').style.backgroundColor = emulator.st?emulator.buzzColor:emulator.quietColor
+	}, 1000/60)
+}
+
+ajax('programs.json','',x=>{
+	const slug=new URLSearchParams(document.location.search).get('p')
+	const g=JSON.parse(x)[slug]
+	id('title').innerHTML=g.title
+	id('release').innerHTML=g.release
+	ajax('authors.json','',x=>{
+		const a=JSON.parse(x)
+		id('by').innerHTML='by '+g.authors.map(
+			x=>a[x].url?`<a href='${a[x].url}'>${x}</a>`:x
+		).join(', ')
+	})
+	ajax('roms/'+slug+'.ch8','arraybuffer',x=>{
+		run(g.options||{},{rom:new Uint8Array(x)})
+	})
+})
+</script>

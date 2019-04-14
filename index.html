@@ -1,0 +1,52 @@
+<body>
+<h1>CHIP-8 Archive</h1>
+<p>This page collects programs written for the
+<a href="https://en.wikipedia.org/wiki/CHIP-8">Chip8</a> platform which have been placed under
+a <a href="https://creativecommons.org/share-your-work/public-domain/cc0/">Creative Commons Zero</a>
+"No Rights Reserved" license. If you've written anything that you would like to contribute,
+submit a pull request to our <a href="https://github.com/JohnEarnest/chip8Archive">GitHub Page</a>!</p>
+<div id="categories"></div>
+</body>
+
+<style>
+body{font-family:Helvetica;margin-left:10%;margin-right:10%;margin-top:5%;}
+.heading,h1{font-family:Futura;}
+.category{margin-bottom:30px;background:gray;border-radius:14px;background:lightgray;overflow:hidden;}
+.entries{display:flex;flex-wrap:wrap;justify-content:space-evenly;}
+.entries a{color:inherit;text-decoration:inherit;}
+.heading{font-size:30px;font-weight:bold;text-align:center;background:gray;padding:10px;}
+.entry{max-width:25%;padding:15px;border-radius:7px;background:gray;margin:20px;}
+.title{font-weight:bold;}
+.screen img{width:100%;margin-top:5px;margin-bottom:5px;}
+.category,.entry,.screen img{border:1px solid black;}
+.desc{font-size:14px;}
+</style>
+
+<script>
+id=x=>document.querySelector('#'+x)
+dc=(c,x)=>`<div class='${c}'>${x}</div>`
+send=(u,v,x)=>{let r=new XMLHttpRequest();return r.open(v,u),r.send(x),r}
+ajax=(u,v,x,f)=>{let r=send(u,v,x);r.onreadystatechange=_=>r.readyState==4&&f(r.response)}
+
+ajax('programs.json','GET','',x=>{
+	const p = JSON.parse(x)
+	const k = Object.keys(p)
+	const c = k.reduce((x,y)=>{
+		const e=p[y].event||'Uncategorized'
+		x[e]=(x[e]||[]).concat([p[y]])
+		p[y].slug=y
+		return x
+	}, {})
+	id('categories').innerHTML = Object.keys(c).map(x=>
+		dc('category',dc('heading',x)+dc('entries',c[x].map(
+			x=>`<div class='entry'>
+				<a href='play.html?p=${x.slug}'>
+					<div class='title'>${x.title}</div>
+					<div class='screen'><img src='src/${x.slug}/${x.images[0]}'></img></div>
+					<div class='desc'>${x.desc}</div>
+				</a>
+			</div>`
+		).join('')))
+	).join('')
+})
+</script>
