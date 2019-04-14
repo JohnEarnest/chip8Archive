@@ -538,5 +538,21 @@
 		"options":  {
 			"tickrate":"200"
 		}
+	},
+	"rockto": {
+		"title":    "Rockto",
+		"authors":  ["SupSuper"],
+		"images":   ["rockto.gif"],
+		"desc":     "An adaptation of \"Boulder Dash\" for the Chip8.",
+		"event":	"Octojam1",
+		"release":  "2014-11-01",
+		"platform": "schip",
+		"options": {
+			"tickrate": "15",
+			"fillColor": "#CCCCCC",
+			"backgroundColor": "#333333",
+			"buzzColor": "#FFFFFF",
+			"quietColor": "#000000"
+		}
 	}
 }
