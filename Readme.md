@@ -2,6 +2,8 @@ Chip8 Community Archive
 =======================
 Since 1977 the [Chip8](https://en.wikipedia.org/wiki/CHIP-8) platform has provided an outlet for programming creativity. The [Octo](http://octo-ide.com) toolchain makes it easier than ever to get started, and has lead to the creation of a wide variety of fun and interesting software. This repository is meant to serve as a stable archive of Chip8 programs along with their metadata, with attribution, supporting material, and clear licensing.
 
+Check out the [Online Gallery](https://johnearnest.github.io/chip8Archive/) of submitted programs!
+
 Schema
 ------
 The `programs.json` file is the central registry of program metadata. Each entry may contain the following fields:
