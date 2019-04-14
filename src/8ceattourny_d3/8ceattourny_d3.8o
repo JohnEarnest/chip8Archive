@@ -1,0 +1,861 @@
+﻿# 8CE Attourny 
+# An Octo Game  
+
+# You have 16 bytes ##################################################
+:alias temp0 v0
+:alias temp1 v1
+:alias x v2
+:alias y v3
+:alias TEMPX v4
+:alias TEMPY v5
+:alias keypressed v6 
+:alias gamestate v7 
+:alias tempgamestate v8 
+:alias inv_count v9 
+:alias inv_show va 
+:alias BLANKb vb 
+:alias BLANKc vc  
+:alias loopcounter vd
+:alias gtlt ve
+:alias temp_inv ve
+:alias textlength ve
+:alias CARRY_FLAG vF
+
+
+# Images Resources ##################################################
+: textBoxBorder
+    0xFF 0x99 0xFF 0xFF 0xFF
+    0xFF 0xFF 0xFF 0xFF 0xFF 
+    0xFF 0xFF 0xFF 0xFF 0xFf
+: button_press
+    0xFF 0xC7 0xF7 0xEE 0xFC
+: button_object
+    0xFF 0xE3 0xE3 0x7B 0x3F 
+: cursor_object
+    0xE0 0x90 0x88 0xF8 
+: objection
+    0x10 0x38 0x7C 0x44 0xC6 0xC6 0xC6 0xC6 
+    0xC6 0xFE 0xC6 0x44 0x7C 0x38 0x10 
+
+# People ##################################################
+: ppl_jan_default_a
+    0x07 0x1F 0x20 0x2F 0x10
+    0x0B 0x1B 0x1F 0x0E 0x07 
+    0x1C 0x21 0x53 0xFF 0x80 
+: ppl_jan_default_b
+    0xe0 0xF0 0x08 0xE8 0x10 
+    0xA0 0xB0 0xF0 0x60 0xC0 
+    0x70 0x08 0x94 0xFF 0x01 
+: ppl_law_default_a
+    0x0F 0x3C 0x73 0x6E 0xEE
+    0xEF 0x5D 0x5E 0xCF 0x6E
+    0xD9 0x26 0xD9 0xBE 0xBF 
+: ppl_law_default_b
+    0x90 0x60 0x80 0xC0 0xC0
+    0xC0 0x80 0x00 0x00 0x00
+    0x00 0x00 0x38 0x54 0xB4 
+: ppl_pro_default_a
+    0x00 0x00 0x00 0x00 0x00
+    0x00 0x00 0x00 0x00 0x00
+    0x00 0x1C 0x2A 0x2E 0x3F 
+: ppl_pro_default_b
+    0x00 0x38 0x7C 0x7C 0x7C
+    0x5E 0xFE 0xFE 0x74 0x4C
+    0x3A 0xC7 0x4F 0x27 0xFF 
+: ppl_det_default_a
+0x0F 0x3C 0x73 0x6F 0xE9 0xE9 0x5F 0x5B 
+0xC8 0x6C 0xD7 0x20 0xD9 0xBE 0xBF 
+: ppl_det_default_b
+0x90 0x60 0x80 0xC0 0x40 0xC0 0x80 0x00 
+0x00 0x00 0x00 0x00 0x38 0x54 0xB4 
+: ppl_jud_default_a
+    0x00 0x07 0x0F 0x0D 0x1D
+    0x17 0x08 0x0F 0x0C 0x07
+    0x18 0x39 0x7C 0xFF 0x80 
+: ppl_jud_default_b
+    0x00 0xC0 0xE0 0x60 0x70
+    0xD0 0x20 0xE0 0x60 0xC0
+    0x30 0x3C 0x7E 0xFF 0x01 
+
+# Items ##################################################
+: item_1 #badge
+0x3C 0x42 0x99 0xA5 0xA5 0x99 0x42 0x3C 
+: item_2 #report
+0xFF 0xB1 0x81 0xBD 0x81 0xBD 0x81 0xFF 
+: item_3 #photo
+0x00 0xFF 0x81 0x85 0xB1 0xF9 0xFF 0x00 
+: item_4 #mug
+0x3F 0x7F 0xFF 0xBF 0xBF 0xFF 0x7F 0x3F 
+: GAME_ITEMS
+0 1 3 3
+
+# Font ##################################################
+: letA
+    0x70 0x88 0xF8 0x88 0x88 
+: letB
+    0xF0 0x88 0xF0 0x88 0xF0 
+: letC
+    0x70 0x88 0x80 0x88 0x70 
+: letD 
+    0xF0 0x88 0x88 0x88 0xF0 
+: letE 
+    0xF8 0x80 0xE0 0x80 0xF8 
+: letF 
+    0xF8 0x80 0xE0 0x80 0x80
+: letG 
+    0x78 0x80 0x98 0x88 0x78 
+: letH 
+    0x88 0x88 0xF8 0x88 0x88 
+: letI 
+    0xF8 0x20 0x20 0x20 0xF8
+: letJ 
+    0xF8 0x10 0x10 0x50 0x70 
+: letK 
+    0x88 0x90 0xE0 0x90 0x88 
+: letL 
+    0x40 0x40 0x40 0x40 0x78 
+: letM 
+    0xD8 0xA8 0x88 0x88 0x88 
+: letN 
+    0xC8 0xC8 0xA8 0x98 0x98
+: letO 
+    0xF8 0x88 0x88 0x88 0xF8 
+: letP 
+    0xF8 0x88 0xF8 0x80 0x80 
+: letQ 
+    0xF8 0x88 0xA8 0xF8 0x10 
+: letR 
+    0xF8 0x88 0xF0 0x88 0x88 
+: letS 
+    0x78 0x80 0x70 0x08 0xF0 
+: letT 
+    0xF8 0x20 0x20 0x20 0x20 
+: letU 
+    0x88 0x88 0x88 0x88 0x70 
+: letV 
+    0x88 0x88 0x88 0x50 0x20 
+: letW 
+    0x88 0x88 0x88 0xA8 0xD8
+: letX 
+    0x88 0x50 0x20 0x50 0x88 
+: letY 
+    0x88 0x50 0x20 0x20 0x20
+: letZ 
+   0x00 0x00 0x70 0x00 0x00
+: letCOMMA 
+    0x00 0x00 0x00 0x30 0x10 
+: letPERIOD 
+    0x00 0x00 0x00 0x30 0x30 
+: letBANG
+    0x30 0x30 0x30 0x00 0x30
+: letQUESTION
+    0x70 0x10 0x20 0x00 0x20 
+: letSPACE 
+    0x00 0x00 0x00 0x00 0x00
+: letMARK
+    0x00 0x70 0x50 0x70 0x00 
+: letHEART
+: letCOLON
+    0x00 0x40 0x00 0x40 0x00
+: let1
+    0x20 0x20 0x20 0x20 0x20
+: let2
+    0xF0 0x08 0xF8 0x80 0xF8
+: let3
+    0xf0 0x08 0xf8 0x08 0xf0
+: let4
+    0x30 0x50 0x90 0xF8 0x10 
+: let5
+    0xF8 0x80 0xF0 0x08 0xF0
+: let6
+    0x70 0x80 0xF0 0x88 0x70
+: let7
+    0xF8 0x08 0x10 0x20 0x40
+: let8
+    0x70 0x88 0x70 0x88 0x70
+: let9
+    0xF8 0x88 0xF8 0x08 0x08
+
+
+# Table ##################################################
+: items
+i := item_1 ;		# 0
+i := item_2 ;		# 1
+i := item_4 ;		# 2
+i := item_4 ;		# 3
+
+: font
+i := letSPACE ;		# 0
+i := letA ; 		# 1
+i := letB ;		# 2
+i := letC ;		# 3
+i := letD ;		# 4
+i := letE ;		# 5
+i := letF ;		# 6
+i := letG ;		# 7
+i := letH ;		# 8
+i := letI ;		# 9
+i := letJ ;		# 10
+i := letK ;		# 11
+i := letL ;		# 12
+i := letM ;		# 13
+i := letN ;		# 14
+i := letO ;		# 15
+i := letP ;		# 16
+i := letQ ;		# 17
+i := letR ;		# 18
+i := letS ;		# 19
+i := letT ;		# 20
+i := letU ;		# 21
+i := letV ;		# 22
+i := letW ;		# 23
+i := letX ;		# 24
+i := letY ;		# 25
+i := letZ ;		# 26
+i := letCOMMA ;		# 27
+i := letPERIOD ;	# 28
+i := letBANG ;		# 29
+i := letQUESTION ;	# 30
+i := letMARK ;		# 31
+i := letHEART  ;	# 32
+i := letCOLON ;    	# 33
+i := let1 ; 		# 34
+i := let2 ;		# 35
+i := let3 ;             # 36
+i := let4 ;             # 37
+i := let5 ;             # 38
+i := let6 ;             # 39
+i := let7 ;             # 40
+i := let8 ;             # 41
+i := let9 ;             # 42
+
+
+# Strings #############################################################
+# -- Items ############################################################
+: t_item1							####
+    12 01 23 25 05 18 00 02 04 07 03 15 21 18 20 00 09 04 00 00 
+    # Lawyer_BDGCourt_ID__
+
+: t_item2							####
+    01 21 20 15 16 19 25 18 16 20 19 20 01 09 18 19 34 35 01 13 
+    # AutopsyRPTStairs12AM
+
+: t_item3							####
+    16 08 15 20 15 00 02 15 04 25 01 14 04 00 19 08 01 18 04 19 
+    # PHOTO_BODYAND_SHARDS
+
+: t_item4							####
+    16 18 15 19 05 03 21 20 15 18 03 15 06 06 05 05 00 03 21 16 
+    # PROSECUTORCOFFEE_CUP
+
+# -- Intro ############################################################
+: txt_intro_0
+    02 05 12 12 33 00 20 08 01 20 16 05 18 19 15 14 00 09 19 00 00    # Bell: Thatperson is 
+
+: txt_intro_1
+    09 14 00 20 08 09 19 00 00 00 18 15 15 13 29 00 00 00 00 00 00    # in this   room!
+    # MY_NAME_ISBELL_IM_AN
+
+: txt_intro_2
+    10 21 04 07 05 33 00 00 00 00 23 08 01 20 29 30 00 00 00 00 00    # Judge:    What!?
+    # ATTORNEY._THIS_IS_MY
+
+: txt_intro_3
+    02 05 12 12 33 00 25 05 19 27 09 20 19 00 20 08 05 00 00 00 00    # Bell: Yes,its the   
+    # CLIENT____AIJAY._HES
+
+: txt_intro_4
+        16 18 15 19 05 03 21 26 00 00 20 09 15 14 29 00 00 00 00 00     # prosecuz  tion!     
+    # A_JANITOR_ACCUSED_OF
+
+: txt_intro_5
+        16 18 15 19 05 03 21 20 15 18 23 08 01 20 30 00 00 00 00 00    # prosecutorWHAT?
+    # MURDERING_A_COURT___
+
+: txt_intro_6
+    02 05 12 12 33 00 20 08 05 00 19 08 01 18 04 19 00 15 06  00   # Bell: The shards of
+    # GUARD.
+
+: txt_intro_7
+    07 12 01 19 19 00 19 08 15 23 09 20 19 00 25 15 21 29 00 00    # glass showits you!
+    # AIJAY:_SO_DO_I_HAVE_
+
+: txt_intro_8
+    03 08 05 03 11 00 20 08 05 00 16 18 09 14 20 19 28 00 00 00     # Check the prints.   
+    # A_CHANCE__BELL?_____
+
+: txt_intro_9
+    09 20 00 23 01 19 25 15 21 18 03 15 06 06 05 05 00 13 21 07     # It wasyourcoffee mug
+    # BELL:_THE_CASE_BUILT
+
+: txt_intro_10
+    16 18 15 19 05 03 21 20 15 18 14 15 15 15 15 15 15 15 15 29     # prosecutorNOOOOOOOO!
+    # IS_WEAK,__WELL_WIN._
+
+: txt_intro_11
+    03 15 21 18 20 08 15 21 19 05 00 34 15 33 36 15 00 16 13 00    # COURTHOUSE 1o:3o PM
+    # AIJAY:____THANK_YOU.
+
+# -- Court Intro ###############################################
+: txt_court_intro_1
+    01 09 10 01 25 33 00 00 00 00 20 08 01 14 11 00 25 15 21 28     # AIJAY:    Thank you.
+    # _10:15_AM_COURTHOUSE
+: txt_court_intro_2
+    08 15 23 04 00 25 15 21 00 00 06 09 07 21 18 05 00 09 20 00    # howd you  figure it
+    # My childs_birthday__
+: txt_court_intro_3
+        19 15 00 06 01 19 20 30 00 00 00 00 00 00 00 00 00 00 00 00     # so fast?            
+    # is tonightso lets___
+: txt_court_intro_4
+    02 05 12 12 33 00 09 22 05 00 02 12 01 03 11 13 01 09 12 00     # Bell: Ive blackmail
+    # make this_fast._____
+: txt_court_intro_5
+    15 14 00 20 08 05 00 00 00 00 10 21 04 07 05 28 00 00 00 00     # on the    judge.    
+    # Prosecutor, Defense?
+: txt_court_intro_6
+    09 00 01 12 23 01 25 19 00 00 23 09 14 28 28 28 00 00 00 00     # I always  win...    
+    # Both:_____Ready.____
+: txt_court_intro_7
+    08 01 08 01 08 01 08 01 08 01 08 01 08 01 08 01 08 01 08 01     # HAHAHAHAHAHAHAHAHAHA
+    # Judge: Ok,Detective?
+
+: txt1
+    01 09 10 01 25 33 00 28 28 28 00 00 00 00 00 00 00 00 00 00     # AIJAY: ...          
+    # The victima Court 
+: txt2
+    23 09 12 12 00 19 15 13 05 26 15 14 05 00 04 05 06 05 01 20     # Will somezone defeat
+    # Bailiff named Gil
+: txt3
+    20 08 05 00 05 22 09 12 00 00 02 05 12 12 30 00 00 00 00 00     # the evil  Bell?     
+    # was founddead. The
+: txt4
+    06 09 14 04 00 15 21 20 00 00 09 14 28 28 28 00 00 00 00 00     # find out  in...     
+    # time of   death was 
+: txt5
+    19 21 16 05 18 41 03 05 00 00 41 20 20 15 21 18 14 25 28 00    # Super8ce  8ttourny.
+    # 1AM. He   died of a 
+
+
+# System Code ##################################################
+: main
+    drawtitle
+    waitinput()
+    clear
+    script_intro(1)
+    clear
+    script_court(judge)
+    clear
+    script_getitems
+
+    # Loop is always at the end.
+    loop
+        sync()
+    again
+;    
+
+: sync() # Sync between Chip-8 versions.
+    loop
+        vf := delay
+        if vf != 0 then
+    again
+;
+
+# Draw_People  ##################################################
+
+: draw_person(jan)
+    x := 24
+    y := 2
+    i := ppl_jan_default_a
+    sprite x y 15
+    x += 8
+    i := ppl_jan_default_b
+    sprite x y 15    
+;
+
+: draw_person(law)
+    x := 1
+    y := 2
+    i := ppl_law_default_a
+    sprite x y 15
+    x += 8
+    i := ppl_law_default_b
+    sprite x y 15    
+;
+
+: draw_person(pro)
+    x := 47
+    y := 2
+    i := ppl_pro_default_a
+    sprite x y 15
+    x += 8
+    i := ppl_pro_default_b
+    sprite x y 15    
+;
+
+: draw_person(dec)
+    x := 1
+    y := 2
+    i := ppl_det_default_a
+    sprite x y 15
+    x += 8
+    i := ppl_det_default_b
+    sprite x y 15     
+;
+
+: draw_person(jud)
+    x := 24
+    y := 2
+    i := ppl_jud_default_a
+    sprite x y 15
+    x += 8
+    i := ppl_jud_default_b
+    sprite x y 15    
+;
+
+: draw_objection(law)
+    x := 15
+    y := 1
+    i := objection
+    sprite x y 15    
+;
+
+: draw_objection(pro)
+    x := 41
+    y := 1
+    i := objection
+    sprite x y 15    
+;
+
+# Text Code ##################################################
+: waitinput() # Press any key to continue.
+    loopcounter := 0
+    loop while loopcounter != 1
+        keypressed := key # Did they press anything?
+            if keypressed != 3 begin
+                loopcounter += 1
+	    end
+        again
+;
+
+: gameinput() # Press any key to continue.
+    loopcounter := 0
+    loop while loopcounter != 1
+        keypressed := key # Did they press anything?
+            if keypressed == 4 begin
+                drawInventory()
+	    end
+            if keypressed == 3 begin
+                loopcounter += 1
+	    end
+        again
+;
+
+: drawTextBox()  # Draw textbox for text.
+    x := 0
+    y := 17
+    i := textBoxBorder
+    loopcounter := 0
+    loop while loopcounter != 8
+        sprite x y 15
+        x += 8
+        loopcounter += 1	
+    again
+;
+
+: drawOnscreenButtons() # During the cross exam stage
+    x := 0
+    y := 0
+    i := button_press
+    sprite x y 5
+    x := 56
+    i := button_object
+    sprite x y 5
+;
+
+
+: text(print) # Draw Text
+: text(erase)
+    i  := text-addr
+    save v1
+    x := 2
+    y := 20
+    loopcounter := 0
+    textlength := 20
+
+    loop while loopcounter != textlength 
+        : text-addr i := 0 # self-modify to alter
+        i += loopcounter
+        load temp0
+        get-letter()
+        sprite x y 5
+        x += 6
+        loopcounter += 1
+        if x == 62 then y += 6
+        if x == 62 then x := 2
+    again
+;
+
+: get-letter() # I know I could skip the table, but I did this by myself.
+    v0 <<= v0 # multiply by 4, the table entry size
+    v0 <<= v0
+    jump0 font
+;
+
+# inventory Code ##################################################
+: drawInventory()
+    clear
+    x := 7
+    y := 5
+    loopcounter := 0
+    textlength := inv_count 
+    loop while loopcounter != textlength 
+        i := GAME_ITEMS 
+        i += loopcounter
+        load temp0
+        get-items()
+        sprite x y 8
+        x += 16
+        loopcounter += 1
+    again
+    drawTextBox()
+    :unpack 0xA t_item1
+    text(print)
+    updateInvCursor()
+;
+
+: updateInvCursor()
+    i := cursor_object
+    x := 1
+    y := 7
+    sprite x y 4
+    inv_show := 1
+    loopcounter := 0
+        loop while loopcounter != 1
+        keypressed := key # Did they press ANYTHING?
+		if keypressed == 7 begin
+                     temp_inv := inv_show
+                     inv_show += 255
+                        if inv_show == 0 begin
+                            inv_show := 4
+                        end
+                     sprite x y 4
+                     temp1 := 16
+                     x -= temp1
+                     sprite x y 4
+                     updateInvText()                     
+		end
+
+		if keypressed == 9 begin
+                     temp_inv := inv_show
+                     inv_show += 1
+                        if inv_show == 5 begin
+                            inv_show := 1
+                        end
+                     sprite x y 4
+                     x += 16
+                     sprite x y 4  
+                     updateInvText()  
+		end
+
+                if keypressed == 6 begin
+                    loopcounter += 1
+                end
+		if keypressed == 4 begin
+                    loopcounter += 1
+                    inv_show := 0 
+                end
+
+        again
+                    if inv_show > inv_count begin
+                       inv_show := 0
+                    end
+                   clear
+;
+
+: updateInvText()  # Need to make sure it undraws and redraws correctly.
+    TEMPX := x
+    TEMPY := y
+
+if temp_inv == 1 begin
+    :unpack 0xA t_item1
+    text(print)
+end
+if temp_inv == 2 begin
+    :unpack 0xA t_item2
+    text(print)
+end
+if temp_inv == 3 begin
+    if inv_count > 2 begin
+        :unpack 0xA t_item3
+        text(print)
+    end
+end
+if temp_inv == 4 begin
+    if inv_count > 3 begin
+        :unpack 0xA t_item4
+        text(print)
+    end
+end
+if inv_show == 1 begin
+    :unpack 0xA t_item1
+    text(print)
+end
+if inv_show == 2 begin
+    :unpack 0xA t_item2
+    text(print)
+end
+if inv_show == 3 begin
+    if inv_count > 2 begin
+        :unpack 0xA t_item3
+        text(print)
+    end
+end
+if inv_show == 4 begin
+    if inv_count > 3 begin
+        :unpack 0xA t_item4
+        text(print)
+    end
+end
+
+    x := TEMPX
+    y := TEMPY
+    i := cursor_object
+    loopcounter := 0
+;
+
+
+: get-items() # todo make this and get-font the same with self-modifying code if space needed.
+    v0 <<= v0 # multiply by 4, the table entry size
+    v0 <<= v0
+    jump0 items
+;
+
+# Game Events ##################################################
+: script_intro(1)
+    :unpack 0xA txt_intro_0
+    text(print)
+    waitinput()
+    :unpack 0xA txt_intro_0
+    text(erase)
+    drawTextBox()
+    draw_person(law)
+    :unpack 0xA txt_intro_1
+    text(print)
+    waitinput()
+draw_person(jud)
+    :unpack 0xA txt_intro_1
+    text(erase)
+    :unpack 0xA txt_intro_2
+    text(print)
+    waitinput()
+    :unpack 0xA txt_intro_2
+    text(erase)
+    :unpack 0xA txt_intro_3
+    text(print)
+
+    waitinput()
+    :unpack 0xA txt_intro_3
+    text(erase)
+    :unpack 0xA txt_intro_4
+    text(print)
+    waitinput()
+draw_person(pro)
+    :unpack 0xA txt_intro_4
+    text(erase)
+    :unpack 0xA txt_intro_5
+    text(print)
+    waitinput()
+    :unpack 0xA txt_intro_5
+    text(erase)
+    :unpack 0xA txt_intro_6
+    text(print)
+    waitinput()
+    :unpack 0xA txt_intro_6
+    text(erase)
+    :unpack 0xA txt_intro_7
+    text(print)
+    waitinput()
+    :unpack 0xA txt_intro_7
+    text(erase)
+    :unpack 0xA txt_intro_8
+    text(print)
+    waitinput()
+    :unpack 0xA txt_intro_8
+    text(erase)
+    :unpack 0xA txt_intro_9
+    text(print)
+    waitinput()
+    :unpack 0xA txt_intro_9
+    text(erase)
+    :unpack 0xA txt_intro_10
+    text(print)
+    waitinput()
+    :unpack 0xA txt_intro_10
+    text(erase)
+    clear
+    :unpack 0xA txt_intro_11
+    text(print)
+    waitinput()
+    :unpack 0xA txt_intro_11
+    text(erase)
+;
+
+: script_court(judge)
+    drawTextBox()
+    draw_person(jan)
+    :unpack 0xA txt_court_intro_1
+    text(print)
+    waitinput()
+    :unpack 0xA txt_court_intro_1
+    text(erase)
+    :unpack 0xA txt_court_intro_2
+    text(print)
+    waitinput()
+    :unpack 0xA txt_court_intro_2
+    text(erase)
+    :unpack 0xA txt_court_intro_3
+    text(print)
+    waitinput()
+    :unpack 0xA txt_court_intro_3
+    text(erase)
+    draw_person(law)
+    :unpack 0xA txt_court_intro_4
+    text(print)
+    waitinput()
+    :unpack 0xA txt_court_intro_4
+    text(erase)
+    :unpack 0xA txt_court_intro_5
+    text(print)
+    waitinput()
+
+    :unpack 0xA txt_court_intro_5
+    text(erase)
+
+    :unpack 0xA txt_court_intro_6
+    text(print)
+    waitinput()
+    :unpack 0xA txt_court_intro_6
+    text(erase)
+    :unpack 0xA txt_court_intro_7
+draw_person(law)
+draw_person(dec)
+    text(print)
+    waitinput()
+    :unpack 0xA txt_court_intro_7
+    text(erase)
+    :unpack 0xA txt1
+    text(print)
+    waitinput()
+    :unpack 0xA txt1
+    text(erase)
+    :unpack 0xA txt2
+    text(print)
+    waitinput()
+    :unpack 0xA txt2
+    text(erase)
+    :unpack 0xA txt3
+    text(print)
+    waitinput()
+    :unpack 0xA txt3
+    text(erase)
+    clear
+;
+
+: script_getitems
+    :unpack 0xA txt4
+    text(print)
+    waitinput()
+    :unpack 0xA txt4
+    text(erase)
+    :unpack 0xA txt5
+    text(print)
+    waitinput()
+    :unpack 0xA txt5
+    text(erase)
+    clear
+    script_getitems
+;
+
+: drawtitle
+    x := 10
+    y := 5
+    i := title1
+    sprite x y 10
+    x += 6
+    i := title2
+    sprite x y 10
+    x += 6
+    i := title3
+    sprite x y 10
+    x := 12
+    y += 10
+    i := title1
+    sprite x y 10
+    x += 6
+    y += 2
+    i := title4
+    sprite x y 5  
+    x += 6
+    i := title4
+    sprite x y 5      
+    x += 6
+    i := title5
+    sprite x y 5    
+    x += 5
+    i := title6
+    sprite x y 5 
+    x += 5
+    i := title7
+    sprite x y 5 
+    x += 5
+    i := title8
+    sprite x y 7 
+    x := 30
+    y := 1
+    i := title9
+    sprite x y 15
+    x += 8
+    i := title10
+    sprite x y 15
+    x := 20
+    y := 23
+    i := title11
+    sprite x y 4
+    x := 29
+    y := 23
+    i := title12
+    sprite x y 4
+;
+
+# Title Images
+#Hacky because I noticed that I really needed to split this into multicarts...
+
+: title1 #8
+0x00 0x38 0x6C 0x44 0x6C 0x38 0x6C 0x44 
+0x6C 0x38 
+: title2 #c
+0x00 0x00 0x00 0x00 0x00 0x38 0x64 0x40 
+0x64 0x38 
+: title3 #e
+0x00 0x00 0x00 0x00 0x00 0x38 0x64 0x7C 
+0x60 0x38 
+: title4 #t
+0x30 0x7C 0x30 0x34 0x3C
+: title5 #o
+0x38 0x7C 0x64 0x64 0x38 
+: title6
+0x70 0x38 0x28 0x20 0x78 
+: title7
+0x68 0x68 0x58 0x58 0x58 
+: title8
+0x48 0x48 0x78 0x18 0x30 0x60 0x60 	
+: title9
+0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xEC 
+0x7F 0x07 0x01 0x00 0x00 0x00 0x00 
+: title10
+0x00 0x18 0x3F 0x7F 0x7F 0x7E 0x7E 0x3C 
+0x3C 0xFC 0xFE 0xFE 0xFE 0xFE 0xFE 
+: title11
+0xC9 0xA2 0xA9 0xCA 
+: title12
+0xA7 0xC3 0xC1 0xA7

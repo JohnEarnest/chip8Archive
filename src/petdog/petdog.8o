@@ -1,0 +1,1052 @@
+﻿# Octo Game - I Ran Out of time edition
+# Let's Jam
+# Pet The Dog
+
+# It's a cute idea stolen from undertale to
+# make me feel better about not finishing
+# my RPG idea.
+
+# This code is bad and I am sorry.
+
+:alias sx v0
+:alias sy v1
+
+:alias dogsize v4
+
+:alias keyp v3
+
+#--------------------------------------------------------
+# Sprites
+#--------------------------------------------------------
+: DogFace1
+0xF0 0x78 0x7B 0x3F 0x79 0xF9 0x6F 0xFE 
+0x74 0xF8 0xFD 0x7D 0x3E 0x0F 0x00   
+
+: DogFace2
+0x0F 0x7E 0xFE 0xFC 0x9E 0x9F 0xF6 0x7F 
+0x2E 0x1F 0xBF 0xBE 0x7C 0xF8 0x00  
+
+: HalfbDog1
+0x74 0xF8 0xFD 0x7D 0x3E 0x0F 0x00  
+
+: HalfbDog2
+0x2E 0x1F 0xBF 0xBE 0x7C 0xF8 0x00
+
+: DogFace1Full
+0xF0 0x78 0x7B 0x3F 0x79 0xF9 0x6F 0xFE 
+0x74 0xF8 0xFD 0x7D 0x3E 0x3F 0x3F 
+
+: DogFace2Full
+0x0F 0x7E 0xFE 0xFC 0x9E 0x9F 0xF6 0x7F 
+0x2E 0x1F 0xBF 0xBC 0x7C 0xFC 0xFC 
+
+: DogArmor1 
+0x00 0x5E 0xFE 0xC0 0xFC 0xFE 0xFE 0xBC 
+0x00 0x00 0x00 0x00 0x00 0x00 0x00 
+
+: DogArmor2
+0x00 0x7A 0x7F 0x03 0x3F 0x7F 0x7F 0x3D 
+0x00 0x00 0x00 0x00 0x00 0x00 0x00   
+
+: Sidebar1
+0x3F 0x5F 0xBF 0x7F 0x3F 0x5F 0xBF 0x7F 
+0x3F 0x51 0xB5 0x71 0x37 0x57 0xBF 
+
+: Sidebar2
+0x71 0x37 0x53 0xB7 0x71 0x3F 0x51 0xBB 
+0x7B 0x3B 0x5F 0xBF 0x7F 0x3F 0x5F 
+
+: Sidebar3
+0xBF 0x7F 0x00 0x00 0x00 0x00 0x00 0x00 
+0x00 0x00 0x00 0x00 0x00 0x00 0x00 
+
+: whiteblock
+0xFC 0xFC 0xFC 0xFC 0x00 0x00 0x00 0x00 
+0x00 0x00 0x00 0x00 0x00 0x00 0x00 
+
+#--------------------------------------------------------
+# Title Sprites
+#--------------------------------------------------------
+: doggie1
+0x00 0x2F 0x3F 0x3F 0x6D 0x7F 0x73 0x56 
+0x61 0x7F 0x7F 0x7F 0x7F 0x7F 0x7F 
+: doggie2
+0x00 0x40 0xC0 0xE0 0xF0 0xF8 0xFE 0xFF 
+0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 
+
+: PETDOG1
+0xFE 0xFF 0xC3 0xC3 0xFE 0xC0 0xC0 0xC0 
+0x00 0x00 0x00 0x00 0x00 0x00 0x00 
+: PETDOG2
+0xFF 0xFF 0xC0 0xC0 0xFC 0xC0 0xC0 0xFF 
+0x00 0x00 0x00 0x00 0x00 0x00 0x00 
+: PETDOG3
+0xFF 0xFF 0x18 0x18 0x18 0x18 0x18 0x18 
+0x00 0x00 0x00 0x00 0x00 0x00 0x00 
+: PETDOG4
+0xFE 0xFF 0xC3 0xC3 0xC3 0xC3 0xFF 0xFE 
+0x00 0x00 0x00 0x00 0x00 0x00 0x00 
+: PETDOG5
+0x7E 0xFF 0xC3 0xC3 0xC3 0xC3 0xFF 0x7E 
+0x00 0x00 0x00 0x00 0x00 0x00 0x00 
+: PETDOG6
+0x7E 0xFF 0xC3 0xC0 0xCF 0xC3 0xFF 0x7E 
+0x00 0x00 0x00 0x00 0x00 0x00 0x00 
+: creditz
+0x8E 0x8A 0xAE 0x00 0x00 0x00 0x00 0x00 
+0x00 0x00 0x00 0x00 0x00 0x00 0x00 
+
+
+#--------------------------------------------------------
+# Main Code
+#--------------------------------------------------------
+: main
+    if v4 == 0 then jump title
+
+#--------------------------------------------------------
+# Title
+#--------------------------------------------------------
+: title
+    i  := doggie1
+    v0 := 48
+    v1 := 17
+    sprite v0 v1 15
+
+    i  := doggie2
+    v0 := 56
+    v1 := 17
+    sprite v0 v1 15
+
+    i  := PETDOG1
+    v0 := 1
+    v1 := 1
+    sprite v0 v1 8
+
+    i  := PETDOG2
+    v0 := 10
+    v1 := 1
+    sprite v0 v1 8
+
+    i  := PETDOG3
+    v0 := 19
+    v1 := 1
+    sprite v0 v1 8
+
+    i  := PETDOG4
+    v0 := 10
+    v1 := 10
+    sprite v0 v1 8
+
+    i  := PETDOG5
+    v0 := 19
+    v1 := 10
+    sprite v0 v1 8
+
+    i  := PETDOG6
+    v0 := 28
+    v1 := 10
+    sprite v0 v1 8
+
+    i  := creditz
+    v0 := 1
+    v1 := 28
+    sprite v0 v1 3
+
+    loop    
+        keyp := key
+        if v2 == 0 then clear
+        v4 := 1
+	jump dog0
+    again	
+
+#--------------------------------------------------------
+# Draw Basic Elements
+#--------------------------------------------------------
+
+#--------------------------------------------------------
+# Draw the starting UI Elements
+#--------------------------------------------------------
+: dog0
+    v0 := 56
+    v1 := 0
+    i := Sidebar1
+    sprite v0 v1 15
+
+    v0 := 56
+    v1 := 15
+    i := Sidebar2
+    sprite v0 v1 15
+
+    v0 := 56
+    v1 := 30
+    i := Sidebar3
+    sprite v0 v1 15
+
+    v0 := 2
+    v1 := 24
+    i := DogArmor1
+    sprite v0 v1 15
+
+    v0 := 8
+    v1 := 24
+    i := DogArmor2
+    sprite v0 v1 15
+
+    v0 := 1
+    v1 := 10
+    i := DogFace1
+    sprite v0 v1 15
+
+    v0 := 9
+    v1 := 10
+    i := DogFace2
+    sprite v0 v1 15
+
+    loop    
+        keyp := key
+        if v2 == 0 then clear
+        v4 := 2	 
+        jump dog1
+    again	
+#--------------------------------------------------------
+# Dog Level 1
+#--------------------------------------------------------
+ : dog1
+    v0 := 56
+    v1 := 0
+    i := Sidebar1
+    sprite v0 v1 15
+
+    v0 := 56
+    v1 := 15
+    i := Sidebar2
+    sprite v0 v1 15
+
+    v0 := 56
+    v1 := 30
+    i := Sidebar3
+    sprite v0 v1 15
+
+    v0 := 2
+    v1 := 24
+    i := DogArmor1
+    sprite v0 v1 15
+
+    v0 := 8
+    v1 := 24
+    i := DogArmor2
+    sprite v0 v1 15
+
+    v0 := 1
+    v1 := 09
+    i := DogFace1Full
+    sprite v0 v1 15
+
+    v0 := 9
+    v1 := 09
+    i := DogFace2Full
+    sprite v0 v1 15
+    loop    
+        keyp := key
+        if v2 == 0 then clear
+	jump dog2
+    again
+
+#--------------------------------------------------------
+# Dog Level 2
+#--------------------------------------------------------
+ : dog2
+    v0 := 56
+    v1 := 0
+    i := Sidebar1
+    sprite v0 v1 15
+
+    v0 := 56
+    v1 := 15
+    i := Sidebar2
+    sprite v0 v1 15
+
+    v0 := 56
+    v1 := 30
+    i := Sidebar3
+    sprite v0 v1 15
+
+    v0 := 2
+    v1 := 24
+    i := DogArmor1
+    sprite v0 v1 15
+
+    v0 := 8
+    v1 := 24
+    i := DogArmor2
+    sprite v0 v1 15
+
+
+
+    i := whiteblock
+    v0 := 3
+    v1 := 20
+    sprite v0 v1 4
+
+    i := whiteblock
+    v0 := 09
+    v1 := 20
+    sprite v0 v1 4
+    v0 := 1
+    v1 := 05
+    i := DogFace1Full
+    sprite v0 v1 15
+
+    v0 := 9
+    v1 := 05
+    i := DogFace2Full
+    sprite v0 v1 15
+    loop    
+        keyp := key
+        if v2 == 0 then clear
+	jump dog3
+    again
+
+#--------------------------------------------------------
+# Dog Level 3
+#--------------------------------------------------------
+ : dog3
+    v0 := 56
+    v1 := 0
+    i := Sidebar1
+    sprite v0 v1 15
+
+    v0 := 56
+    v1 := 15
+    i := Sidebar2
+    sprite v0 v1 15
+
+    v0 := 56
+    v1 := 30
+    i := Sidebar3
+    sprite v0 v1 15
+
+    v0 := 2
+    v1 := 24
+    i := DogArmor1
+    sprite v0 v1 15
+
+    v0 := 8
+    v1 := 24
+    i := DogArmor2
+    sprite v0 v1 15
+
+
+
+    i := whiteblock
+    v0 := 3
+    v1 := 20
+    sprite v0 v1 4
+
+    i := whiteblock
+    v0 := 09
+    v1 := 20
+    sprite v0 v1 4
+
+    i := whiteblock
+    v0 := 3
+    v1 := 16
+    sprite v0 v1 4
+
+    i := whiteblock
+    v0 := 09
+    v1 := 16
+    sprite v0 v1 4
+    v0 := 1
+    v1 := 01
+    i := DogFace1Full
+    sprite v0 v1 15
+
+    v0 := 9
+    v1 := 01
+    i := DogFace2Full
+    sprite v0 v1 15
+    loop    
+        keyp := key
+        if v2 == 0 then clear
+	jump dog4
+    again
+
+#--------------------------------------------------------
+# Dog Level 4
+#--------------------------------------------------------
+ : dog4
+    v0 := 56
+    v1 := 0
+    i := Sidebar1
+    sprite v0 v1 15
+
+    v0 := 56
+    v1 := 15
+    i := Sidebar2
+    sprite v0 v1 15
+
+    v0 := 56
+    v1 := 30
+    i := Sidebar3
+    sprite v0 v1 15
+
+    v0 := 2
+    v1 := 24
+    i := DogArmor1
+    sprite v0 v1 15
+
+    v0 := 8
+    v1 := 24
+    i := DogArmor2
+    sprite v0 v1 15
+
+
+    i := whiteblock
+    v0 := 3
+    v1 := 20
+    sprite v0 v1 4
+    v0 := 09
+    v1 := 20
+    sprite v0 v1 4
+    v0 := 3
+    v1 := 16
+    sprite v0 v1 4
+    v0 := 09
+    v1 := 16
+    sprite v0 v1 4
+    v0 := 3
+    v1 := 12
+    sprite v0 v1 4
+    v0 := 09
+    v1 := 12
+    sprite v0 v1 4
+    v0 := 3
+    v1 := 08
+    sprite v0 v1 4
+    v0 := 09
+    v1 := 08
+    sprite v0 v1 4
+    v0 := 3
+    v1 := 04
+    sprite v0 v1 4
+    v0 := 09
+    v1 := 04
+    sprite v0 v1 4
+
+
+    v0 := 1
+    v1 := 00
+    i := HalfbDog1
+    sprite v0 v1 4
+
+    v0 := 9
+    v1 := 00
+    i := HalfbDog2
+    sprite v0 v1 4
+
+    loop    
+        keyp := key
+        if v2 == 0 then clear
+	jump dog5
+    again
+
+#--------------------------------------------------------
+# Dog Level 5
+#--------------------------------------------------------
+ : dog5
+    v5 := 0
+    v0 := 56
+    v1 := 0
+    i := Sidebar1
+    sprite v0 v1 15
+
+    v0 := 56
+    v1 := 15
+    i := Sidebar2
+    sprite v0 v1 15
+
+    v0 := 56
+    v1 := 30
+    i := Sidebar3
+    sprite v0 v1 15
+
+    v0 := 2
+    v1 := 24
+    i := DogArmor1
+    sprite v0 v1 15
+
+    v0 := 8
+    v1 := 24
+    i := DogArmor2
+    sprite v0 v1 15
+
+#    v0 := 1
+#    v1 := 00
+#    i := HalfbDog1
+#    sprite v0 v1 4
+
+#    v0 := 9
+#    v1 := 00
+#    i := HalfbDog2
+#    sprite v0 v1 4
+
+
+    i := whiteblock
+    v0 := 3
+    v1 := 20
+    sprite v0 v1 4
+    v0 := 09
+    v1 := 20
+    sprite v0 v1 4
+    v0 := 3
+    v1 := 16
+    sprite v0 v1 4
+    v0 := 09
+    v1 := 16
+    sprite v0 v1 4
+    v0 := 3
+    v1 := 12
+    sprite v0 v1 4
+    v0 := 09
+    v1 := 12
+    sprite v0 v1 4
+    v0 := 3
+    v1 := 08
+    sprite v0 v1 4
+    v0 := 09
+    v1 := 08
+    sprite v0 v1 4
+    v0 := 3
+    v1 := 04
+    sprite v0 v1 4
+    v0 := 09
+    v1 := 04
+    sprite v0 v1 4
+    v0 := 3
+    v1 := 00
+    sprite v0 v1 4
+    v0 := 09
+    v1 := 00
+    sprite v0 v1 4
+    loop    
+        keyp := key
+	v5 += 1
+	if v5 != 3 then jump fart
+	
+        if v2 == 0 then clear 
+        jump dog6
+	: fart
+    again
+
+#--------------------------------------------------------
+# Dog Level 6
+#--------------------------------------------------------
+ : dog6
+    v5 := 0
+    v0 := 56
+    v1 := 0
+    i := Sidebar1
+    sprite v0 v1 15
+
+    v0 := 56
+    v1 := 15
+    i := Sidebar2
+    sprite v0 v1 15
+
+    v0 := 56
+    v1 := 30
+    i := Sidebar3
+    sprite v0 v1 15
+
+    v0 := 2
+    v1 := 24
+    i := DogArmor1
+    sprite v0 v1 15
+
+    v0 := 8
+    v1 := 24
+    i := DogArmor2
+    sprite v0 v1 15
+
+    i := whiteblock
+    v0 := 3
+    v1 := 20
+    sprite v0 v1 4
+    v0 := 09
+    v1 := 20
+    sprite v0 v1 4
+    v0 := 3
+    v1 := 16
+    sprite v0 v1 4
+    v0 := 09
+    v1 := 16
+    sprite v0 v1 4
+    v0 := 3
+    v1 := 12
+    sprite v0 v1 4
+    v0 := 09
+    v1 := 12
+    sprite v0 v1 4
+    v0 := 3
+    v1 := 08
+    sprite v0 v1 4
+    v0 := 09
+    v1 := 08
+    sprite v0 v1 4
+    v0 := 3
+    v1 := 04
+    sprite v0 v1 4
+    v0 := 09
+    v1 := 04
+    sprite v0 v1 4
+    v0 := 3
+    v1 := 00
+    sprite v0 v1 4
+    v0 := 09
+    v1 := 00
+    sprite v0 v1 4
+    v0 := 22
+    v1 := 24
+    sprite v0 v1 4
+    v0 := 28
+    v1 := 24
+    sprite v0 v1 4
+    v0 := 22
+    v1 := 28
+    sprite v0 v1 4
+    v0 := 28
+    v1 := 28
+    sprite v0 v1 4
+
+    v0 := 20
+    v1 := 09
+    i := DogFace1Full
+    sprite v0 v1 15
+
+    v0 := 28
+    v1 := 09
+    i := DogFace2Full
+    sprite v0 v1 15
+
+    loop    
+        keyp := key
+        if v2 == 0 then clear 
+        jump dog7
+    again
+
+#--------------------------------------------------------
+# Dog Level 7
+#--------------------------------------------------------
+ : dog7
+    v5 := 0
+    v0 := 56
+    v1 := 0
+    i := Sidebar1
+    sprite v0 v1 15
+
+    v0 := 56
+    v1 := 15
+    i := Sidebar2
+    sprite v0 v1 15
+
+    v0 := 56
+    v1 := 30
+    i := Sidebar3
+    sprite v0 v1 15
+
+    v0 := 2
+    v1 := 24
+    i := DogArmor1
+    sprite v0 v1 15
+
+    v0 := 8
+    v1 := 24
+    i := DogArmor2
+    sprite v0 v1 15
+
+
+
+
+    i := whiteblock
+    v0 := 3
+    v1 := 20
+    sprite v0 v1 4
+    v0 := 09
+    v1 := 20
+    sprite v0 v1 4
+    v0 := 3
+    v1 := 16
+    sprite v0 v1 4
+    v0 := 09
+    v1 := 16
+    sprite v0 v1 4
+    v0 := 3
+    v1 := 12
+    sprite v0 v1 4
+    v0 := 09
+    v1 := 12
+    sprite v0 v1 4
+    v0 := 3
+    v1 := 08
+    sprite v0 v1 4
+    v0 := 09
+    v1 := 08
+    sprite v0 v1 4
+    v0 := 3
+    v1 := 04
+    sprite v0 v1 4
+    v0 := 09
+    v1 := 04
+    sprite v0 v1 4
+    v0 := 3
+    v1 := 00
+    sprite v0 v1 4
+    v0 := 09
+    v1 := 00
+    sprite v0 v1 4
+    v0 := 22
+    v1 := 24
+    sprite v0 v1 4
+    v0 := 28
+    v1 := 24
+    sprite v0 v1 4
+    v0 := 22
+    v1 := 28
+    sprite v0 v1 4
+    v0 := 28
+    v1 := 28
+    sprite v0 v1 4
+    v0 := 22
+    v1 := 20
+    sprite v0 v1 4
+    v0 := 28
+    v1 := 20
+    sprite v0 v1 4
+    v0 := 22
+    v1 := 16
+    sprite v0 v1 4
+    v0 := 28
+    v1 := 16
+    sprite v0 v1 4
+    v0 := 22
+    v1 := 8
+    sprite v0 v1 4
+    v0 := 28
+    v1 := 8
+    sprite v0 v1 4
+    v0 := 22
+    v1 := 12
+    sprite v0 v1 4
+    v0 := 28
+    v1 := 12
+    sprite v0 v1 4
+    v0 := 22
+    v1 := 4
+    sprite v0 v1 4
+    v0 := 28
+    v1 := 4
+    sprite v0 v1 4
+
+    v0 := 20
+    v1 := 00
+    i := HalfbDog1
+    sprite v0 v1 4
+
+    v0 := 28
+    v1 := 00
+    i := HalfbDog2
+    sprite v0 v1 4
+
+    loop    
+        keyp := key
+        if v2 == 0 then clear 
+        jump dog8
+    again
+
+#--------------------------------------------------------
+# Dog Level 8
+#--------------------------------------------------------
+ : dog8
+    v5 := 0
+    v0 := 56
+    v1 := 0
+    i := Sidebar1
+    sprite v0 v1 15
+
+    v0 := 56
+    v1 := 15
+    i := Sidebar2
+    sprite v0 v1 15
+
+    v0 := 56
+    v1 := 30
+    i := Sidebar3
+    sprite v0 v1 15
+
+    v0 := 2
+    v1 := 24
+    i := DogArmor1
+    sprite v0 v1 15
+
+    v0 := 8
+    v1 := 24
+    i := DogArmor2
+    sprite v0 v1 15
+
+    i := whiteblock
+    v0 := 3
+    v1 := 20
+    sprite v0 v1 4
+    v0 := 09
+    v1 := 20
+    sprite v0 v1 4
+    v0 := 3
+    v1 := 16
+    sprite v0 v1 4
+    v0 := 09
+    v1 := 16
+    sprite v0 v1 4
+    v0 := 3
+    v1 := 12
+    sprite v0 v1 4
+    v0 := 09
+    v1 := 12
+    sprite v0 v1 4
+    v0 := 3
+    v1 := 08
+    sprite v0 v1 4
+    v0 := 09
+    v1 := 08
+    sprite v0 v1 4
+    v0 := 3
+    v1 := 04
+    sprite v0 v1 4
+    v0 := 09
+    v1 := 04
+    sprite v0 v1 4
+    v0 := 3
+    v1 := 00
+    sprite v0 v1 4
+    v0 := 09
+    v1 := 00
+    sprite v0 v1 4
+    v0 := 22
+    v1 := 24
+    sprite v0 v1 4
+    v0 := 28
+    v1 := 24
+    sprite v0 v1 4
+    v0 := 22
+    v1 := 28
+    sprite v0 v1 4
+    v0 := 28
+    v1 := 28
+    sprite v0 v1 4
+    v0 := 22
+    v1 := 20
+    sprite v0 v1 4
+    v0 := 28
+    v1 := 20
+    sprite v0 v1 4
+    v0 := 22
+    v1 := 16
+    sprite v0 v1 4
+    v0 := 28
+    v1 := 16
+    sprite v0 v1 4
+    v0 := 22
+    v1 := 8
+    sprite v0 v1 4
+    v0 := 28
+    v1 := 8
+    sprite v0 v1 4
+    v0 := 22
+    v1 := 12
+    sprite v0 v1 4
+    v0 := 28
+    v1 := 12
+    sprite v0 v1 4
+    v0 := 22
+    v1 := 4
+    sprite v0 v1 4
+    v0 := 28
+    v1 := 4
+    sprite v0 v1 4
+    v0 := 22
+    v1 := 0
+    sprite v0 v1 4
+    v0 := 28
+    v1 := 0
+    sprite v0 v1 4
+
+    loop    
+        keyp := key
+	v5 += 1
+	if v5 != 8 then jump poo
+	
+        if v2 == 0 then clear 
+        jump dog9
+	: poo
+    again
+
+#--------------------------------------------------------
+# Dog Level 9
+#--------------------------------------------------------
+ : dog9
+    v5 := 0
+    v0 := 56
+    v1 := 0
+    i := Sidebar1
+    sprite v0 v1 15
+
+    v0 := 56
+    v1 := 15
+    i := Sidebar2
+    sprite v0 v1 15
+
+    v0 := 56
+    v1 := 30
+    i := Sidebar3
+    sprite v0 v1 15
+
+    v0 := 2
+    v1 := 24
+    i := DogArmor1
+    sprite v0 v1 15
+
+    v0 := 8
+    v1 := 24
+    i := DogArmor2
+    sprite v0 v1 15
+
+     i := whiteblock
+    v0 := 3
+    v1 := 20
+    sprite v0 v1 4
+    v0 := 09
+    v1 := 20
+    sprite v0 v1 4
+    v0 := 3
+    v1 := 16
+    sprite v0 v1 4
+    v0 := 09
+    v1 := 16
+    sprite v0 v1 4
+    v0 := 3
+    v1 := 12
+    sprite v0 v1 4
+    v0 := 09
+    v1 := 12
+    sprite v0 v1 4
+    v0 := 3
+    v1 := 08
+    sprite v0 v1 4
+    v0 := 09
+    v1 := 08
+    sprite v0 v1 4
+    v0 := 3
+    v1 := 04
+    sprite v0 v1 4
+    v0 := 09
+    v1 := 04
+    sprite v0 v1 4
+    v0 := 3
+    v1 := 00
+    sprite v0 v1 4
+    v0 := 09
+    v1 := 00
+    sprite v0 v1 4
+    v0 := 22
+    v1 := 24
+    sprite v0 v1 4
+    v0 := 28
+    v1 := 24
+    sprite v0 v1 4
+    v0 := 22
+    v1 := 28
+    sprite v0 v1 4
+    v0 := 28
+    v1 := 28
+    sprite v0 v1 4
+    v0 := 22
+    v1 := 20
+    sprite v0 v1 4
+    v0 := 28
+    v1 := 20
+    sprite v0 v1 4
+    v0 := 22
+    v1 := 16
+    sprite v0 v1 4
+    v0 := 28
+    v1 := 16
+    sprite v0 v1 4
+    v0 := 22
+    v1 := 8
+    sprite v0 v1 4
+    v0 := 28
+    v1 := 8
+    sprite v0 v1 4
+    v0 := 22
+    v1 := 12
+    sprite v0 v1 4
+    v0 := 28
+    v1 := 12
+    sprite v0 v1 4
+    v0 := 22
+    v1 := 4
+    sprite v0 v1 4
+    v0 := 28
+    v1 := 4
+    sprite v0 v1 4
+    v0 := 22
+    v1 := 0
+    sprite v0 v1 4
+    v0 := 28
+    v1 := 0
+    sprite v0 v1 4
+
+    v0 := 41
+    v1 := 24
+    sprite v0 v1 4
+    v0 := 47
+    v1 := 24
+    sprite v0 v1 4
+    v0 := 41
+    v1 := 28
+    sprite v0 v1 4
+    v0 := 47
+    v1 := 28
+    sprite v0 v1 4
+    v0 := 41
+    v1 := 20
+    sprite v0 v1 4
+    v0 := 47
+    v1 := 20
+    sprite v0 v1 4
+    v0 := 41
+    v1 := 16
+    sprite v0 v1 4
+    v0 := 47
+    v1 := 16
+    sprite v0 v1 4
+
+
+
+    v0 := 39
+    v1 := 01
+    i := DogFace1Full
+    sprite v0 v1 15
+
+    v0 := 47
+    v1 := 01
+    i := DogFace2Full
+    sprite v0 v1 15
+
+
+    loop    
+        keyp := key
+        if v2 == 0 then clear 
+        jump dog9
+	
+    again

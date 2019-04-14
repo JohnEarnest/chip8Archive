@@ -1,0 +1,1298 @@
+﻿# Octo.ram
+#---------------------------------------------------------------------
+:alias n1 v1
+:alias player_choice v2
+:alias monster_top v3
+:alias monster_bottom v4
+:alias mcount1 v3
+:alias mcount2 v4
+:alias monster_life v5
+:alias monster_rank v6
+:alias monster_level v7
+:alias menu_state v8
+:alias cpu_choice  v9
+:alias cpu_life vA
+:alias game_state vB
+:alias current_key vC
+:alias sprx vD
+:alias spry vE
+:alias temp vF 
+
+
+# Octo.macro
+#---------------------------------------------------------------------
+:macro draw X Y IMAGE HEIGHT {
+    sprx := X
+    spry := Y
+    i := IMAGE
+    sprite sprx spry HEIGHT
+}
+
+:macro t-pause TIME {
+temp := 0
+    loop
+    temp += 1
+    current_key := OCTO_KEY_E if current_key key then game_state := 2
+    if game_state == 2 then return
+    while temp != TIME 
+    again
+}
+
+:macro pause TIME {
+temp := 0
+    loop
+    temp += 1
+    while temp != TIME 
+    again
+}
+
+
+:macro drawnum X Y NUM HEIGHT {
+	sprx := X
+	spry := Y
+	temp := NUM
+	i := hex temp
+	sprite sprx spry HEIGHT
+}
+
+# Octo.main
+#---------------------------------------------------------------------
+: main
+	game_state := 1
+        monster_rank := 1
+        monster_level := 1
+    loop
+	if game_state == 0 then debug_room
+        if game_state == 1 then title
+        if game_state == 2 then summon_monster
+        if game_state == 3 then scan_monster
+        if game_state == 4 then create_monster
+        if game_state == 5 then menu
+        if game_state == 6 then battle
+        if game_state == 7 then train
+        if game_state == 8 then gend
+        if game_state == 9 then dead_monster
+        
+        _fps
+    again
+return
+
+# Stablize Framerate?? (Using this in all the wrong ways to get what I want to work.)
+#---------------------------------------------------------------------	
+: _fps
+    loop
+    vf := delay
+    if vf != 0 then
+    again
+    vf := 1
+    delay := vf
+return
+
+# Debug Room
+#---------------------------------------------------------------------	
+: debug_room
+    clear
+    sprx := 22
+    spry := 1
+    draw-current-monster
+    loop 
+	
+    current_key := key # Did they press ANYTHING?
+
+
+    if current_key == OCTO_KEY_W then monster_top += 1
+    if current_key == OCTO_KEY_S then monster_bottom += 1
+    if current_key == OCTO_KEY_1 then clear
+    if current_key == OCTO_KEY_1 then game_state := 1
+    if monster_top > 7 then monster_top := 0
+    if monster_bottom > 7 then monster_bottom := 0
+    return
+    again
+
+# Title
+#---------------------------------------------------------------------
+: title 
+    draw 46 24 leaf-a 4
+    draw 54 21 leaf-b 8
+    draw 1 0 mdisk-a 12
+    draw 9 0 mdisk-b 14
+    draw 17 0 mdisk-c 14
+    draw 25 0 mdisk-d 11
+    sprx := 2
+    spry := 15
+    i := letter-o
+    sprite sprx spry 7
+    sprx += 7
+    i := letter-c
+    sprite sprx spry 7    
+    sprx += 7
+    i := letter-t
+    sprite sprx spry 7
+    sprx += 7
+    i := letter-o
+    sprite sprx spry 7
+    sprx := 2
+    spry := 23
+    i := letter-r
+    sprite sprx spry 7
+    sprx += 7
+    i := letter-a
+    sprite sprx spry 7
+    sprx += 7
+    i := letter-n
+    sprite sprx spry 7
+    sprx += 8
+    i := letter-c
+    sprite sprx spry 7
+    sprx += 7
+    i := letter-h
+    sprite sprx spry 7
+    sprx += 7
+    i := letter-e
+    sprite sprx spry 7
+    sprx += 7
+    i := letter-r
+    sprite sprx spry 7
+        	
+    loop
+
+  sprx := 33
+    spry := 1
+    i := top-01
+    sprite sprx spry 8
+    spry += 8
+    i := bottom-01	
+    sprite sprx spry 8
+    sprx := 42
+    spry := 2
+    i := top-08
+    sprite sprx spry 8
+    spry += 8
+    i := bottom-08	
+    sprite sprx spry 8
+    sprx := 51
+    spry := 1
+    i := top-05
+    sprite sprx spry 8
+    spry += 8
+    i := bottom-05	
+    sprite sprx spry 8
+
+    t-pause 100
+
+    sprx := 33
+    spry := 1
+    i := top-01
+    sprite sprx spry 8
+    spry += 8
+    i := bottom-01	
+    sprite sprx spry 8
+    sprx := 42
+    spry := 2
+    i := top-08
+    sprite sprx spry 8
+    spry += 8
+    i := bottom-08	
+    sprite sprx spry 8
+    sprx := 51
+    spry := 1
+    i := top-05
+    sprite sprx spry 8
+    spry += 8
+    i := bottom-05	
+    sprite sprx spry 8
+
+    sprx := 33
+    spry := 2
+    i := top-01
+    sprite sprx spry 8
+    spry += 8
+    i := bottom-01	
+    sprite sprx spry 8
+    sprx := 42
+    spry := 1
+    i := top-08
+    sprite sprx spry 8
+    spry += 8
+    i := bottom-08	
+    sprite sprx spry 8
+    sprx := 51
+    spry := 2
+    i := top-05
+    sprite sprx spry 8
+    spry += 8
+    i := bottom-05	
+    sprite sprx spry 8
+    t-pause 100
+
+    sprx := 33
+    spry := 2
+    i := top-01
+    sprite sprx spry 8
+    spry += 8
+    i := bottom-01	
+    sprite sprx spry 8
+    sprx := 42
+    spry := 1
+    i := top-08	
+    sprite sprx spry 8
+    spry += 8
+    i := bottom-08	
+    sprite sprx spry 8
+    sprx := 51
+    spry := 2
+    i := top-05	
+    sprite sprx spry 8	
+    spry += 8
+    i := bottom-05	
+    sprite sprx spry 8
+
+ 
+    current_key := OCTO_KEY_E if current_key key then game_state := 2
+    if game_state == 2 then return
+   
+    again
+return
+
+# Summon Monster
+#---------------------------------------------------------------------	
+: summon_monster
+    clear
+    mcount1 := 0
+    mcount2 := 0
+    word_summon
+    word_monster
+    draw-l-border
+    draw 24 8 cir-1 8
+    sprx += 8
+    i := cir-2
+    sprite sprx spry 8
+    draw 24 16 cir-3 8
+    sprx += 8
+    i := cir-4
+    sprite sprx spry 8
+
+        sprx := 20
+        spry := 11
+        i := dot
+	
+        loop
+            current_key := OCTO_KEY_A if current_key key then sprx += -1 # left
+            if sprx == 19 then sprx += 1
+            current_key := OCTO_KEY_D if current_key key then sprx +=  1 # right
+            if sprx == 30 then sprx += 255
+            current_key := OCTO_KEY_W if current_key key then spry += -1 # up
+            if spry == 10 then spry += 1
+            current_key := OCTO_KEY_S if current_key key then spry +=  1 # down
+            if spry == 21 then spry += 255
+            _fps
+            _fps
+            sprite sprx spry 1 
+            _fps
+            _fps
+            current_key := OCTO_KEY_Q if current_key key then return
+            current_key := OCTO_KEY_E if current_key key then game_state := 3
+            current_key := OCTO_KEY_E if current_key key then return
+            
+            
+        again
+    
+ 
+    return
+
+# Scan Monster
+#---------------------------------------------------------------------	
+: scan_monster
+    word_summon
+    word_reading
+    monster_life := 1
+    monster_level := 1
+    monster_life += monster_rank
+
+  spry := 11
+  i := dot
+  loop
+    sprx := 20
+    loop
+      sprite sprx spry 1 
+      if temp == 1 then mcount1 += 1
+      sprx += 1
+      if sprx != 30 then again
+    spry += 2
+  if spry != 21 then again
+
+  spry := 12
+  i := dot
+  loop
+    sprx := 20
+    loop
+      sprite sprx spry 1 
+      if temp == 1 then mcount2 += 1
+      sprx += 1
+      if sprx != 30 then again
+    spry += 2
+  if spry != 22 then again
+
+  spry := 11
+  i := dot
+  loop
+    sprx := 20
+    loop
+      sprite sprx spry 1 
+      sprx += 1
+      if sprx != 30 then again
+    spry += 1
+  if spry != 21 then again
+
+  game_state := 4
+ return
+
+# Scan Monster
+#---------------------------------------------------------------------
+: create_monster
+clear
+draw-l-border
+word_monster
+word_summoned
+sprx := 26
+spry := 8
+draw-current-monster
+	if mcount1 >= 24 then monster_level += 1	
+	if mcount2 <= 24 then monster_level += 1		
+	if mcount1 >= 38 then monster_level += 1	
+	if mcount2 <= 12 then monster_level += 1
+        if mcount2 == 0 then monster_level += 255
+        if mcount2 == 0 then monster_level += 255
+  loop  
+   current_key := OCTO_KEY_E if current_key key then game_state := 5
+   if game_state == 5 then clear
+   if game_state == 5 then return
+  again
+
+return
+
+# Menu
+#---------------------------------------------------------------------
+: menu 
+
+
+if monster_life == 0 begin clear game_state := 9 return end
+
+if monster_rank > 8 begin clear game_state := 8 return end
+
+sprx := 26
+spry := 8
+draw-current-monster
+draw 1 1 i-lv 5
+draw 1 8 i-heart 6
+draw 2 17 i-rank 5
+drawnum 12 1 monster_level 5
+drawnum 12 9 monster_life 5
+drawnum 12 17 monster_rank 5
+draw 55 1 i-battle 8
+draw 55 10 i-shield 8
+draw 55 19 i-magic 8
+if menu_state == 0 begin draw 45 1 i-arrow 7 word_battle end
+if menu_state == 1 begin draw 45 10 i-arrow 7 word_train end
+if menu_state == 2 begin draw 45 19 i-arrow 7 word_summon-b end
+ 
+  loop
+
+            current_key := OCTO_KEY_W if current_key key begin
+            menu_state += -1 update_menu clear return end
+            
+            current_key := OCTO_KEY_S if current_key key begin 
+            menu_state +=  1 update_menu clear return end # down
+
+            current_key := OCTO_KEY_E if current_key key begin
+            if menu_state == 0 begin cpu_life := monster_rank game_state := 6 clear return end
+            if menu_state == 1 begin game_state := 7 clear return end
+            if menu_state == 2 begin game_state := 2 clear return end
+            end 
+            
+            _fps
+
+  again
+return
+
+: update_menu
+if menu_state == 255 then menu_state := 2
+if menu_state == 3 then menu_state := 0
+return
+
+: i-arrow
+0x1C 0x16 0xF3 0x81 0xF3 0x16 0x1C
+
+: i-arrow2
+0x38 0x68 0xCF 0x81 0xCF 0x68 0x38
+
+: i-battle
+0x7E 0x81 0x8D 0xBD 0x99 0xA9 0x81 0x7E 
+
+: i-shield
+0x7E 0x81 0xBD 0xA5 0xA5 0x99 0x81 0x7E 
+
+: i-magic
+0x7E 0x81 0x9D 0x95 0x8D 0xB1 0x81 0x7E 
+
+: i-lv
+0xC0 0x51 0x51 0x4A 0x75
+
+: i-heart
+0x66 0xDF 0xFF 0x7E 0x3C 0x18 
+
+: i-rank
+0x82 0xD6 0xFE 0x00 0xFE
+
+: i-vs
+0xDB 0xDC 0x57 0x51 0x26
+
+# Battle UI
+#---------------------------------------------------------------------
+: draw_battle_bg
+cpu_pick
+draw 1 1 i-heart 6
+drawnum 10 2 monster_life 5
+draw 50 1 i-heart 6
+drawnum 58 2 cpu_life 5
+draw 28 1 i-vs 5
+sprx := 4
+spry := 9
+draw-current-monster
+monster_top += monster_rank
+monster_bottom += monster_rank
+sprx := 52
+spry := 9
+draw-current-monster
+monster_top -= monster_rank
+monster_bottom -= monster_rank
+return
+
+: draw_battle_ui
+if menu_state == 0 begin draw 19 7 i-arrow 7  end
+if menu_state == 1 begin draw 19 15 i-arrow 7  end
+if menu_state == 2 begin draw 19 23 i-arrow 7  end
+draw 28 7 i-battle 8
+draw 28 15 i-shield 8
+draw 28 23 i-magic 8
+return
+
+: draw_cpu_choice
+if cpu_choice == 1 begin draw 37 7 i-arrow2 7  end
+if cpu_choice == 2 begin draw 37 15 i-arrow2 7  end
+if cpu_choice == 3 begin draw 37 23 i-arrow2 7  end
+return
+
+# Battle
+#---------------------------------------------------------------------
+: battle
+ pause 25
+if monster_life == 0 begin clear game_state := 9 return end
+if monster_life > 20 begin clear game_state := 9 return end
+if cpu_life > 20 begin clear monster_rank += 1 game_state := 5 return end
+if cpu_life == 0 begin clear monster_rank += 1 game_state := 5 return end
+draw_battle_ui
+draw_battle_bg
+draw_cpu_choice
+
+  loop
+_fps
+draw_cpu_choice
+cpu_pick
+draw_cpu_choice
+
+            current_key := OCTO_KEY_W if current_key key begin
+            menu_state += -1 update_menu clear return end
+            
+            current_key := OCTO_KEY_S if current_key key begin 
+            menu_state +=  1 update_menu clear return end # down
+
+            current_key := OCTO_KEY_E if current_key key begin
+            if menu_state == 0 begin game_state := 6 player_choice := menu_state wintieloselogic  end
+            if menu_state == 1 begin game_state := 6 player_choice := menu_state wintieloselogic  end
+            if menu_state == 2 begin game_state := 6 player_choice := menu_state wintieloselogic  end
+            clear return 
+            end 
+            
+            _fps
+
+  again
+
+
+clear
+return
+
+: cpu_pick
+vd := random 0xff #// Create Random Number 
+	if vd >= 0x0 then cpu_choice := 1		
+	if vd >= 0x56 then cpu_choice := 2 		
+	if vd >= 0xAB then cpu_choice := 3
+return
+# · Win Tie Or Lose Logic
+#------------------------------------------------------------------------------#
+: wintieloselogic
+_fps _fps _fps _fps _fps _fps
+	# Player Picks Rock
+	if player_choice == 0 begin
+		if cpu_choice == 1 begin
+		draw_tie
+		end
+		if cpu_choice == 2 begin
+		draw_lose
+		end	
+		if cpu_choice == 3 begin
+		draw_win
+		end
+	end
+	#Player Picks Paper
+	if player_choice == 1 begin
+		if cpu_choice == 2 begin
+		draw_tie
+		end
+		if cpu_choice == 3 begin
+		draw_lose
+		end	
+		if cpu_choice == 1 begin
+		draw_win
+		end
+	end
+	#Player Picks Sissors
+	if player_choice == 2 begin
+		if cpu_choice == 3 begin
+		draw_tie
+		end
+		if cpu_choice == 1 begin
+		draw_lose
+		end	
+		if cpu_choice == 2 begin
+		draw_win
+		end
+	end
+
+return
+
+# · Win Tie Or Lose Draw
+#------------------------------------------------------------------------------#
+: draw_tie
+ sprx := 1
+    spry := 27
+    i := let-T
+    sprite sprx spry 4   
+    sprx += 5
+    i := let-I
+    sprite sprx spry 4   
+    sprx += 5
+    i := let-E
+    sprite sprx spry 4 
+    pause 150
+loop
+
+current_key := OCTO_KEY_E if current_key key then return
+again
+
+
+
+: draw_lose
+ sprx := 1
+    spry := 27
+    i := let-L
+    sprite sprx spry 4   
+    sprx += 4
+    i := let-O
+    sprite sprx spry 4   
+    sprx += 5
+    i := let-S
+    sprite sprx spry 4  
+    sprx += 5
+    i := let-E
+    sprite sprx spry 4  
+drawnum 10 2 monster_life 5
+monster_life -= monster_rank
+if monster_life > 20 begin monster_life := 0 return end
+drawnum 10 2 monster_life 5
+pause 150
+loop
+
+current_key := OCTO_KEY_E if current_key key then return
+again
+
+
+
+
+: draw_win
+ sprx := 1
+    spry := 27
+    i := let-W
+    sprite sprx spry 4   
+    sprx += 6
+    i := let-I
+    sprite sprx spry 4   
+    sprx += 5
+    i := let-N
+    sprite sprx spry 4  
+drawnum 58 2 cpu_life 5
+cpu_life -= monster_level
+if cpu_life > 20 begin cpu_life := 0 return end
+drawnum 58 2 cpu_life 5
+pause 150
+loop
+current_key := OCTO_KEY_E if current_key key then return
+again
+
+
+
+# Train
+#---------------------------------------------------------------------
+: train
+    sprx := 16
+    spry := 1
+    i := let-T
+    sprite sprx spry 4
+    sprx += 5
+    i := let-R
+    sprite sprx spry 4   
+    sprx += 5
+    i := let-A
+    sprite sprx spry 4   
+    sprx += 6
+    i := let-I
+    sprite sprx spry 4   
+    sprx += 6
+    i := let-N
+    sprite sprx spry 4   
+    sprx += 5
+    i := let-G
+    sprite sprx spry 4   
+temp := 0
+    loop
+    temp += 1
+    while temp != 100
+    again
+    clear
+    monster_life += 255
+    monster_level += 1
+    game_state := 5
+return
+
+# End
+#---------------------------------------------------------------------
+: gend
+draw 3 8 l1 15
+draw 11 8 l2 15
+draw 19 8 l3 15
+
+ sprx := 29
+    spry := 4
+    i := let-G
+    sprite sprx spry 4
+    sprx += 5
+    i := let-O
+    sprite sprx spry 4   
+    sprx += 5
+    i := let-T
+    sprite sprx spry 4   
+    sprx += 8
+    i := let-T
+    sprite sprx spry 4   
+    sprx += 5
+    i := let-H
+    sprite sprx spry 4   
+    sprx += 5
+    i := let-E
+    sprite sprx spry 4  
+ sprx := 29
+spry := 9
+    i := let-L
+    sprite sprx spry 4
+    sprx += 4
+    i := let-I
+    sprite sprx spry 4   
+    sprx += 5
+    i := let-C
+    sprite sprx spry 4   
+    sprx += 5
+    i := let-E
+    sprite sprx spry 4   
+    sprx += 5
+    i := let-N
+    sprite sprx spry 4   
+    sprx += 5
+    i := let-S
+    sprite sprx spry 4   
+    sprx += 5
+    i := let-E
+    sprite sprx spry 4   
+ sprx := 29
+spry := 14
+    i := let-Y
+    sprite sprx spry 4
+    sprx += 5
+    i := let-O
+    sprite sprx spry 4   
+    sprx += 5
+    i := let-U
+    sprite sprx spry 4   
+    sprx += 8
+    i := let-A
+    sprite sprx spry 4   
+    sprx += 5
+    i := let-R
+    sprite sprx spry 4   
+    sprx += 5
+    i := let-E
+    sprite sprx spry 4   
+    sprx += 5
+ sprx := 29
+spry := 19
+    i := let-A
+    sprite sprx spry 4
+    sprx += 8
+    i := let-S
+    sprite sprx spry 4   
+    sprx += 5
+    i := let-U
+    sprite sprx spry 4   
+    sprx += 5
+    i := let-P
+    sprite sprx spry 4   
+    sprx += 5
+    i := let-E
+    sprite sprx spry 4   
+    sprx += 5
+    i := let-R
+    sprite sprx spry 4   
+    sprx += 5
+ sprx := 29 
+spry := 24
+    i := let-R
+    sprite sprx spry 4
+    sprx += 5
+    i := let-A
+    sprite sprx spry 4   
+    sprx += 5
+    i := let-N
+    sprite sprx spry 4   
+    sprx += 5
+    i := let-C
+    sprite sprx spry 4   
+    sprx += 5
+    i := let-H
+    sprite sprx spry 4   
+    sprx += 5
+    i := let-E
+    sprite sprx spry 4   
+    sprx += 5
+    i := let-R
+    sprite sprx spry 4  
+loop
+
+again
+return
+
+: l1
+0x7F 0x80 0xBF 0xA1 0xAD 0xAD 0xBF 0xBF 
+0x80 0x94 0x80 0xBA 0x80 0x80 0x7F 
+
+: l2
+0xFF 0x00 0x7E 0x7E 0x00 0x00 0x00 0x69 
+0x00 0x00 0xA4 0x00 0x4A 0x00 0xFF 
+
+: l3
+0xFE 0x01 0x31 0x71 0x31 0x39 0x31 0x01 
+0x75 0x01 0xAD 0x01 0x59 0x01 0xFE 
+
+
+# End
+#---------------------------------------------------------------------
+: dead_monster
+ pause 25
+menu_state := 0
+    draw-l-border
+    draw 24 8 cir-1 8
+    sprx += 8
+    i := cir-2
+    sprite sprx spry 8
+    draw 24 16 i-rip1 8
+    sprx += 8
+    i := i-rip2
+    sprite sprx spry 8
+    sprx := 25
+    spry := 14
+    i := let-R
+    sprite sprx spry 4
+    sprx += 5
+    i := let-I
+    sprite sprx spry 4   
+    sprx += 5
+    i := let-P
+    sprite sprx spry 4   
+
+    sprx := 14
+    spry := 25
+    i := let-P
+    sprite sprx spry 4
+    sprx += 5
+    i := let-R
+    sprite sprx spry 4   
+    sprx += 5
+    i := let-E
+    sprite sprx spry 4   
+    sprx += 5
+    i := let-S
+    sprite sprx spry 4   
+    sprx += 5
+    i := let-S
+    sprite sprx spry 4   
+    sprx += 10
+    i := let-E
+    sprite sprx spry 4   
+
+temp := 0
+    loop
+            current_key := OCTO_KEY_E if current_key key begin
+                monster_level := 1
+                game_state := 2
+                clear
+                return
+            end 
+    again
+
+return
+
+
+: i-rip1
+0x80 0x80 0x80 0x80 0x80 0x80 0xEA 0xB5 
+
+: i-rip2
+0x01 0x01 0x01 0x01 0x01 0x81 0xEF 0x35 
+
+
+# Draw Monster
+#---------------------------------------------------------------------	
+: draw-current-monster # I ran out of time. Panic code is always long.
+
+    if monster_top == 0 then i := top-01
+    if monster_top == 1 then i := top-02
+    if monster_top == 2 then i := top-03
+    if monster_top == 3 then i := top-04
+    if monster_top == 4 then i := top-05
+    if monster_top == 5 then i := top-06
+    if monster_top == 6 then i := top-07
+    if monster_top == 7 then i := top-08
+    if monster_top == 8 then i := top-01
+    if monster_top == 9 then i := top-02
+    if monster_top == 10 then i := top-03
+    if monster_top == 11 then i := top-04
+    if monster_top == 12 then i := top-05
+    if monster_top == 13 then i := top-06
+    if monster_top == 14 then i := top-07
+    if monster_top == 15 then i := top-08
+    if monster_top == 0 then i := top-01
+    if monster_top == 1 then i := top-02
+    if monster_top == 2 then i := top-03
+    if monster_top == 3 then i := top-04
+    if monster_top == 4 then i := top-05
+    if monster_top == 5 then i := top-06
+    if monster_top == 6 then i := top-07
+    if monster_top == 7 then i := top-08
+    if monster_top == 8 then i := top-01
+    if monster_top == 9 then i := top-02
+    if monster_top == 10 then i := top-03
+    if monster_top == 11 then i := top-04
+    if monster_top == 12 then i := top-05
+    if monster_top == 13 then i := top-06
+    if monster_top == 14 then i := top-07
+    if monster_top == 15 then i := top-08
+    if monster_top == 16 then i := top-01
+    if monster_top == 17 then i := top-02
+    if monster_top == 18 then i := top-03
+    if monster_top == 19 then i := top-04
+    if monster_top == 20 then i := top-05
+    if monster_top == 21 then i := top-06
+    if monster_top == 22 then i := top-07
+    if monster_top == 23 then i := top-08
+    if monster_top == 24 then i := top-01
+    if monster_top == 25 then i := top-02
+    if monster_top == 26 then i := top-03
+    if monster_top == 27 then i := top-04
+    if monster_top == 28 then i := top-05
+    if monster_top == 29 then i := top-06
+    if monster_top == 30 then i := top-07
+    if monster_top == 31 then i := top-08
+    if monster_top == 32 then i := top-04
+    if monster_top == 33 then i := top-05
+    if monster_top == 34 then i := top-06
+    if monster_top == 35 then i := top-07
+    if monster_top == 36 then i := top-08
+    if monster_top == 37 then i := top-03
+    if monster_top == 38 then i := top-04
+    if monster_top == 39 then i := top-05
+    if monster_top == 40 then i := top-06
+    if monster_top == 41 then i := top-07
+    if monster_top == 42 then i := top-08
+    if monster_top == 43 then i := top-04
+    if monster_top == 44 then i := top-05
+    if monster_top == 45 then i := top-06
+    if monster_top == 46 then i := top-07
+    if monster_top == 47 then i := top-08
+    if monster_top == 48 then i := top-01
+    if monster_top == 49 then i := top-02
+    if monster_top == 50 then i := top-03
+    sprite sprx spry 8
+
+    if monster_bottom == 0 then i := bottom-01
+    if monster_bottom == 1 then i := bottom-02
+    if monster_bottom == 2 then i := bottom-03
+    if monster_bottom == 3 then i := bottom-04
+    if monster_bottom == 4 then i := bottom-05
+    if monster_bottom == 5 then i := bottom-06
+    if monster_bottom == 6 then i := bottom-07
+    if monster_bottom == 7 then i := bottom-08
+    if monster_bottom == 8 then i := bottom-01
+    if monster_bottom == 9 then i := bottom-02
+    if monster_bottom == 10 then i := bottom-03
+    if monster_bottom == 11 then i := bottom-04
+    if monster_bottom == 12 then i := bottom-05
+    if monster_bottom == 13 then i := bottom-06
+    if monster_bottom == 14 then i := bottom-07
+    if monster_bottom == 15 then i := bottom-08
+    if monster_bottom == 16 then i := bottom-01
+    if monster_bottom == 17 then i := bottom-02
+    if monster_bottom == 18 then i := bottom-03
+    if monster_bottom == 19 then i := bottom-04
+    if monster_bottom == 20 then i := bottom-05
+    if monster_bottom == 21 then i := bottom-06
+    if monster_bottom == 22 then i := bottom-07
+    if monster_bottom == 23 then i := bottom-08
+    if monster_bottom == 24 then i := bottom-01
+    if monster_bottom == 25 then i := bottom-02
+    if monster_bottom == 26 then i := bottom-03
+    if monster_bottom == 27 then i := bottom-04
+    if monster_bottom == 28 then i := bottom-05
+    if monster_bottom == 29 then i := bottom-06
+    if monster_bottom == 30 then i := bottom-07
+    if monster_bottom == 31 then i := bottom-08
+    if monster_bottom == 32 then i := bottom-03
+    if monster_bottom == 33 then i := bottom-04
+    if monster_bottom == 34 then i := bottom-05
+    if monster_bottom == 35 then i := bottom-06
+    if monster_bottom == 36 then i := bottom-07
+    if monster_bottom == 37 then i := bottom-08
+    if monster_bottom == 38 then i := bottom-01
+    if monster_bottom == 39 then i := bottom-02
+    if monster_bottom == 40 then i := bottom-03
+    if monster_bottom == 41 then i := bottom-04
+    if monster_bottom == 42 then i := bottom-05
+    if monster_bottom == 43 then i := bottom-06
+    if monster_bottom == 44 then i := bottom-07
+    if monster_bottom == 45 then i := bottom-08
+    if monster_bottom == 46 then i := bottom-01
+    if monster_bottom == 47 then i := bottom-04
+    if monster_bottom == 48 then i := bottom-05
+    if monster_bottom == 49 then i := bottom-06
+    if monster_bottom == 50 then i := bottom-07
+
+    spry += 8
+    sprite sprx spry 8
+return
+
+# Image Resources - Monster
+#---------------------------------------------------------------------	
+: top-01
+0x3C 0x42 0x42 0xA5 0xBD 0xA5 0xA5 0xFF 
+: top-02
+0x3C 0x42 0xA5 0x81 0xA5 0x99 0x42 0x3C 
+: top-03
+0x7E 0x81 0xBD 0xC3 0x99 0xC3 0xBD 0x81 
+: top-04
+0x66 0x99 0x99 0x99 0xA5 0xA5 0x81 0x99 
+: top-05
+0x7E 0xFF 0xDB 0xFF 0xBD 0x81 0xC3 0x7E 
+: top-06
+0x66 0x99 0xBD 0xA5 0x42 0xA5 0x81 0xC3 
+: top-07
+0xFF 0x95 0xFF 0x81 0x99 0x81 0xA5 0x81 
+: top-08
+0x7E 0xE7 0xC3 0xE7 0xA5 0xC3 0xFF 0x7E 
+
+: bottom-01
+0x5A 0xE7 0x7E 0x81 0xFF 0x5A 0x24 0x18 
+: bottom-02
+0x7E 0xBD 0x42 0xFF 0x7E 0xBD 0x42 0x3C 
+: bottom-03
+0x7E 0x91 0x9D 0xD3 0xB5 0xA5 0x99 0x7E 
+: bottom-04
+0x7E 0xE7 0xC3 0xC3 0x66 0xFF 0x99 0x66 
+: bottom-05
+0x7E 0x3C 0x38 0x38 0x38 0x1C 0x1C 0x0E 
+: bottom-06
+0xFF 0x8B 0x8B 0xFF 0x56 0x56 0x56 0x7E 
+: bottom-07
+0x7E 0x24 0x24 0x24 0x24 0x24 0x24 0x18 
+: bottom-08
+0x66 0x46 0x6C 0x3C 0x76 0x63 0x67 0x3E 
+
+# Image Resources - Title
+#---------------------------------------------------------------------	
+: letter-o
+0x38 0x7C 0xCC 0xCC 0xCC 0xFC 0x78 
+: letter-c
+0x38 0x7C 0xCC 0xC0 0xC0 0xFC 0x78
+: letter-t
+0xFC 0xFC 0x30 0x30 0x30 0x30 0x30
+: letter-r
+0xF8 0xFC 0xCC 0xF8 0xF0 0xD8 0xCC 
+: letter-a
+0x70 0xF8 0xCC 0xFC 0xCC 0xCC 0xCC
+: letter-n
+0x46 0xE6 0xF6 0xFE 0xDE 0xCE 0xC4
+: letter-h
+0xCC 0xCC 0xCC 0xFC 0xCC 0xCC 0xCC
+: letter-e
+0x38 0x7C 0xC0 0xF8 0xC0 0xFC 0x78
+
+: leaf-a
+0x01 0x01 0x00 0x03 
+: leaf-b
+0x07 0x39 0xC1 0x01 0x12 0xE2 0xC4 0x38 
+
+: mdisk-a
+0xAB 0xAB 0xAD 0x56 0x56 0x53 0x2B 0x29 
+0x14 0x0B 0x04 0x03 
+
+: mdisk-b
+0x07 0x8F 0xDC 0xF8 0x70 0x30 0xFA 0xDE 
+0xCE 0x0C 0xE0 0x1F 0xE0 0x1F
+
+: mdisk-c
+0xE1 0xF3 0x3F 0x1E 0x3B 0x73 0xE7 0xDE 
+0x38 0xE3 0x1C 0xE3 0x1C 0xE0
+
+: mdisk-d
+0xD4 0xD4 0x14 0x28 0xA8 0xA8 0x50 0x50 
+0xA0 0x40 0x80 
+
+: dot
+0x01
+
+: cir-1
+0x07 0x18 0x20 0x40 0x40 0x80 0x80 0x80 
+
+: cir-2
+0xE0 0x18 0x04 0x02 0x02 0x01 0x01 0x01 
+
+: cir-3
+0x80 0x80 0x80 0x40 0x40 0x20 0x18 0x07 
+
+: cir-4
+0x01 0x01 0x01 0x02 0x02 0x04 0x18 0xE0 
+
+: bor-1
+0x7E 0x81 0xBD 0xA5 0xB5 0x85 0xBD 0x81 
+
+# Image Resources - Letters
+#---------------------------------------------------------------------	
+: let-A   0xF0 0xB0 0xF0 0xB0
+: let-D   0xE0 0xB0 0xB0 0xE0
+: let-C   0x70 0xC0 0xC0 0x70
+: let-E   0xF0 0xE0 0xC0 0xF0
+: let-F   0xF0 0xE0 0xC0 0xC0
+: let-G   0xF0 0xC0 0xD0 0xF0
+: let-H   0xB0 0xF0 0xB0 0xB0
+: let-I   0xF0 0x60 0x60 0xF0 
+: let-L   0xC0 0xC0 0xC0 0xE0
+: let-M   0xD8 0xE8 0xC8 0x48 
+: let-N   0xE0 0xF0 0xD0 0xD0
+: let-O   0x60 0xB0 0xB0 0x60 
+: let-P   0xF0 0xB0 0xF0 0x80
+: let-R   0xF0 0xF0 0xA0 0x90
+: let-S   0x70 0xE0 0x30 0xE0 
+: let-T   0xF0 0x60 0x60 0x60
+: let-U   0xD0 0xD0 0xD0 0xF0 
+: let-V   0xB0 0xB0 0xB0 0x60
+: let-W   0x48 0xC8 0xE8 0xD8
+: let-Y   0xB0 0xF0 0x30 0xF0
+
+# Image Resources - Letters
+#---------------------------------------------------------------------	
+: word_summon
+    sprx := 16
+    spry := 1
+    i := let-S
+    sprite sprx spry 4
+    sprx += 5
+    i := let-U
+    sprite sprx spry 4   
+    sprx += 5
+    i := let-M
+    sprite sprx spry 4   
+    sprx += 6
+    i := let-M
+    sprite sprx spry 4   
+    sprx += 6
+    i := let-O
+    sprite sprx spry 4   
+    sprx += 5
+    i := let-N
+    sprite sprx spry 4   
+return
+
+: word_summoned
+    sprx := 11
+    spry := 1
+    i := let-S
+    sprite sprx spry 4
+    sprx += 5
+    i := let-U
+    sprite sprx spry 4   
+    sprx += 5
+    i := let-M
+    sprite sprx spry 4   
+    sprx += 6
+    i := let-M
+    sprite sprx spry 4   
+    sprx += 6
+    i := let-O
+    sprite sprx spry 4   
+    sprx += 5
+    i := let-N
+    sprite sprx spry 4   
+    sprx += 5
+    i := let-E
+    sprite sprx spry 4   
+    sprx += 5
+    i := let-D
+    sprite sprx spry 4   
+return
+: word_monster
+    sprx := 14
+    spry := 27
+    i := let-M
+    sprite sprx spry 4   
+    sprx += 6
+    i := let-O
+    sprite sprx spry 4   
+    sprx += 5
+    i := let-N
+    sprite sprx spry 4  
+    sprx += 5
+    i := let-S
+    sprite sprx spry 4
+    sprx += 5
+    i := let-T
+    sprite sprx spry 4
+    sprx += 5
+    i := let-E
+    sprite sprx spry 4
+    sprx += 5
+    i := let-R
+    sprite sprx spry 4
+return
+
+: word_reading
+    sprx := 16
+    spry := 1
+    i := let-R
+    sprite sprx spry 4
+    sprx += 5
+    i := let-E
+    sprite sprx spry 4  
+    sprx += 5
+    i := let-A
+    sprite sprx spry 4  
+    sprx += 5
+    i := let-D
+    sprite sprx spry 4  
+    sprx += 5
+    i := let-I
+    sprite sprx spry 4  
+    sprx += 5
+    i := let-N
+    sprite sprx spry 4  
+    sprx += 5
+    i := let-G
+    sprite sprx spry 4  
+return
+
+: draw-l-border
+    sprx := 1
+    spry := 4
+    i := bor-1
+    sprite sprx spry 8
+    spry += 8
+    sprite sprx spry 8
+    spry += 8
+    sprite sprx spry 8
+    spry += 8
+    sprite sprx spry 8
+    sprx := 55
+    spry := 4
+    i := bor-1
+    sprite sprx spry 8
+    spry += 8
+    sprite sprx spry 8
+    spry += 8
+    sprite sprx spry 8
+    spry += 8
+    sprite sprx spry 8
+return
+
+: word_battle
+    sprx := 1
+    spry := 27
+    i := let-F
+    sprite sprx spry 4    
+    sprx += 5
+    i := let-I
+    sprite sprx spry 4  
+    sprx += 5
+    i := let-G
+    sprite sprx spry 4
+    sprx += 5
+    i := let-H
+    sprite sprx spry 4
+    sprx += 5
+    i := let-T
+    sprite sprx spry 4
+return
+
+: word_train
+    sprx := 1
+    spry := 27
+    i := let-T
+    sprite sprx spry 4    
+    sprx += 5
+    i := let-R
+    sprite sprx spry 4  
+    sprx += 5
+    i := let-A
+    sprite sprx spry 4
+    sprx += 5
+    i := let-I
+    sprite sprx spry 4
+    sprx += 5
+    i := let-N
+    sprite sprx spry 4
+return
+
+: word_summon-b
+    sprx := 1
+    spry := 27
+    i := let-S
+    sprite sprx spry 4
+    sprx += 5
+    i := let-U
+    sprite sprx spry 4   
+    sprx += 5
+    i := let-M
+    sprite sprx spry 4   
+    sprx += 6
+    i := let-M
+    sprite sprx spry 4   
+    sprx += 6
+    i := let-O
+    sprite sprx spry 4   
+    sprx += 5
+    i := let-N
+    sprite sprx spry 4   
+return
