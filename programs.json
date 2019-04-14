@@ -242,7 +242,7 @@
 		}
 	},
 	"sweetcopter": {
-		"title":    "Sweet Copter",
+		"title":    "Sw8 Copter",
 		"authors":  ["JohnEarnest"],
 		"images":   ["sweetcopter.gif"],
 		"desc":     "An adaptation of \"Swing Copters\" for the Super Chip8.",
@@ -271,6 +271,55 @@
 			"backgroundColor":"#FFFFFF",
 			"fillColor":"#000000",
 			"buzzColor":"#666666",
+			"quietColor":"#000000"
+		}
+	},
+	"gradsim": {
+		"title":    "Grad School Simulator 2014",
+		"authors":  ["JohnEarnest"],
+		"images":   ["gradsim.gif"],
+		"desc":     "Welcome to the sunless depths of my ennui.",
+		"release":  "2014-09-15",
+		"platform": "schip",
+		"options":  {
+			"tickrate":"20",
+			"backgroundColor":"gray",
+			"fillColor":"black",
+			"buzzColor":"#FFAA00",
+			"quietColor":"#000000",
+			"shiftQuirks":false,
+			"loadStoreQuirks":false
+		}
+	},
+	"mondrian": {
+		"title":    "Mondri8",
+		"authors":  ["JohnEarnest"],
+		"images":   ["mondrian.gif"],
+		"desc":     "Draw random compositions in the style of Piet Mondrian.",
+		"release":  "2014-09-25",
+		"platform": "schip",
+		"options":  {
+			"tickrate":"100",
+			"backgroundColor":"#996600",
+			"fillColor":"#FFCC00",
+			"buzzColor":"#FFAA00",
+			"quietColor":"#000000",
+			"shiftQuirks":false,
+			"loadStoreQuirks":false
+		}
+	},
+	"outlaw": {
+		"title":    "Outlaw",
+		"authors":  ["JohnEarnest"],
+		"images":   ["outlaw.gif"],
+		"desc":     "An adaptation of the Atari 2600 game \"Outlaw\" for the Chip8.",
+		"release":  "2014-07-17",
+		"platform": "chip8",
+		"options":  {
+			"tickrate":"15",
+			"backgroundColor":"#664400",
+			"fillColor":"#AA4400",
+			"buzzColor":"coral",
 			"quietColor":"#000000"
 		}
 	}
