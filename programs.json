@@ -323,6 +323,25 @@
 			"quietColor":"#000000"
 		}
 	},
+	"RPS": {
+		"title":    "RPS",
+		"authors":  ["SystemLogoff"],
+		"images":   ["rps_oj1.gif"],
+		"desc":     "Classic \"Rock Paper Scissors\" game for the Chip8.",
+		"release":  "2015-10-25",
+		"platform": "chip8",
+		"event":"Octojam1",
+		"options":  { 
+			"tickrate":"7",
+			"backgroundColor":"#AA9999",
+			"fillColor":"#220000",
+			"buzzColor":"FFAA00",
+			"quietColor":"#000000",
+			"shiftQuirks":false,
+			"loadStoreQuirks":false,
+			"vfOrderQuirks":false
+    }
+  },
 	"tank": {
 		"title":    "Tank!",
 		"authors":  ["Rectus"],
