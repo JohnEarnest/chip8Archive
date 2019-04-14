@@ -323,7 +323,7 @@
 			"quietColor":"#000000"
 		}
 	},
-	"outlaw": {
+	"RPS": {
 		"title":    "RPS",
 		"authors":  ["SystemLogoff"],
 		"images":   ["rps_oj1.gif"],
@@ -331,6 +331,7 @@
 		"release":  "2014-07-17",
 		"platform": "chip8",
 		"options":  { 
+			"event":"Octojam1",
 			"tickrate":"7",
 			"backgroundColor":"#AA9999",
 			"fillColor":"#220000",
