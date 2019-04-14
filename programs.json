@@ -340,6 +340,18 @@
 			"shiftQuirks":false,
 			"loadStoreQuirks":false,
 			"vfOrderQuirks":false
+    }
+  },
+	"tank": {
+		"title":    "Tank!",
+		"authors":  ["Rectus"],
+		"images":   ["tank.gif"],
+		"desc":     "A two player artillery game.",
+		"event":	"Octojam5",
+		"release":  "2018-10-31",
+		"platform": "chip8",
+		"options":  {
+			"tickrate":"200"
 		}
 	}
 }

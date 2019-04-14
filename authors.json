@@ -10,5 +10,9 @@
 	"SystemLogoff": {
 		"email": "systemlogoffsa@gmail.com",
 		"url":   "https://systemlogoff.com"
+  },
+	"Rectus": {
+		"email": "rectus.sa@gmail.com",
+		"url":   "https://github.com/Rectus/"
 	}
 }
