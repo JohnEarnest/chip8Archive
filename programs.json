@@ -328,7 +328,7 @@
 		"authors":  ["SystemLogoff"],
 		"images":   ["rps_oj1.gif"],
 		"desc":     "Classic \"Rock Paper Scissors\" game for the Chip8.",
-		"release":  "2014-07-17",
+		"release":  "2015-10-25",
 		"platform": "chip8",
 		"options":  { 
 			"event":"Octojam1",
