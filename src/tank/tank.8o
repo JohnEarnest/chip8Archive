@@ -1,0 +1,870 @@
+
+: pixel 0x80
+: marker 0xA0 0x40
+
+: tank_l 0x01 0x1A 0x24 0x7E 0x81 0x7E 
+: tank_r 0x80 0x58 0x24 0x7E 0x81 0x7E
+
+: explosion1 0x00 0x00 0x28 0x5C 0x3A 0x14 0x00 0x00 
+: explosion2 0x82 0x55 0x0A 0x14 0x28 0x50 0xAA 0x41 
+: explosion3 0x82 0x55 0x22 0x48 0x12 0x44 0xAA 0x41
+
+: splash_tank 
+	0x00 0x30 0x5C 0x3F 0x0F 0x01 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x01 0x02
+	0x00 0x00 0x00 0x00 0xC0 0xF7 0x7E 0x1F 0x13 0x10 0x08 0x17 0x60 0x80 0x30 
+	0x60 0x1F 0x07 0x05 0x04 0xFB 0x04 0x92 0xC2 0x82 0x05 0xFA 0x02 0x01 0x00
+	0x00 0x00 0x82 0x82 0x02 0x04 0xE4 0x18 0x04 0x02 0x02 0xE4 0x1C 0x02 0xF9
+	
+	0x02 0x1C 0x3F 0x48 0x85 0xFA 0x8A 0x45 0x75 0x44 0x3A 0x23 0x1D 0x11 0x0E 
+	0xC8 0x28 0xFF 0x00 0xFC 0x02 0xFA 0x01 0x01 0x81 0x80 0x00 0x00 0xA8 0xC0 
+	0x01 0x1E 0xBF 0x44 0x88 0xFA 0x88 0x44 0x76 0x45 0xFA 0x22 0x3D 0x11 0x0E 
+	0x07 0x01 0x80 0x70 0x4E 0x25 0x25 0x22 0x40 0xA2 0x15 0x95 0x12 0x2F 0xF0 
+	0x00 0x80 0x60 0x10 0x08 0xC8 0x38 0x14 0x0C 0xA4 0x54 0x58 0xF0 0x00 0x00 
+	
+: splash_text
+	0xFC 0xFC 0x30 0x30 0x30 0x30 0x30
+	0x30 0x30 0x78 0x48 0xEC 0xCC 0x84
+	0xCC 0xCC 0xEC 0xFC 0xDC 0xCC 0xCC
+	0xD8 0xF0 0xE0 0xE0 0xF0 0xD8 0xD8
+	0xC0 0xC0 0xC0 0xC0 0x00 0xC0 0xC0
+	
+
+
+: digits_power 0 0 0
+: digits_angle 0 0 0
+: digits_score 0 0 0
+
+#				posX 	posY 	score 	angle 	power
+: player1_data 	7 		29 		0 		45 		40
+: player2_data 	56		29 		0 		135		40
+
+: turn 1
+
+: terrain 0x00 0x00 0x00
+
+
+# fixed point fractional sine lookup table using steps  of 90 / 4 degrees
+: sin_table
+	0
+	18
+	36
+	54
+	72
+	89
+	106
+	123
+	138
+	153
+	168
+	181
+	193
+	205
+	215
+	225
+	233
+	240
+	246
+	250
+	253
+	255
+	255
+
+	
+
+:const GRAVITY_FRAC 0b10000000
+:const KEY_REPEAT_INTERVAL 3
+:const HITBOX_X 3
+:const HITBOX_Y 2
+
+:const COLLISION_MISS 0
+:const COLLISION_P1 1
+:const COLLISION_P2 2
+:const COLLISION_WORLD 3
+
+:alias vel_x v8
+:alias vel_y v9
+
+:alias pos_x vc
+:alias pos_y vd
+
+:alias frac_x v6
+:alias frac_y v7
+:alias frac_grav vb
+
+:alias power v6
+:alias angle v7
+
+:alias hit v4
+
+:alias offset_x v4
+:alias offset_y v5
+
+:alias scale_y v5
+:alias scale_x v6
+
+
+:macro add_to_var ADDR VAL {
+	i := ADDR
+	load v0
+	v0 += VAL
+	i := ADDR
+	save v0
+}
+
+
+:macro sleep TIME {
+	v0 := TIME
+	delay := v0
+	
+	loop
+		v0 := delay
+		if v0 != 0 then
+	again
+}
+
+
+# add/subtract a two's complement fractional value to/from a positive fixed point value stored in two registers
+:macro twos_add_frac OUT_INT OUT_FRAC IN_SIGNED MUL INT_CHANGED {
+	v0 <<= IN_SIGNED 			# shift to move the sign bit out
+	if vf != 0 begin 			# if negative input
+		v1 := 0xFF
+		v0 ^= v1				# invert to get the input magnitude
+		OUT_FRAC -= v0			# add the input to the fraction
+		if vf == 0 begin		# if we underflowed
+			v0 := MUL
+			OUT_INT -= v0		# decrement the integer part if underflowed
+			INT_CHANGED := 1	# indicate that the integer part rolled over
+		end
+	else						# if positive input
+		OUT_FRAC += v0	
+		if vf == 1 begin		# vf bit is 1 if overflowed, 0 otherwise
+			OUT_INT += MUL		# increment the integer part if owerflowed
+			INT_CHANGED := 1
+		end
+	end
+}
+
+# converts angle and magnitude to 2D vector components. only supports angles 0 > 180 degrees.
+:macro angle_to_vec2d VEC_X VEC_Y ANG MAGN {
+	
+	VEC_X := 0
+	VEC_Y := 0
+	
+	if ANG > 90 begin #normalize the angle to between 0 and 90 degrees
+		v0 := 180
+		ANG =- v0
+		v1 := 1
+	else
+		v1 := 0
+	end
+	
+	v0 >>= ANG #use the 6 most significant bits to index into the sine table
+	v0 >>= v0
+	i := sin_table
+	i += v0
+	load v0
+	
+	v2 := 0
+	v3 := MAGN
+	loop
+		v2 += v0 # mutiply by the magnitude by repeated adding of the sine
+		VEC_Y += vf
+		v3 += -1
+		while v3 != 0
+	again
+	
+	v0 >>= ANG
+	v0 >>= v0
+	i := sin_table
+	v2 := 22
+	v2 -= v0 # index into the sine table backward to get the cosine
+	i += v2
+	load v0
+	
+	v2 := 0
+	v3 := MAGN
+	loop
+		v2 += v0
+		VEC_X += vf
+		v3 += -1
+		while v3 != 0
+	again
+	
+	if v1 == 1 begin # flip the x component if the angle was larger than 90 degrees
+		v0 := VEC_X
+		VEC_X := 0
+		VEC_X -= v0
+	end
+
+}
+
+# converts angle, angle multiplier and magnitude to a sine wave. wraps around at 180 degrees.
+:macro sine OUT ANG ANG_MUL MAGN {
+		
+	v1 := ANG
+	v3 := ANG_MUL
+	v2 := 0
+	OUT := 0
+	
+	# multiply the angle with the angle multiplier
+	loop
+		while v3 != 0
+		v2 += v1
+		if vf == 1 then v2 += 76 # normalize angle on overflow
+		
+		v3 += -1
+		
+		loop
+			while  v2 >= 180 
+			v0 := 180
+			v2 -= v0
+		again
+	again
+	
+	
+	#normalize the angle to between 0 and 90 degrees
+	if v2 > 90 begin 
+		v0 := 180
+		v2 =- v0
+	end
+	
+	v0 >>= v2 #use the 6 most significant bits to index into the sine table
+	v0 >>= v0
+	i := sin_table
+	i += v0
+	load v0
+	
+	v2 := 0
+	v3 := MAGN
+	loop
+		v2 += v0 # mutiply by the magnitude by repeated adding of the sine
+		OUT += vf
+		v3 += -1
+		while v3 != 0
+	again
+}
+
+
+:macro player_setup CENTER PLAYER_DATA PLAYER_SPRITE SPRITE_HEIGHT {
+	pos_x := random 8
+	pos_x += -4
+	pos_x += CENTER
+	v2 := pos_x
+	v2 += offset_x
+	sine pos_y v2 scale_x scale_y # calculate terrain height at the tank center
+	v0 := 29
+	v0 -= scale_y
+	pos_y += v0
+	v0 := pos_x
+	v1 := pos_y
+	
+	i := PLAYER_DATA
+	save v1
+	pos_x += -4
+	pos_y += 2
+	
+	# flatten the ground around the tank
+	v8 := pos_x
+	v8 += offset_x
+	v9 := 0
+	i := pixel
+	loop # loop horizontally
+		sine v7 v8 scale_x scale_y
+		v0 := 32
+		v0 -= scale_y
+		v7 += v0
+		v1 := pos_x
+		v1 += v9
+		loop # loop vertically from the surface to the bottom of the tank
+			while v7 <= pos_y
+			i := pixel
+			sprite v1 v7 1
+			v7 += 1
+		again
+		v8 += 1
+		v9 += 1
+		if v9 < 8 then
+	again
+	
+	pos_y += -5
+	i := PLAYER_SPRITE
+	sprite pos_x pos_y SPRITE_HEIGHT
+}
+
+
+: main
+
+	draw_splash
+
+	loop
+		clear
+	
+		draw_ground
+		
+		# setup player 1
+		player_setup 8 player1_data tank_l 6
+		
+		# setup player 2
+		player_setup 55 player2_data tank_r 6
+		
+		v0 := random 1
+		i := turn
+		save v0
+		
+		loop
+			
+			aim	
+			fire
+			draw_explosion
+					
+			sleep 100
+			
+			while hit == COLLISION_WORLD
+		
+			add_to_var turn 1	# also sets v0 to the turn value
+		again		
+		
+		if hit == COLLISION_P2 begin
+			:calc P_SCORE { player1_data + 2 }
+			add_to_var P_SCORE 1
+		else
+			:calc P_SCORE { player2_data + 2 }
+			add_to_var P_SCORE 1
+		end
+		
+		display_scores
+		
+	again
+;
+
+
+: draw_splash
+
+	pos_x := 25
+	pos_y := 1
+	offset_y := 15
+	
+	# draw top of tank
+	i := splash_tank
+	v0 := 4
+	loop
+		sprite pos_x pos_y 15
+		pos_x += 8
+		i += offset_y
+		v0 += -1
+		if v0 != 0 then
+	again
+	
+	pos_x := 25
+	pos_y := 16
+	
+	# draw bottom of tank
+	v0 := 5
+	loop
+		sprite pos_x pos_y 15
+		pos_x += 8
+		i += offset_y
+		v0 += -1
+		if v0 != 0 then
+	again
+
+	sleep 30
+	
+	pos_x := 1
+	pos_y := 4
+	offset_y := 7
+	
+	# draw text
+	i := splash_text
+	v0 := 2
+	loop
+		sprite pos_x pos_y 7
+		pos_x += 7
+		i += offset_y
+		v0 += -1
+		if v0 != 0 then
+	again
+	
+	pos_x := 5
+	pos_y := 13
+	
+	sleep 50
+	
+	v0 := 2
+	loop
+		sprite pos_x pos_y 7
+		pos_x += 8
+		i += offset_y
+		v0 += -1
+		if v0 != 0 then
+	again
+	
+	sleep 50
+	v0 := 10
+	buzzer := v0
+	sprite pos_x pos_y 7
+
+	sleep 200
+;
+
+
+: draw_ground
+
+	pos_x := 0
+	offset_x := random 180
+	scale_y := random 10
+	scale_y += 6
+	scale_x := random 4
+	scale_x += 1
+	loop
+		v8 := pos_x
+		v8 += offset_x
+		sine pos_y v8 scale_x scale_y
+	
+		v0 := 32
+		v0 -= scale_y
+		pos_y += v0
+		i := pixel
+		
+		# fill vertical slice to the bottom of the screen
+		loop
+			sprite pos_x pos_y 1
+			pos_y += 1
+		
+		while pos_y < 32
+		again
+	
+		#twos_add_frac pos_x frac_x v0 -1 ve
+		
+		pos_x += 1
+	while pos_x < 64
+	again
+	
+	# save parameters for collision detection
+	i := terrain
+	v0 := offset_x
+	v1 := scale_x
+	v2 := scale_y
+	save v2
+;
+
+
+: draw_explosion
+
+	i := explosion1
+	pos_x += -4
+	pos_y += -5
+	sprite pos_x pos_y 8
+
+	sleep 5
+		
+	if hit == COLLISION_WORLD begin # undraw the small explosion on a miss
+		i := explosion1
+		sprite pos_x pos_y 8
+		
+	else # trigger the buzzer and draw a large explosion on a hit
+		v0 := 10
+		buzzer := v0
+		i := explosion2
+		sprite pos_x pos_y 8
+		
+		sleep 5
+		
+		i := explosion3
+		sprite pos_x pos_y 8
+	end
+;
+
+: display_scores
+	
+	clear
+	
+	pos_x := 12
+	pos_y := 6
+	
+	:calc P_SCORE { player1_data + 2 }
+	i := P_SCORE
+	load v0
+	v3 := v0
+	
+	i := digits_score
+	bcd v3
+	i := digits_score
+	load v2
+	
+	i := hex v0
+	sprite pos_x pos_y 5
+	pos_x += 5
+	
+	i := hex v1
+	sprite pos_x pos_y 5
+	pos_x += 5
+	
+	i := hex v2
+	sprite pos_x pos_y 5	
+	pos_x += 16
+	
+	:calc P_SCORE { player2_data + 2 }
+	i := P_SCORE
+	load v0
+	v3 := v0
+	
+	i := digits_score
+	bcd v3
+	i := digits_score
+	load v2
+	
+	i := hex v0
+	sprite pos_x pos_y 5
+	pos_x += 5
+	
+	i := hex v1
+	sprite pos_x pos_y 5
+	pos_x += 5
+	
+	i := hex v2
+	sprite pos_x pos_y 5
+	
+	pos_x := 14
+	pos_y := 18
+	
+	i := tank_l
+	sprite pos_x pos_y 6
+	
+	pos_x := 41
+	i := tank_r
+	sprite pos_x pos_y 6
+		
+	sleep 200
+	
+;
+
+
+: aim
+	# load in player position
+	v1 := 0x01
+	v0 &= v1
+	i := player1_data
+	if v0 == 0 then	i := player2_data	
+	load v4
+	angle := v3
+	power := v4
+	
+	# draw active player marker
+	i := marker
+	v0 += -1
+	v1 += -8
+	sprite v0 v1 2
+
+	
+	
+	clear_print	# draw whatever numbers are stored in the digit buffers just so that print_aim can clear them out
+
+	loop	
+		v0 := OCTO_KEY_W
+		if v0 key then power += 1
+		v0 := OCTO_KEY_S
+		if v0 key then power += -1
+		v0 := OCTO_KEY_A
+		if v0 key then angle += 1
+		v0 := OCTO_KEY_D
+		if v0 key then angle += -1	
+		
+		if angle == 181 then angle := 0
+		if angle == 255 then angle := 180
+		
+		if power == 101 then power := 1
+		if power == 0 then power := 100
+		
+		v0 := OCTO_KEY_F
+		while v0 -key
+		
+		
+		# delay to limit key repeat
+		loop
+			v0 := delay
+			if v0 != 0 then
+		again
+			
+		print_aim # redraw numbers just after a frame to minimize flicker
+		
+		v0 := KEY_REPEAT_INTERVAL
+		delay := v0
+	again
+	
+	clear_print
+	
+	# store the players aim settings
+	i := turn
+	load v0
+	v1 := 0x01
+	v0 &= v1
+	va := v0
+	i := player1_data
+	if v0 == 0 then	i := player2_data
+	v0 := 3
+	i += v0
+	v0 := angle
+	v1 := power
+	save v1
+	
+	angle_to_vec2d vel_x vel_y angle power
+	
+	if va == 1 begin
+		i := player1_data
+		offset_x := 4
+		offset_y := -4
+	else
+		i := player2_data
+		offset_x := -5
+		offset_y := -4
+	end
+		
+	load v1
+	pos_x := v0
+	pos_y := v1
+	pos_x += offset_x
+	pos_y += offset_y
+	
+	# undraw active player marker
+	i := marker
+	v0 += -1
+	v1 += -8
+	sprite v0 v1 2
+	
+;
+
+# draws the digits currently stored in the digit buffers to clear them from the screen
+: clear_print
+	
+	pos_x := 15
+	pos_y := 1
+	
+	i := digits_angle
+	load v2
+	
+	i := hex v0
+	sprite pos_x pos_y 5
+	pos_x += 5
+	
+	i := hex v1
+	sprite pos_x pos_y 5
+	pos_x += 5
+	
+	i := hex v2
+	sprite pos_x pos_y 5
+	pos_x += 10	
+	
+	i := digits_power
+	load v2
+	
+	i := hex v0
+	sprite pos_x pos_y 5
+	pos_x += 5
+	
+	i := hex v1
+	sprite pos_x pos_y 5
+	pos_x += 5
+	
+	i := hex v2
+	sprite pos_x pos_y 5
+
+;
+
+# redraws the angle and power values onto the screen
+: print_aim
+
+	pos_x := 15
+	pos_y := 1
+
+	# load in the previous digits in order to undraw them
+	i := digits_angle
+	load v2
+	v3 := v0
+	v4 := v1
+	v5 := v2
+	
+	# decode digits and load them from memory
+	i := digits_angle
+	bcd angle
+	i := digits_angle
+	load v2
+	
+	i := hex v3
+	sprite pos_x pos_y 5
+	i := hex v0
+	sprite pos_x pos_y 5
+	pos_x += 5
+	
+	i := hex v4
+	sprite pos_x pos_y 5
+	i := hex v1
+	sprite pos_x pos_y 5
+	pos_x += 5
+	
+	i := hex v5
+	sprite pos_x pos_y 5
+	i := hex v2
+	sprite pos_x pos_y 5	
+	pos_x += 10
+	
+	# redo everything for the power value
+	
+	i := digits_power
+	load v2
+	v3 := v0
+	v4 := v1
+	v5 := v2
+	
+	i := digits_power
+	bcd power
+	i := digits_power
+	load v2
+	
+	i := hex v3
+	sprite pos_x pos_y 5
+	i := hex v0
+	sprite pos_x pos_y 5
+	pos_x += 5
+	
+	i := hex v4
+	sprite pos_x pos_y 5
+	i := hex v1
+	sprite pos_x pos_y 5
+	pos_x += 5
+	
+	i := hex v5
+	sprite pos_x pos_y 5
+	i := hex v2
+	sprite pos_x pos_y 5
+;
+
+
+: fire
+	
+	frac_x := 0
+	frac_y := 0
+	frac_grav := 0
+	
+	loop		
+		v5 := 0 # non zero if the trajectory needs to be drawn
+
+		# two's complement is used on the velocity components to store negative values
+		twos_add_frac pos_x frac_x vel_x 1 v5
+		twos_add_frac pos_y frac_y vel_y -1 v5
+		
+		# horizontal screen wrap
+		if pos_x == 255 then pos_x := 63
+		if pos_x == 64 then pos_x := 0
+		
+		if pos_y >= 32 then v5 := 0 #only draw on the on-screen range
+		
+		# don't draw on numbers area
+		if pos_y < 7 begin
+			if pos_x >= 14 begin
+				if pos_x < 50 begin
+				
+					if pos_x > 33 then v5 := 0
+					if pos_x < 30 then v5 := 0
+				end
+			end
+		end
+
+		vf := 0
+		# draw trail
+		if v5 != 0 begin
+			i := pixel
+			sprite pos_x pos_y 1
+		end
+			
+		check_collision		
+		while hit == COLLISION_MISS
+		
+		v0 := GRAVITY_FRAC
+		frac_grav += v0 # apply fractrional gravity
+		if vf != 0 then
+			vel_y += -1 # apply gravity on overflow
+		
+		# delay until next frame
+		loop
+			v0 := delay
+			if v0 != 0 then
+		again
+		
+		v0 := 1
+		delay := v0
+	again
+;
+
+:macro check_player_hitbox POSX POSY PLAYER_DATA PLAYER_ENUM HIT {
+
+	i := PLAYER_DATA
+	load v1
+	
+	v0 -= POSX
+	if vf == 0 begin
+		v2 := HITBOX_X
+		v0 += v2
+		
+		if vf != 0 then HIT := PLAYER_ENUM
+	else
+		if v0 <= HITBOX_X then HIT := PLAYER_ENUM
+	end
+	
+	if HIT == PLAYER_ENUM begin
+		v1 -= POSY
+		if vf == 0 begin
+			v2 := HITBOX_Y
+			v1 += v2
+			
+			if vf != 0 then return
+		else
+			if v1 <= HITBOX_Y then return
+		end
+	
+	end
+}
+
+: check_collision
+
+	v0 := vf 
+
+	hit := COLLISION_WORLD
+
+	if pos_y == 31 then return
+	
+	# shortcut return if the drawn pixel didn't get inverted
+	if v0 == 0 begin
+		hit := COLLISION_MISS
+		return
+	end
+	
+	check_player_hitbox pos_x pos_y player1_data COLLISION_P1 hit	
+	check_player_hitbox pos_x pos_y player2_data COLLISION_P2 hit
+	
+	# terrain collision detection
+	i := terrain
+	load v2
+	v4 := v2
+	ve := v1
+	
+	v3 := pos_x
+	v3 += v0
+	sine va v3 ve v4
+	v0 := 32
+	v0 -= v4
+	va += v0
+	
+	if va < pos_y begin
+		hit := COLLISION_WORLD
+		return
+	end
+	
+	hit := COLLISION_MISS
+;
+
+
+
+
+
+
