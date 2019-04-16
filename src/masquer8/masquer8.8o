@@ -1,0 +1,1386 @@
+###########################
+#                         #
+#                         #
+#        Masquer8         #
+#                         #
+#                         #
+###########################
+# Masquer8 by Chromatophore
+
+# Camoflage the Cuttlefish
+# For Octo, a CHIP 8 interpreter
+# https://github.com/JohnEarnest/Octo
+
+# Another Octojam II game!
+
+# Full disclusure: I hammered this out over something like 2 or 3 days as quickly as I could
+# Goal was to make a game that would have actually been performant on classic 1970s hardware
+
+# As a result though, my comments and register aliasing were pretty weak
+# I'll attempt to rectify that now, though, by going back through it and writing what I can
+
+# General design:
+# The game starts by loading up a set of 15 patterns and comparing them with an 'inside the
+# cuttlefish' bitmask. That data is then saved into memory. This could be written in the program
+# by hand in advance, but I figured that not having to type in ~1.5K of program data would be a 
+# nice feature in the 1970s
+
+# Anyway as a result, this game has a loading bar, and also, this game has memory problems
+# Knowing how close to the edge I was going to be, I would probably have redesigned things
+# somewhat: All patterns are 15 bytes long, but they repeat every 8, so they contain an incomplete
+# duplicate of their data. The reason for this is the loading above - the cuttlefish is 6 8x15 sprites long
+# or 90 bytes. Being a multiple of 5, and not 4, it works out sort of nicely for fewer loads/saves by using
+# 5 registers at a time, and without having any awkward bit on the end to deal with the looping
+
+# Once this data has been generated, the memand function is thrown to the dogs, as is the bitmask.
+# The bitmask becomes a series of 0s, and is used for 'keys you don't have access to yet' - the game
+# rations patterns to you as the gameplay progresses to try and make it not too much too soon
+
+# From this point, a bunch of text screens are shown (the game has a simple story) and then gameplay begins
+# The gameplay works by giving you 6 * 9 or something many attempts to match the pattern before the shark
+# gets you, using the buzzer effect to alert you of your impending doom. It also displays a little shark
+# sprite that gets nearer in the corner.
+
+# Every time you play a level, the game selects a series of patterns, either from story puzzles or randomly, and then reads the data and xors it into a section of memory, rather than the display
+# Only when the puzzle is completely xored does it draw anything, to make sure people can't just copy the order they see patterns come up.
+# Additionally, a version of the pattern is made and stored elsewhere that can be used to draw onto the body
+# of the cuttlefish. If the pattern matches, it will remove all of the live pixels, and if it doesn't match, at least 1 will remain. A solid 8x8 tile is then drawn to the cuttlefish, and vf is tested. if vf is 0, then, no graphical overflow occured, so all pixels were clear, ergo, the pattern was perfect, and, you win the level. Otherwise the graphics are restored by reversing this process and you keep trying.
+
+# The main flaws with the game are, I think:
+# 1) Too much memory usage. With a bit more thinking I'm sure it would be possible to just have 8x8 patterns (or even smaller), and possibly, a less high cuttlefish sprite. A lot of the area isn't used - top 2 and bottom pixel row of and bitmask are completely clear, a slightly shorted graphic might only be 5 bytes long etc. Considering almost HALF of the game's content are these blocks of data, I think that would make all the difference in running this as is on real hardware
+# 2) It's really hard. The mechanic, once you get to 3 or more stacked patterns, is a non trivial problem to solve. If you have eg a checkerboard pattern, a sensible cuttlefish would obviously move to line up, however Cammy does not have that ability. However, it's really hard to line up perfectly with things that don't directly touch you. I considered drawing a small section of the real pattern to the body to line up with but since I nuke memand it would have to be 8 bits wide, so probably the full 8x8 pattern, and it just didn't seem like it would look right.
+
+# Actually you know what, I'm a powerhouse of technical ability, I've gotta believe this is within my power!
+# LETS DO THIS.
+# Goals: 3216 bytes compiled.
+# Current: 3582 bytes compiled.
+# This means I need to shave off 366 bytes.
+# The most likely place to salvage this is bitmap data
+# If I can use BRAIN POWER to cut the patterns from 15 bytes to 8, I save 7 * 15 bytes: 105 bytes
+# If I can reduce the bitmask and saved patterns from from 15 to 12 bytes high, then I get 3 * 6 * 16 bytes: 288 bytes
+# Cammy can be 6 bytes less too
+# This adds up to 399 bytes
+# This leaves 33 bytes to deal with the code needed to account for this.
+# That sounds VERY DOABLE.
+
+# I have a few competing options on how to map patterns to the to-be-12 line pattern memory patches
+# 1) I could duplicate patterns to a 10 byte working area, write all 8, then write 2 more.
+# This allows me to read from 2 lines down, and do it in 3 chunks, 2,3,4,5 6,7,(0),(1), 2,3,4,5
+# 2) I could literally offset all patterns by 2 rows, and start drawing them 2 px down, using overdraw to fill in the top two rows of outer reference. This has the downside of complicating matching the puzzle and possibly a whole bunch of other issues.
+
+# 2 is clever but I think poses too many issues wrt testing. I think I'll go with #1.
+# This means I need a 10 byte work area.
+# I could either just pick out ten bytes and deal with it, or possibly I could use the Match square area, an 8 byte block of 0xFFs that we use to match against - we don't need this until we do this test, but, I can't imagine that the code to restore it is going to take up less than a measly 10 bytes?
+
+# OK I think I have done this. My result is 3209 bytes.
+# This is 7 bytes below the cap!
+# VICTORY
+# However, this only rectifies ONE problem, the TOO MUCH MEMORY problem.
+# What if I can fix it so you can choose where to line up Cammy for the puzzle within a tiny window?
+# This surely is within my grasp! Surely! I mean I can write 6 whole instructions!
+
+# I don't think I can do that.
+
+# I also thought about having a display that shows you which keys you have turned on/off, but again, this would be very hard to do and need a large jump table due to the key arrangement. Maybe the solution is to map the key arrangement to something that makes sense and then map it to other things?
+# Yes! I think that's the answer
+
+# Anyway, on with the show:
+
+#################################
+# Register Aliasses (mostly bad)
+# Memory reading aliases and functions:
+:alias data-0 v0
+:alias data-1 v1
+:alias data-2 v2
+:alias data-3 v3
+
+:alias data-a v4
+:alias data-b v5
+:alias data-c v6
+:alias data-d v7
+
+:alias get-offset va
+:alias put-offset vb
+
+:alias loadprogress vc	# Used at the beginning for the loading bar only.
+
+# Gameplay Aliasses
+:alias leveloff v8	# Stores the level offset
+:alias infinitydesperation v9 # This register is what I used desperately to make infinate mode in my last 30 or so bytes...
+:alias mash-reset v7 # Another data register reuse, this time it's volotile and will be lost with xors. Fortunately this is fine I think. Used to let you 'lose' random mode
+
+:alias Moves va		# Stores how many moves the player has made this level
+:alias Checks vb	# Stores how many checks the player has had this level
+
+:alias NextCheck vc	# Stores how many more moves until the next check
+:alias puzzleread vc # Also used when reading the puzzles - obviously not used when playing the game
+
+#:alias levelsomething vd # No longer used! Woo!
+:alias v-key vd
+:alias levelnum ve
+
+# I have a suspicion that leveloff and levelsomething are in fact used for the same thing.
+
+:alias loadbar-x vd
+:alias loadbar-y ve
+
+#################################
+# Constants for text, memory, and other stuff.
+# There's a lot of stuff not constanted out and just lined up by eye as quickly as possible.
+
+# Constants for xor and and pattern looping
+:const patternxorloop 8
+:const patternandloop 12
+
+:const cuttlemasklen 72
+:const puzzlelen 8
+
+:const and-step 4
+:const xor-step 4
+
+# Text X/Ys
+:const title-x 9
+:const title-y 8
+
+:const press-x 6
+:const press-y 24
+
+:const instruct-x 2
+:const instruct-y 3
+
+:const CheckTime-x 59
+:const CheckTime-y 26
+
+:const shark-x 0x38
+:const shark-y 0x12
+
+:const infinateoff 33 # memory offset for infinate mode.
+
+# Gameplay values
+:const sharkcheck1 1
+:const sharkcheck2 2
+:const sharkcheck3 3
+:const checkmax 8
+
+#################################
+# Lead with the main function, aw yeah!
+: main
+	# A Loading screen!?
+	# IN 1978!?
+	# Yep.
+
+	# Draw the main title text/logo first so we know what we're loading
+	draw-maintitle
+
+	# Loading
+	# This can be improved by probably 8-10 bytes by working out a register I can use.
+	# I think vd and ve are free?
+	# loadprogress := 0 # I don't think anything will have used this yet. 2 Bytes is 2 bytes!
+	loadbar-x := 2
+	loadbar-y := 16
+	loop
+		# I use a nice setup of jump0s to set up my memory addresses. I make use of the needing 8 bytes to include the save v1 command, an improvement from octopeg.
+		i := getaddress
+		v0 := loadprogress
+		get-pattern-address
+		i := putaddress
+		v0 := loadprogress
+		get-cuttle-address
+		# We now get from the pattern, and put to the cuttle data
+		# And we perform memand, which will read from get, and with cuttlemask, and put in cuttle data
+		memand
+
+		# So we can see that something is happening, I also draw a loading bar.
+		# This process legit takes a while on slow processor speeds so it's somewhat worthwhile.
+		# This whole process is skipped on subsequent plays.
+		i := loadbar
+		#v1 := 16	# if I was sensible I would have used an unused register instead of v1 here.
+		sprite loadbar-x loadbar-y 4
+		loadbar-x += 4
+
+		loadprogress += 1
+		if loadprogress != 0xf then
+	again
+
+	# I waste? memory by instead of simply not drawing when you use a pattern you don't have access to, or using the end turn button probably. The latter is super lazy of me and I'm kind of embarrassed.
+	# We burn a few bytes to get a perfect match up to 90, probably would have needed them to finish the job.
+	i := nothing-cuttle
+	v0 := 0
+	v1 := 0
+	v2 := 0
+	v3 := 0
+	vf := 0
+	loop
+		save v3
+		vf += 4
+		if vf != cuttlemasklen then
+	again
+
+	# And when we've finished loading, we display the 'press key' prompt that lets us start playing
+	press-key-title
+	# End of title screen
+
+	# All my 'text placard' screens look like this:
+	:unpack 0xA instruct-text	# Get the memory address in v0 and v1:
+	text-screen 				# Run the Text Placard Function
+	end-text-screen 			# Once I'm happy, block on a key, and then clear the screen.
+
+	# Any extra 'drawings' or whatever go between text-screen and end-text-screen.
+
+	:unpack 0xA match-text		# Second text placard
+	text-screen
+	end-text-screen
+
+	:unpack 0xA match2-text		# Third text placard
+	text-screen
+	end-text-screen
+
+	# This is the point that the game restarts to. It used to not be here, but, now it is here.
+	# As a result it could just be game, instead
+	: restart
+
+	# The game:
+	: game
+
+	# Load the current level's puzzle
+	loadpuzzle
+	# Generate a test pattern - the cuttlefish body is offset by 4 pixels, so, I have to rearrange square ABCD to DCBA (but 4x4s not mirrored)
+	gentestpattern
+	# Draw the puzzle pattern around the screen
+	draw-puzzle
+
+	# Set up the cuttlefish height:
+	v1 := 1
+	# And draw her
+	draw-cammy
+
+	# Clear out/set up our level progress data, as this resets every level anyway and is full of
+	# loading level stuff as well.
+	Moves := 0
+	Checks := 0
+	NextCheck := 9
+	# Also sets up mash-reset, so we can mash v to quit a level we can't do.
+	mash-reset := 0
+
+	# Draw the shark and the check number in before the loop starts, as they're removed and redrawn and we
+	# want to start off on the right foot.
+	draw-shark
+	draw-check
+
+	loop
+		# This game blocks on every keypress. This is I think a key element for any 'would run on 
+		# a real processor' speed game designs
+		v-key := key
+
+		# translate vkey for my ends, translates to rows of 0-3, 4-7, 8-b, c-f
+		key-translate
+
+		# filter out non unlocked patterns
+		i := patternblock
+		load v0
+		v0 &= v-key
+
+		if v0 != v-key then v0 := 0x0f
+
+		# Draw the pattern associated - this sets up i based on the value of v-key
+		if v0 != 0x0f begin
+			keyjump
+			# And this draws it at height v1
+			v1 := 2
+			v2 := 0
+			draw-pattern
+
+			i := helper-graphic
+			v2 := 0x03
+			v2 &= v-key
+			i += v2
+			v0 := 50
+			v1 >>= v-key
+			v1 >>= v-key
+			v1 += 28
+			sprite v0 v1 1
+		end
+
+		# Check update:
+		# Remove the current check number
+		draw-check
+		# increase/decrease by 1
+		Moves += 1
+		NextCheck += -1
+		# It would be really nice ot have a delay here so you can see your last attempt before hand, but
+		# Not really viable for me unfortunately.
+
+		# If we hit V to check early:
+		if v-key == 0x0f begin
+			NextCheck := 0
+			mash-reset += 1	# increase mash reset
+			else
+			mash-reset := 0 # 0 it out if we didn't press v
+			end
+
+		# Catch having hit v 10 times for infinite mode quitting
+		if mash-reset == 10 then jump game-over
+
+		# If it is check time:
+		if NextCheck == 0x00 begin
+			# Time to judge
+
+			# If we hit v early, maybe we should have the chance to position Cammy?
+			# Then we would get to modify v0 and v1 below by a little?
+			# I just don't think it can be controlled by the player without using too much memory.
+
+			# Position the test puzzle sprite:
+			v0 := 28
+			v1 := 4
+			
+			# Get and draw it
+			i := testpuzzle
+			sprite v0 v1 8
+			i := match
+			sprite v0 v1 8
+
+			# perfect match, next level
+			if vf == 0 then jump level-complete
+
+			# no match, shark gets closer
+			# v1 has 4 in it, that's close to 5, so, that'll do just fine
+			buzzer := v1
+
+			# Restore the data - note that i is still match
+			sprite v0 v1 8
+			i := testpuzzle
+			sprite v0 v1 8
+
+			# Remove existing shark
+			draw-shark
+			# If we're not in infinite mode, the skark gets closer
+			if infinitydesperation != -5 then Checks += 1
+			# Game over if we're at max and the shark gets you:
+			if Checks == checkmax then jump game-over
+
+			# Draw new shark
+			draw-shark
+
+			# Reset next check timer so the player gets 9 more goes
+			NextCheck := 9
+
+			end
+
+		# Draw new check number in the corner
+		draw-check
+	# Loop forever because we'll jump out
+	again
+
+# Level Complete - the code that we hit when we successfully match a pattern
+: level-complete
+	# Arguements - none?
+	# Uses - data-a, data-b, level-num, v0, v1
+
+	# Next level
+	levelnum += 1
+
+	clear
+	:unpack 0xA escape-text
+	text-screen
+
+	# X and Y for lvl text
+	data-a := 47
+	data-b := 17
+	draw-lvl
+
+	i := movesbcd
+	bcd Moves
+
+	# X and Y for moves text
+	data-a := 47
+	data-b := 24
+ 	draw-other-num
+
+ 	# Wait for keypress & clear
+	end-text-screen
+
+	# Handle unlocking new abilities & winning the game
+	if levelnum == 3 begin	# Horizontal mode unlocks
+		:unpack 0xA unlock1-text
+		text-screen
+		end-text-screen
+
+		i := patternblock
+		v0 := 0x07
+		save v0
+		end
+
+	if levelnum == 5 begin	# Pattern mode unlocks
+		:unpack 0xA unlock2-text
+		text-screen
+		end-text-screen
+
+		i := patternblock
+		v0 := 0x0f
+		save v0
+		end
+
+	if levelnum == 11 begin	# You win the game
+		:unpack 0xA gamewin-text
+		text-screen
+
+		# Quick and dirty homework drawing:
+		v0 := 48
+		v1 := 8
+		i := hw
+		sprite v0 v1 8
+		i := hwnoeat # fixes the eaten corner and shows the A grade
+		sprite v0 v1 6
+
+		# Only move on when v is pushed
+		loop
+			v0 := key
+		if v0 != 0x0f then
+		again
+		clear
+		end
+
+	jump game
+
+# Game Over - this is when you lose
+: game-over
+	# Arguements - None?
+	# Uses - v0, v1, data-a, data-b
+
+	# Sets up our text screen and the death image:
+	clear
+	:unpack 0xA	shark-text
+	text-screen
+
+	v1 := 17
+	draw-cammy
+	i := dead
+	v0 := 44
+	v1 := 25
+	sprite v0 v1 2
+	v1 := 14
+	i := dotdotdot
+	sprite v0 v1 1
+	end-text-screen
+
+	# Sets up our 'joke' 2nd screen
+	:unpack 0xA shark2-text
+	text-screen
+
+	v0 := 28
+	v1 := 12
+	i := hw
+	sprite v0 v1 8
+
+	v0 += 12
+	v1 += 2
+	i := quickF	# quick F is the location of F in the font
+	sprite v0 v1 5
+
+	data-a := 24
+	data-b := 24
+	draw-lvl
+
+	end-text-screen
+
+	# Now restart the game:
+	draw-maintitle
+	press-key-title
+	jump restart
+
+
+# Draw Shark - draws the shark sprite based on the value of Checks
+: draw-shark
+	# Arguements - Checks
+	# Uses - v0, v1, v2
+	v0 := shark-x
+	v1 := shark-y
+	v2 >>= Checks
+	if v2 == 0 then i := shark-0
+	if v2 == sharkcheck1 then i := shark-1
+	if v2 == sharkcheck2 then i := shark-2
+	if v2 == sharkcheck3 then i := shark-3
+	if v2 != sharkcheck3 begin
+		sprite v0 v1 3
+		else
+		sprite v0 v1 6
+		end
+;
+
+# Draw LVL - generates and draws the LVL number in position stored in data-a/data-b - this is dumb and should have its own aliases
+: draw-lvl
+	# Arguements - data-a, data-b
+	# Uses - v0, v1, v2, data-a, data-b
+	i := levelbcd
+	bcd levelnum
+# Falls into: Draw Other Num - the same code without the level setup so we can draw other numbers (eg moves)
+: draw-other-num
+	load v2
+	i := hex v0
+	sprite data-a data-b 5
+	data-a += 5
+	i := hex v1
+	sprite data-a data-b 5
+	data-a += 5
+	i := hex v2
+	sprite data-a data-b 5
+;
+
+# Draw Check - draws the value of NextCheck to the screen in the corner
+: draw-check
+	# Arguements - NextCheck
+	# Uses - v0, v1
+	i := hex NextCheck
+	v0 := CheckTime-x
+	v1 := CheckTime-y
+	sprite v0 v1 5
+;
+
+# Draw Cammy - draw Cammy Cuttlefish. Also: Draw Pattern - expects you to set up i := to one of the cuttle patterns first
+: draw-cammy
+	# Arguements: v1 - Height of the 6x? blocks to draw, v2 - needs to be set to 0 for draw-pattern
+	# Uses: v0 v1 v2
+	i := cuttlefish
+	v2 := 2
+: draw-pattern
+	v0 := 8
+	v2 += 12
+	loop
+		if v2 == 12 then sprite v0 v1 12
+		if v2 == 14 then sprite v0 v1 14
+		i += v2
+		v0 += 8
+		if v0 != 0x38 then
+	again
+;
+
+# Draw Puzzle - This function calls the function to load level, generate the test pattern for it, and then draw in all the areas around cammy for the player to refer to.
+: draw-puzzle
+	# uses v0 v1
+
+	i := puzzle
+	v0 := 0
+	v1 := 16
+	loop
+		sprite v0 v1 8
+		v0 += 8
+
+		# We wrap before the end to give us a space to draw el sharkio
+		if v0 == 0x38 begin
+			v1 += 8
+			v0 := 0
+			end
+		# Then after 2 rows we stop and draw the sides.
+		if v1 != 32 then
+	again
+
+	# I'm pretty sure v0 is always 0 at this point and the following command is unneeded.
+	v0 := 0
+	v1 := 0
+	sprite v0 v1 8
+	v1 := 8
+	sprite v0 v1 8
+	v0 := 56
+	sprite v0 v1 8
+	v1 := 0
+	sprite v0 v1 8
+
+	# Optionally draw 1 line top and bottom?
+	#v0 := 8
+	#loop
+		#sprite v0 v1 1
+		#v0 += 8
+		#if v0 != 0x38 then
+	#again
+;
+
+# Draw Maintitle - Draws the masquer8 logo to the screen
+: draw-maintitle
+	# Arguements - None?
+	# Uses - v0, v1, v2, vf
+	vf := 0
+	v1 := title-x
+	v2 := title-y
+	loop
+		i := masquer-text
+		drawtext
+		if vf != 0xff then
+	again
+
+	v2 += -4
+	i := bigeight
+	sprite v1 v2 9
+;
+
+# Press Key Title - Tells the player to press a key to progress, as well as handles continue + random mode
+: press-key-title
+	# Arguements - None?
+	# Uses - v0, v1, v2, vf, leveloff, levelnum
+
+	# Usual setup for text:
+	vf := 0
+	v1 := press-x
+	v2 := press-y
+	loop
+		i := press-text
+		drawtext
+		if vf != 0xff then
+	again
+
+	# Wait for a key press
+	end-text-screen
+
+	# Check the key they hit:
+	# if they've pressed continue
+	if v0 == 0x0f begin
+		# show the buzzer, restore the last level
+		buzzer := v0
+		i := lastlevel
+		load v1
+		leveloff := v0
+		levelnum := v1
+
+		else
+
+		if v0 == 0x0a begin
+			buzzer := v0
+			levelnum := 11
+			leveloff := infinateoff
+			v0 := 0x0f
+			else
+			levelnum := 1
+			leveloff := 0
+			v0 := 0x03
+			end
+		# clean up the keyboard options
+		i := patternblock
+		save v0
+		end
+;
+
+: patternblock
+	0x03
+
+# Key Translate - translates keys into a more sensible numeric for me. It will also be way easier to filter!
+# Perhaps these should be pre multiplied by 4 to shave off a little, but perhaps not.
+: key-translate
+	v0 <<= v-key
+	v0 <<= v0
+	jump0 keyjumptranslate
+	: keyjumptranslate
+	v-key := 0xd	;#0
+	v-key := 0x0	;#1
+	v-key := 0x1	;#2
+	v-key := 0x2	;#3
+	v-key := 0x4	;#4
+	v-key := 0x5	;#5
+	v-key := 0x6	;#6
+	v-key := 0x8	;#7
+	v-key := 0x9	;#8
+	v-key := 0xa	;#9
+	v-key := 0xc	;#a
+	v-key := 0xe	;#b
+	v-key := 0x3	;#c
+	v-key := 0x7	;#d
+	v-key := 0xb	;#e
+	v-key := 0xf	;#f
+
+# Keyjump - now handles TRANSLATED key input! The better way to do this was discovered and this is it!
+# Anyway it uses a jump table based on v-key
+: keyjump
+	# Arguements - v-key
+	# Uses - v0
+	v0 <<= v-key
+	v0 <<= v0
+	# jump0 is 0xB...
+	: jumpchange jump0 keyjump-s1
+	: keyjump-s1
+	i := line1-cuttle	;
+	i := line2-cuttle	;
+	i := line3-cuttle	;
+	i := line4-cuttle	;
+	i := hline1-cuttle	;
+	i := hline2-cuttle	;
+	i := hline3-cuttle	;
+	i := hline4-cuttle	;
+	i := check1-cuttle	;
+	i := check2-cuttle	;
+	i := check3-cuttle	;
+	i := check4-cuttle	;
+	i := patt1-cuttle	;
+	i := patt2-cuttle	;
+	i := patt3-cuttle	;
+	#i := nothing-cuttle	;
+
+# Get Pattern Address - saves to I the command I := one of the pattern addresses based on v0
+: get-pattern-address
+	# Arguements: v0
+	# Uses v0 v1
+	v0 <<= v0
+	v0 <<= v0
+	v0 <<= v0
+	jump0 patternjump-start
+	: patternjump-start
+	:unpack 0xA patt2	save v1 ;
+	:unpack 0xA line1	save v1 ;
+	:unpack 0xA line2	save v1 ;
+	:unpack 0xA line3	save v1 ;
+	:unpack 0xA hline1	save v1 ;
+	:unpack 0xA hline2	save v1 ;
+	:unpack 0xA hline3	save v1 ;
+	:unpack 0xA check1	save v1 ;
+	:unpack 0xA check2	save v1 ;
+	:unpack 0xA check3	save v1 ;
+	:unpack 0xA patt1	save v1 ;
+	:unpack 0xA patt3	save v1 ;
+	:unpack 0xA line4	save v1 ;
+	:unpack 0xA hline4	save v1 ;
+	:unpack 0xA check4	save v1 ;
+	:unpack 0xA puzzle	save v1 ;
+
+# Get Cuttle Address - saves to I the command I := one of the cuttlefish addresses based on v0
+: get-cuttle-address
+	# Arguements: v0
+	# Uses v0 v1
+	v0 <<= v0
+	v0 <<= v0
+	v0 <<= v0
+	jump0 cuttlejump-start
+	: cuttlejump-start
+	:unpack 0xA patt2-cuttle	save v1 ;
+	:unpack 0xA line1-cuttle	save v1 ;
+	:unpack 0xA line2-cuttle	save v1 ;
+	:unpack 0xA line3-cuttle	save v1 ;
+	:unpack 0xA hline1-cuttle	save v1 ;
+	:unpack 0xA hline2-cuttle	save v1 ;
+	:unpack 0xA hline3-cuttle	save v1 ;
+	:unpack 0xA check1-cuttle	save v1 ;
+	:unpack 0xA check2-cuttle	save v1 ;
+	:unpack 0xA check3-cuttle	save v1 ;
+	:unpack 0xA patt1-cuttle	save v1 ;
+	:unpack 0xA patt3-cuttle	save v1 ;
+	:unpack 0xA line4-cuttle	save v1 ;
+	:unpack 0xA hline4-cuttle	save v1 ;
+	:unpack 0xA check4-cuttle	save v1 ;
+	#:unpack 0xA nothing-cuttle	save v1 ;
+
+# Cleargetput - a quick memory saver that rests the values of get-offset and put-offset
+: cleargetput
+	# Uses get-offset put-offset
+	get-offset := 0
+	put-offset := 0
+;
+
+# memAND - performs a bitwise AND with data from get & data from cuttlefishmask. This data is then stored in put. This is used to generate the graphics for all the patterns that the player toggles on/off so it runs really fast.
+# Once finished, memAND is never used again, so it gets butchered to try and save memory.
+: memand
+	# arguements none?
+	# uses data-0 ... data-d (8 registers) get-offset put-offset
+	# will mess with vf
+
+	cleargetput
+
+	# Need to generate our working area
+	getdata
+	load data-d
+	i := patternworkarea
+	save data-d
+	save data-1
+	# Our challenge now is to read like this: +0, +4, +0, +0, +4, +0
+	# Solution: don't add when value is 8
+
+	loop
+		i := patternworkareap2
+		if get-offset != 8 then i += get-offset
+		load data-3
+
+		: puzzle
+		data-a := data-0
+		data-b := data-1
+		: midpuz
+		data-c := data-2
+		data-d := data-3
+
+		# Here we read indirectly from another source
+		i := cuttlefishmask
+		i += put-offset
+		load data-3
+
+		: testpuzzle
+		data-0 &= data-a
+		data-1 &= data-b
+		: midtestpuz
+		data-2 &= data-c
+		data-3 &= data-d
+
+		: levelbcd
+		putdata
+		i += put-offset
+		save data-3
+
+		: movesbcd
+		get-offset += and-step
+		put-offset += and-step
+		if get-offset == patternandloop then get-offset := 0
+		if put-offset != cuttlemasklen then
+	again
+;
+
+# memXOR - XORs get memory with put memory and saves to putmemory
+: memxor
+	cleargetput
+
+	loop
+		getdata
+		i += get-offset
+		load data-3
+		data-a := data-0
+		data-b := data-1
+		data-c := data-2
+		data-d := data-3
+
+		putdata
+		i += put-offset
+		load data-3
+		data-0 ^= data-a
+		data-1 ^= data-b
+		data-2 ^= data-c
+		data-3 ^= data-d
+
+		putdata
+		i += put-offset
+		save data-3
+
+		get-offset += xor-step
+		put-offset += xor-step
+		if get-offset == patternxorloop then get-offset := 0
+		if put-offset != puzzlelen then
+	again
+;
+
+# Load Puzzle - loads a puzzle from the story area based on leveloff register. I'm able to leave that in memory the whole time now.
+: loadpuzzle
+	# Arguements: leveloff
+	# Uses data-0,1,2,3 , v0, v1, infinitydesperation, levelsomething, leveloff
+	
+	# Uses v0, data-0 to data-3 (not data-4)
+	#levelsomething := 0
+	#levelsomething += leveloff
+
+	# Set our put address as the 'puzzle' memory via 0x0F in v0
+	v0 := 0xf
+	i := putaddress
+	get-pattern-address
+
+	# Saves a copy of my level state so the player can continue from it.
+	i := lastlevel
+	v0 := leveloff
+	v1 := levelnum
+	save v1
+
+	# 0 out existing data in puzzle, sine we'll be xoring with it
+	putdata
+	data-0 := 0
+	data-1 := 0
+	data-2 := 0
+	data-3 := 0
+	save data-3
+	save data-3
+
+	# Address to the story area, apply our offset, and load the data
+	i := storypuzzle
+	i += leveloff
+	load v0
+
+	# Here I desperiately tried to kludge something together in about 20-30 bytes to allow a value of '-2' to mean 'make a random level'
+	infinitydesperation := 0
+	if v0 == -2 then infinitydesperation := -1
+	# infinitydesperation being -1 is the key to this process
+
+	loop
+		# infinate mode
+		# If v0 is -2, then...
+		if v0 == -2 begin
+			v0 := random 0xf		# Select a random value from 0 to 0xf
+			leveloff += -1	# Decrease our offset, to offset later increase - we want it to be static
+			infinitydesperation += -1 # Lower infinity deseperation by 1 so we know when to stop
+			end
+
+		# Get the pattern address based on the value of v0
+		i := getaddress
+		get-pattern-address
+
+		# xor this into the put memory
+		memxor
+
+		# Get the next story puzzle value and increase the offset
+		i := storypuzzle
+		leveloff += 1
+		i += leveloff
+		load v0
+
+		# if we're infinite mode and we want to stop after 4 patterns, we use this to stop ourselves
+		if infinitydesperation == -5 then v0 := -1
+		# Otherwise, a level def ends with a -1
+		if v0 != -1 then
+	again
+
+	# We then retain this offset, and add one to it (to skip the -1 next time)
+	if infinitydesperation != -5 then leveloff += 1
+;
+
+
+# I was going to use constants to fill out my level data but I can't: constants on their own are
+# prefaced with 0x20, ie, they become a call to a memory address. This is apparently by design and something
+# might be being worked on to change that, possibly :macro?
+:const pat1 0x01
+:const pat2 0x02
+:const pat3 0x03
+:const pat4 0x0c
+:const patq 0x04
+:const patw 0x05
+:const pate 0x06
+:const patr 0x0d
+:const pata 0x07
+:const pats 0x08
+:const patd 0x09
+:const patf 0x0e
+:const patz 0x0a
+:const patx 0x00
+:const patc 0x0b
+:const patEND 0xff
+:const emp 0x00
+
+# Storypuzzle is my memory block that has the value of the patterns that are overlayed for the story levels
+: storypuzzle
+	2 -1		# 1
+	1  2 3 -1	# 2 afterwards you unlock Horizontal
+	2  5 -1		# 3
+	1  0xd -1	# 4 afterwards you unlock Pattern
+	0xe 0xa -1	# 5
+	5 0xb -1	# 6
+	4 9 -1		# 7
+	2 6 7 -1	# 8
+	0xA 3 6 -1	# 9
+	0 9 2 -1	# 10
+	-2 			# infinite
+
+	# this one is cool d a e 1
+
+# Gen Test Pattern - generates the rearranged version of the pattern memory to test against the middle of the cuttlefish with as few draws as possible. You could draw the pattern on grid 4 times and then test but that seems dumb
+: gentestpattern
+	# Arguements - none
+	# Uses - get-offset
+
+	# Here we will generate the test pattern that we will apply to the cuttlefish to test for a match
+	# Because we want an uninterupted 8x8, we use the main body. Annoyingly, this is offset by 4 pixels from our pattern.
+	# Even if we shift the fish we'd have problems because of the way we AND our patterns in. Anyway when we generate a pattern, we'll grab parts of it and juggle them around
+	# Easy enough!
+
+	# Clear up getput offsets
+	cleargetput
+
+	# Top two blocks of puzzle go into bottom two blocks of testpuz
+	loop
+		i := puzzle
+		i += get-offset
+		# Get the data
+		load data-0
+		# Swap them
+		swap-puzzle
+		# Put the data
+		i := midtestpuz
+		i += get-offset
+		save data-0
+		get-offset += 1
+		if get-offset != 4 then
+	again
+
+	cleargetput
+
+	# Bottom two blocks of puzzle go into top two blocks of testpuz
+	loop
+		i := midpuz
+		i += get-offset
+		# Get the data
+		load data-0
+		# Swap them
+		swap-puzzle
+		# Put the data
+		i := testpuzzle
+		i += get-offset
+		save data-0
+		get-offset += 1
+		if get-offset != 4 then
+	again
+;
+
+# Swap Puzzle - takes the upper MSBs and makes them the 4 LSBs, and the 4 LSBs and makes them the 4 MSBs
+: swap-puzzle
+	# Arguements - data-0
+	# Uses - data-0, data-a, (vf)
+	# Here we have 4 bytes, and we need to swap the most significant and least significant 4 bits.
+	# NOT mirror them, just, swap them.
+	data-a := data-0
+	data-0 >>= data-0
+	data-0 >>= data-0
+	data-0 >>= data-0
+	data-0 >>= data-0
+	data-a <<= data-a
+	data-a <<= data-a
+	data-a <<= data-a
+	data-a <<= data-a
+	data-0 += data-a
+;
+
+#################################
+# GRAPHICS!!!!
+
+# Bitmap data:
+: cuttlefish # (84 bytes)
+	0x00 0x00 0x03 0x0E 0x10 0x20 0x20 0x40
+	0x40 0x40 0x60 0x1F 0x00 0x00 0x00 0x07
+	0xF8 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+	0x00 0xFF 0x00 0x00 0x00 0xFF 0x00 0x00
+	0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x80
+	0x7E 0x01 0x00 0xFF 0x00 0x00 0x00 0x00
+	0x00 0x00 0x00 0x00 0x00 0x00 0x03 0xFC
+	0x1F 0xE0 0x27 0x48 0x4B 0x8B 0x87 0x80
+	0x80 0x40 0x20 0x5F 0xC0 0x00 0xC0 0x60
+	0x30 0x98 0x8C 0x84 0x04 0x06 0x42 0x42
+	0x42 0xE4 0x3C #0x00 
+# Bitmask for inside of cuttlefish
+# We don't need this after we're done
+: nothing-cuttle
+: cuttlefishmask # (72 bytes)
+	0x00 0x00 0x01 0x0F 0x1F 0x1F 0x3F 0x3F
+	0x3F 0x1F 0x00 0x00 0x00 0x07 0xFF 0xFF
+	0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0x00 0x00
+	0x00 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF
+	0xFF 0xFF 0x7F 0x01 0x00 0xFF 0xFF 0xFF
+	0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFC
+	0x1F 0xD8 0xB0 0xB0 0x70 0x78 0x7F 0x7F
+	0xBF 0xDF 0x80 0x00 0x80 0xC0 0x60 0x70
+	0x78 0xF8 0xF8 0xBC 0xBC 0xBC 0x18 0x00
+
+# Patterns in 8!! bytes
+: line1
+	0xAA 0xAA 0xAA 0xAA 0xAA 0xAA 0xAA 0xAA
+: line2
+	0x55 0x55 0x55 0x55 0x55 0x55 0x55 0x55
+: line3
+	0xCC 0xCC 0xCC 0xCC 0xCC 0xCC 0xCC 0xCC
+: line4
+	0x66 0x66 0x66 0x66 0x66 0x66 0x66 0x66
+
+: hline1
+	0xFF 0x00 0xFF 0x00 0xFF 0x00 0xFF 0x00
+: hline2
+	0x00 0xFF 0x00 0xFF 0x00 0xFF 0x00 0xFF
+: hline3
+	0xFF 0xFF 0x00 0x00 0xFF 0xFF 0x00 0x00
+: hline4
+	0x00 0xFF 0xFF 0x00 0x00 0xFF 0xFF 0x00
+
+: check1
+	0xF0 0xF0 0xF0 0xF0 0x0F 0x0F 0x0F 0x0F
+: check2
+	0x99 0x66 0x66 0x99 0x99 0x66 0x66 0x99
+: check3
+	0x81 0x42 0x24 0x18 0x18 0x24 0x42 0x81
+: check4
+	0xAA 0x00 0x55 0x00 0xAA 0x00 0x55 0x00
+
+: patt1
+	0x08 0x11 0x20 0x44 0x80 0x11 0x02 0x44
+: patt2
+	0x33 0x22 0x66 0x44 0x44 0x66 0x22 0x33
+: patt3
+	0x00 0x7E 0x42 0x5A 0x5A 0x42 0x7E 0x00
+
+# Our match square.
+: match
+	0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff
+
+: loadbar
+	0xf0 0xf0 0xf0 0xf0
+
+: shark-0
+	0 8 0
+: shark-1
+	0x08 0x1C 0x00
+: shark-2
+	0x08 0x3E 0x1C
+: shark-3
+	0x0A 0x1F 0x7E 0x5A 0xBD 0x18 
+: dead
+	0x0C 0x10 
+: dotdotdot
+	0x54 
+: hw
+	0xF0 0x98 0x88 0x8C 0x86 0x83 0x81 0xFF 
+: hwnoeat
+	0x0F 0x19 0x11 0x29 0x3B 0x26 
+
+#############################
+# Text stuff
+#############################
+# Text Screen - writes text onto a screen starting from the top left, I use it a lot for pretty much any
+# sort of like 'text' display the game offers.
+: text-screen
+	# Arguements: v0 v1 - registers store the i := memory address command
+	# Uses: v0 v1 v2 v3 vf
+	i := text-address
+	save v1
+	vf := 0
+	v1 := instruct-x
+	v2 := instruct-y
+	v3 := v1
+	loop
+		: text-address 0 0
+		drawtext
+		if vf != 0xff then
+	again
+;
+
+: end-text-screen
+	v0 := key
+	clear
+;
+
+# DrawText - pretty much my drawtext from octopeg, but with -2 being treated as a carriage return.
+: drawtext
+	# Arguements: v1 v2 v3 - start x, start y, carriage return x
+	# Uses: v0 v1 v2 v3 vf
+
+	# v1 v2 will be start x/y
+	# v0 will be used too, for loading purposes
+	
+	# Must have initialised vf := 0
+	# and run this in a loop
+	# setting i:= the text, then calling this, break their loop if vf == -1
+
+	i += vf
+	load v0
+	if v0 == -1 begin
+		# we've reached the end
+		vf := -1
+		return
+		end
+	vf += 1
+	if v0 == -2 begin
+		v1 := v3
+		v2 += 7
+
+		else
+
+		i := myfont
+		i += v0
+		v0 := vf
+		sprite v1 v2 5
+		vf := v0
+		v1 += 6
+
+		end
+;
+
+: myfont # (118 bytes), helpfully compacted by https://github.com/JohnEarnest/Octo/tree/66229e413cc63d9311f3ed926989ce904ab99abf/tools/TextPack
+	0x90 0xA0 0xC0 0xA0 0x90 0x78 0x80 0x70
+	0x08 0xF0 0xF8 0x20 0x20 0x20 0x20 0x88
+	0x50 0x20 0x40 0x80 0xF0 0x88 0xF0 0x88
+	0xF0 0x80 0x80 0x88 0x50 0x20 0x50 0x88
+	0xF8 0x88 
+	: quickF
+	0xF8 0x80 0xF0 0x80 0x80 0x80
+	0x80 0xF8 0x88 0x88 0xF8 0x88 0x88 0x88
+	0x88 0x70 0xF0 0x88 0x88 0x88 0xF0 0x88
+	0xF0 0x90 0x88 0xD8 0xA8 0x88 0x88 0x50
+	0x50 0x20 0x78 0x80 0x80 0x80 0x78 0x80
+	0x98 0x88 0x70 0x88 0x88 0x88 0x70 0x88
+	0x88 0x98 0x78 0xF8 0x80 0xF0 0x80 0xF8
+	0x20 0x20 0x20 0xF8 0x10 0x20 0x40 0xF8
+	0x20 0x20 0x20 0xC0 0x88 0xC8 0xA8 0x98
+	0x88 0x88 0xA8 0xA8 0x50 0x50 0x50 0x00
+	0x50 0x00 0x00 0x00 0x00 0x00 
+
+: masquer-text
+	0x3A 0x1D 0x05 0x4E 0x2D 0x53 0x36 
+	-1
+: bigeight
+	0x70 0x88 0x88 0x88 0x70 0x88 0x88 0x88 
+	0x70 
+
+: press-text
+	0x16 0x36 0x53 0x05 0x05 0x71 0x00 0x53
+	0x0F
+	-1
+
+: instruct-text
+	0x2A 0x53 0x25 0x16 0x71 0x42 0x1D 0x3A
+	0x3A 0x0F -2 0x42 0x2D 0x0A 0x0A 0x25
+	0x53 0x22 0x57 0x05 0x2A -2 0x2A 0x57
+	0x32 0x53 0x71 0x22 0x36 0x4A 0x3A -2
+	0x0A 0x2A 0x53 0x71 0x05 0x2A 0x1D 0x36
+	0x00 
+	-1
+
+: match-text
+	0x3A 0x1D 0x0A 0x42 0x2A 0x71 0x0A 0x2A
+	0x53 -2 0x16 0x1D 0x0A 0x0A 0x53 0x36
+	0x64 -2 0x14 0x53 0x22 0x4A 0x36 0x53
+	0x71 0x57 0x0A -2 0x46 0x53 0x0A 0x05
+	0x71 0x42 0x25 0x4A 0x05 0x53
+	-1
+
+: match2-text
+	0x00 0x53 0x0F 0x05 0x71 0x1D 0x25 0x0A
+	0x53 0x36 -2 0x42 0x1D 0x3A 0x4A 0x22
+	0x25 0x1D 0x46 0x53 -2 0x2A 0x57 0x0A
+	0x71 0x3D 0x71 0x0A 0x4A -2 0x2A 0x57
+	0x32 0x53 0x71 0x53 0x1D 0x36 0x25 0x0F
+	-1
+
+: shark-text
+	0x0A 0x2A 0x53 0x71 0x05 0x2A 0x1D 0x36
+	0x00 -2 0x1D 0x0A 0x53 0x71 0x2A 0x53
+	0x36 
+	-1
+
+: shark2-text
+	0x71 0x2A 0x4A 0x3A 0x53 0x68 0x4A 0x36
+	0x00 -2 -2 -2 0x25 0x3D 0x25
+	-1
+
+: escape-text
+	0x05 0x2A 0x53 0x71 0x46 0x4A 0x0A -2
+	0x1D 0x68 0x1D 0x0F 0x6C -2 0x0A 0x36
+	0x0F 0x71 0x25 0x3D 0x25 -2	0x3A 0x4A
+	0x3D 0x53 0x05 
+	-1
+
+: unlock1-text
+	0x2D 0x64 0x25 0x4A 0x42 0x00 0x53 0x32
+	-2 0x2A 0x4A 0x36 0x57 0x5B 0x4A 0x64
+	0x0A 0x1D 0x25 
+	-1
+
+: unlock2-text
+	0x2D 0x64 0x25 0x4A 0x42 0x00 0x53 0x32
+	-2 0x16 0x1D 0x0A 0x0A 0x53 0x36 0x64
+	0x05
+	-1
+
+: gamewin-text
+	0x42 0x1D 0x3A 0x3A 0x0F -2 0x16 0x1D
+	0x05 0x05 0x53 0x32 -2 0x1D 0x25 0x46
+	0x53 0x14 0x36 0x1D 
+	-1
+
+: lastlevel
+	0 1
+
+# A couple of writable areas for setting i to stuff
+: getdata
+	: getaddress 0 0
+;
+
+: putdata
+	: putaddress 0 0
+;
+
+: helper-graphic
+	0x80
+	0x40
+	0x20
+	0x10
+	
+	
+	
+
+#############################
+# So, if you're a kid in the 70s, GUESS WHAT, you don't need to type 1 K of 0s! congrats!!
+# You do need to put up with like 40 seconds of loading though.
+# ZERO ZONE!!!
+#############################
+: patternworkarea
+	0 0 
+: patternworkareap2
+	0 0 0 0 0 0	0 0
+
+## ALL OF THE ZEROS
+
+: line1-cuttle
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+: line2-cuttle
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+: line3-cuttle
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+: line4-cuttle
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+: hline1-cuttle
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+: hline2-cuttle
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+: hline3-cuttle
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+: hline4-cuttle
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+: check1-cuttle
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+: check2-cuttle
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+: check3-cuttle
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+: check4-cuttle
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+: patt1-cuttle
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+: patt2-cuttle
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+: patt3-cuttle
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0

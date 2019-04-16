@@ -1,0 +1,2976 @@
+###############################################
+#                                             #
+#                                             #
+#          #                         #        #
+#                                             #
+#           OCTOPEG           ###             #
+#                             ###             #
+#                                             #
+###############################################
+# By Chromatophore
+
+# A program for Octo, a chip-8 interpreter:
+# https://github.com/JohnEarnest/Octo
+
+# colours?
+#113152		#Background
+#acd5ff		#Foreground 1
+#264c74		#Buzzer??
+
+# Todo List:
+# All done!!
+
+#############################
+# ALIASES!
+#############################
+# I ended up using quite a lot of my aliasses too much. But well, whatever.
+
+# v0, 1 and 2 are temp registers that I just use by name constantly
+:alias ssa v3 # temp register - stores the streak
+:alias ssb v4 # temp register - stores the pegs hit this turn
+:alias ssc v5 # temp register - stores the position of the gutter
+
+# ALL THE BALL STUFFS WOOO
+:alias px v6	# horizontal position
+:alias py v7	# vertical position
+:alias vx v8	# hoizontal velocity
+:alias vy v9	# vertical velocity
+:alias sx va	# x subpixels
+:alias sy vb	# y subpixels
+:alias signx vc # sign bit for quicker overflow work
+:alias signy vd # sign bit for quicker overflow work
+
+# random doing stuff with register
+# middle management register
+:alias mm ve
+
+#############################
+## Title and Game End screen text positions
+:const Title-x 11
+:const Title-y 10
+
+:const endtext-x 0x2
+:const endtext-y 0x12
+:const endscore-x 0x32
+:const endscore-y 0x19
+
+#############################
+# Arena specifics
+# Constants for a few things, like the floor and walls
+:const thefloor 0x3C
+:const thefloorp1 0x3D
+
+:const thetop 0x0c
+:const thetopp1 0x0b
+
+:const theothertop 0x03
+:const toparea-left 0x23
+:const toparea-right 0x5B 
+
+:const wallleft 0x0b
+:const wallright 0x73
+
+#############################
+# Ball related constants
+# Gravity
+:const gravity 0x03
+:const negravi -0x03
+
+# Horizontal Degradation
+:const airres 0x01
+:const negair -0x01
+
+:const vposspeedcap 0xFC
+:const vnegspeedcap 0x04
+:const hposspeedcap 0xFC
+:const hnegspeedcap 0x04
+
+:const BallDeathY 0x3e
+
+#############################
+# Hud display stuff
+:const lifewrap 10
+:const livesxshift 3
+:const livesyshift 3
+:const livesxpos 1
+:const livesypos 1
+:const lifespritesize 2
+
+:const scorexshift -5
+:const scorexpos 0x80
+:const scoreypos 1
+
+:const between-shot-BigD-x 0x5d
+:const between-shot-BigD-y 0x04
+
+:const between-shot-text-x 0x24
+:const between-shot-text-y 0x04
+
+:const BarBottomFill 0x3e # This is 62
+:const NegBarBottomFill -62 
+
+
+#############################
+# Gameplay related constants
+:const maxlevels 8
+:const startlives 7
+:const maxlives 20
+:const lifebarsize 27
+:const feverbarsize 52
+:const feverbaradjust 2
+
+#############################
+# Some bumper related constants, where they start:
+:const bumperxpos 0x17
+:const bumperypos 0x3a
+# How far apart they are
+:const bumperxshift 0x13
+# How many there are
+:const bumpers 5
+# The point at which you fall to your doom
+:const max-bump-collide 0x3d
+
+#############################
+# Aim Mode stuff
+# Cannon position
+:const cannonx 0x3c
+:const cannony 0x03
+
+# Maximum Aim area
+:const minxaim 0x63
+:const maxxaim 0x9e
+:const minyaim 0x7f
+:const maxyaim 0x9f
+
+:const ballstartx 0x3f
+:const ballstarty 0x05
+:const ballstartxl2 0x3d # should be the above - 2
+:const ballstartyl2 0x03
+
+#############################
+# Bonus related stuff, like free balls and fever
+:const barflashes 9 # must be an odd number!
+:const textflashes 16 # must be an even number!
+:const feverflashes 16
+
+# How frequently the free ball area moves, moves ever overflow
+:const freeballstep-aim 4	# extra, since aim mode has lower fps
+:const freeballstep-play 4
+:const freeball-filter 0xf0
+# max x difference above the position that counts
+:const freeball-window 14
+# free ball text position
+:const freeball-text-x 0x25
+:const freeball-text-y 0x04 #0x1d
+
+# Fever shot text position
+:const fevershot-text-x 0x2f
+:const fevershot-text-y 0x04 #0x1d
+
+:const feverflash-x 0x7a
+:const feverflash-y 0x0a
+
+# The letter F:
+#:const feverletterf 0x22
+
+# Bonus points accrued for each hit in fever
+:const feverbonus 20
+
+#############################
+#############################
+#############################
+
+#############################
+# Score related functions
+#############################
+## Give Points, our go to to apply whatever it is we've setup into our score
+: givepoints
+	# this will allow us to grant arbitrary numbers of points, which, I think will be important
+	# Our points will be in little endian arrangement.
+
+	# you MUST SET load-BigDecimalB yourself before calling this
+	# It would look something like this
+	# set the bonus address;
+	# :unpack 0xA multiplymem # << your address here
+	# i := load-BigDecimalB
+	# save v1
+
+	setupscore
+
+	# setup the x position of our text
+	v2 := scorexpos
+
+	BigDecimalMath
+;
+
+## Setup score - sets up the BigDecimal to address into our points
+: setupscore
+	:unpack 0xA scoremem
+	i := load-BigDecimalA
+	save v1
+	i := load-BigDecimalC
+	save v1
+
+	:unpack 0x1 ScoreDraw-shift
+	i := jump-BigDecimalHook1
+	save v1
+	:unpack 0x1 ScoreDraw
+	i := jump-BigDecimalHook2
+	save v1
+;
+
+## BigDecimalMath - this is my workhorse function for doing big decimal carry math
+# it works in little endian order, with 0 to 9 in each byte - inefficient, as we could store 0-99 easily
+: BigDecimalMath
+	# This requires QUITE A FEW registers.
+	# v0 is used directly
+	# v1 is used directly
+
+	# v2 is not touched and is available for your use, I use it for my score x position. Y position is loaded from a constant (bummer)
+
+	# vf is used directly
+	# We need 3 additional registers
+	:alias BigD-AVal  v3
+	:alias BigD-BProg v4
+	:alias BigD-Carry v5
+	# And if we want allow > 10 values in an individual register but still only doing 10s, we'd need another
+	# :alias BigD-Over ve
+
+	# Because it uses so many registers, it also uses self modifying code to not need to keep track
+	# of digits. It would probably be a lot faster if I just used another register.
+
+	# Anyway:
+	# This will add two large numbers together in memory.
+	# These will be chosen in advance by setting certain parts of our code to certain values, load-BigDecimalA-C
+	# Objective is to take A + B = C. C can equal A or B, probably.
+
+	# Set up current carry as 0
+	BigD-Carry := 0
+
+	# set BigD-BProg to be 1, we use this to work out when we're at the end of B yet
+	BigD-BProg := 1
+
+	loop
+		if BigD-BProg == 1 begin
+			# function to call line of code we will have modified to address the current bonus digit
+			address-BigDecimalB
+			load v0
+			if v0 == 0xff begin
+				# we're at the end of the bonus
+				# if we have no more carry to do, end here
+				if BigD-Carry == 0 then return
+				# otherwise...
+				# pretend this value is 0
+				v0 := 0
+				# and that we no longer need to process B
+				BigD-BProg := 0
+				
+				else
+				# otherwise, increase our carry by this quantity
+				##vf := v0 ## what was this for?
+
+				# Have a roll over variable in memory, only count 100 pins at a time
+				# should make things easy
+
+				BigD-Carry += v0
+				end
+			end
+
+		# function to call line of code we will have modified to address the current score digit.
+		address-BigDecimalA
+		load v0
+		BigD-AVal := v0
+		# BigD-AVal now contains our current digit of A
+		# BigD-Carry contains the amount we must increase it by
+
+		# Run our first hook
+		# v0 := BigD-AVal # (it already is)
+		BigDecimalHook1
+
+		# Add our stored value to this unit, retaining it for later
+		v0 := BigD-AVal
+		v0 += BigD-Carry
+
+		if v0 > 9 begin
+			# since we're using a stream of decimal digits, if we go over 10, we know we just carry 1.
+			# we don't need anything fancy here.
+			# if we need to increase the next unit
+			
+			# This is my old code to repeatedly decrease by 10 until we underflow, so we know how many extra times to carry
+			# we really don't need to do this though. Probably.
+			#v1 := 10
+			#BigD-Over := 0xFF
+			#loop
+			#	BigD-Over += 1
+			#	v0 -= v1
+			#	if vf == 1 then
+			#again
+
+			# Sort out v0, and update BigD-Carry with our quantity to carry
+			v0 += -10
+			BigD-AVal := v0
+			BigD-Carry := 1
+			# BigD-Carry += BigD-Over # Might be off by one, old code!
+
+			# now we need to save this digit
+			address-BigDecimalC
+			save v0
+
+			# select the next score address
+			next-BigDecimalA
+			next-BigDecimalC
+
+			v0 := BigD-AVal
+
+			else # v0 is <= 9
+
+			# We don't need to carry forward any digits
+			# But, we might have more bonus numbers to deal with.
+
+			BigD-AVal := v0
+			BigD-Carry := 0
+
+			# but we do still need to save this digit
+			address-BigDecimalC
+			save v0
+
+			end
+
+		# draw the NEW score digit:
+		# v0 := BigD-AVal # This time, it will have been blown up by next-BigDecimal, so we fix that in the above if statement
+		BigDecimalHook2
+
+		# update the bonus position if we haven't hit the bonus terminator
+		if BigD-BProg == 1 begin
+			# if we haven't selected the next DecimalA address, we'll need to do that now
+			if BigD-Carry == 0 begin
+				next-BigDecimalA
+				next-BigDecimalC
+				end
+
+			next-BigDecimalB
+			end
+
+		# Check if we need to proceed:
+		v0 := BigD-Carry
+		v0 += BigD-BProg
+		if v0 != 0 then
+	again
+;
+
+: address-BigDecimalA
+	: load-BigDecimalA 0x00 0x00
+;
+: next-BigDecimalA
+	# now we need to update the address to read from
+	i := load-BigDecimalA
+	load v1
+	vf := 1
+	v1 += vf
+	v0 += vf
+	i := load-BigDecimalA
+	save v1
+;
+
+: address-BigDecimalB
+	: load-BigDecimalB 0x00 0x00
+;
+: next-BigDecimalB
+	# now we need to update the address to read from
+	i := load-BigDecimalB
+	load v1
+	vf := 1
+	v1 += vf
+	v0 += vf
+	i := load-BigDecimalB
+	save v1
+;
+
+: address-BigDecimalC
+	: load-BigDecimalC 0x00 0x00
+;
+: next-BigDecimalC
+	# now we need to update the address to read from
+	i := load-BigDecimalC
+	load v1
+	vf := 1
+	v1 += vf
+	v0 += vf
+	i := load-BigDecimalC
+	save v1
+;
+
+: BigDecimalHook1
+	: jump-BigDecimalHook1 0x00 0x00
+;
+: BigDecimalHook2
+	: jump-BigDecimalHook2 0x00 0x00
+;
+
+#############################
+# HUD and Arena Stuff (long!)
+#############################
+
+## These are our functions that we're going to tie up to our BigD hooks
+: ScoreDraw-shift
+	# select our x position
+	v2 += scorexshift
+: ScoreDraw
+	i := hex v0
+	vf := scoreypos
+	sprite v2 vf 5
+;
+
+## Redraws the score when there is not one any more.
+# This iterates through the whole deal
+: redraw-score
+	v1 := 0
+	v2 := scorexpos
+	mm := 0
+	loop
+		i := scoremem
+		i += v1
+		v1 += 1
+		load v0
+		ScoreDraw-shift
+		mm += 1
+		if mm != 6 then
+	again
+;
+
+## ?????????????????? do this or not
+## Draw Bonusses BigDecimal subroutine - draws a set up big decimal address to the screen. I use this for showing the points, streak, and bonus after your turn
+: draw-bonusses-bigD-sub
+	i += v1
+	v1 += 1
+
+	load v0
+	if v0 == 0xff then v0 := 0
+
+	i := hex v0
+	sprite ssa ssb 5
+	mm += 1
+;
+
+: end-life-draw-PTT
+	ssa := between-shot-BigD-x
+	ssb := between-shot-BigD-y
+	mm := 0
+	v1 := 0
+	loop
+		i := multiplymem-makeitx10
+		ssa += scorexshift
+		draw-bonusses-bigD-sub
+		if mm != 6 then
+	again
+
+
+	vf := 0
+	v1 := between-shot-text-x
+	v2 := between-shot-text-y
+	loop
+		i := points-text
+		drawtext
+		if vf != 0xff then
+	again
+;
+
+: end-life-draw-Streak
+	ssa := between-shot-BigD-x
+	ssb := between-shot-BigD-y
+	mm := 0
+	v1 := 0
+	loop
+		i := streakmem
+		ssa += scorexshift
+		draw-bonusses-bigD-sub
+		if mm != 3 then
+	again
+
+	vf := 0
+	v1 := between-shot-text-x
+	v2 := between-shot-text-y
+	loop
+		i := streak-text
+		drawtext
+		if vf != 0xff then
+	again
+;
+
+: end-life-draw-Bonus
+	ssa := between-shot-BigD-x
+	ssb := between-shot-BigD-y
+	mm := 0
+	v1 := 0
+	loop
+		: keep-Bonus 0x00 0x00
+		ssa += scorexshift
+		draw-bonusses-bigD-sub
+		if mm != 5 then
+	again
+
+	vf := 0
+	v1 := between-shot-text-x
+	v2 := between-shot-text-y
+	loop
+		i := bonus-text
+		drawtext
+		if vf != 0xff then
+	again
+;
+
+
+
+## Redraws all the lives at the beginning of a level
+# Iterates through the whole thing, but doesn't actually refer to lives, hence fake
+: draw-fakelives
+	i := lives
+	load v0
+	v1 := livesxpos
+	v2 := livesypos
+	#i := life
+	i := ball
+	mm := 0
+	loop
+		sprite v1 v2 lifespritesize
+		mm += 1
+		v1 += livesxshift
+		if mm == lifewrap begin
+			v1 := livesxpos
+			v2 += livesyshift
+			end
+
+		if mm != v0 then
+	again
+;
+
+## Take Life - Takes a life away and undraws it
+: take-life
+	i := lives
+	load v0
+
+	draw-life
+
+	v0 += 255
+	i := lives
+	save v0
+;
+
+## Draw Life - given a value in v0, draws a life sprite in that # location
+: draw-life
+	v1 := livesxpos
+	v2 := livesypos
+	#i := life
+	i := ball
+	if v0 != 1 begin
+		mm := 1
+		loop
+			v1 += livesxshift
+
+			if mm == lifewrap begin
+				v1 := livesxpos
+				v2 += livesyshift
+				end
+
+			mm += 1
+
+			if mm != v0 then
+		again
+		end
+
+	sprite v1 v2 lifespritesize
+;
+
+## Increases lives by 1
+: boost-life
+	i := lives
+	load v0
+	if v0 == maxlives begin
+		# don't give an extra life, maybe just give points?
+		# TODO do something
+		else
+		v0 += 1
+		end
+	i := lives
+	save v0
+	draw-life
+;
+
+## Pump Freeball - this increases the value of the free ball chute. It also handles undrawing + redrawing it when it has increased enough to move. Aim mode runs at a lower frame rate, so it has a bonus increase to keep it visually consistent.
+: pump-freeball-aim
+	ssc += freeballstep-aim
+: pump-freeball
+	ssc += freeballstep-play
+	if ssc == 0 begin
+		i := freeball-locate
+		load v0
+		draw-freeball
+		v0 += 4
+		if v0 == 40 then v0 := 0
+		draw-freeball
+		i := freeball-locate
+		save v0
+		end
+;
+
+## Redraw/draw Freeball - redraws or draws the free ball chute indicator. 
+: redraw-freeball	
+	i := freeball-locate
+	load v0
+: draw-freeball
+	i := freeball
+	v2 := 0x3f
+
+	get-bumper-pos
+	sprite v1 v2 1
+;
+
+## Draw Arena. Draws the arena, obviously enough. I pretty much just hacked it together. I don't think it needs the :const treatment
+: draw-arena
+	i := cornerTL
+	v0 := 0x08
+	v1 := 0x08
+	sprite v0 v1 8
+
+	v0 := 0x20
+	v1 := 0
+	sprite v0 v1 8
+
+	v0 := 0x58
+	i := cornerTR
+	sprite v0 v1 8
+
+	v1 += 8
+	v0 := 0x70
+	sprite v0 v1 8
+
+	v0 := 0x58
+	i := invcornerTR
+	sprite v0 v1 8
+
+	v0 := 0x20
+	i := invcornerTL
+	sprite v0 v1 8
+
+	v0 := 0x08
+	#v1 := 0x08
+
+	i := sideT
+	loop
+		v0 += 8
+		sprite v0 v1 8
+		if v0 != 0x18 then
+	again
+
+	v0 := 0x58
+	loop
+		v0 += 8
+		sprite v0 v1 8
+		if v0 != 0x68 then
+	again
+
+	v0 := 0x20
+	v1 := 0
+	loop
+		v0 += 8
+		sprite v0 v1 8
+		if v0 != 0x50 then
+	again
+
+	i := sideR
+	v0 := 0x70
+	v1 := 0x08
+	loop
+		v1 += 8
+		sprite v0 v1 8
+		if v1 != 0x38 then
+	again
+
+	i := sideL
+	v0 := 0x08
+	v1 := 0x08
+	loop
+		v1 += 8
+		sprite v0 v1 8
+		if v1 != 0x38 then
+	again
+
+	draw-bumpers
+;
+
+## Draw Bars - draws the LIFE and COMBO bar onto the screen
+: draw-bars
+	i := barbottom
+	v0 := 0
+	v1 := 0x38
+	sprite v0 v1 8
+	v0 := 0x78
+	sprite v0 v1 8
+
+	i := bartop
+	v1 := 0x08
+	sprite v0 v1 8
+	v0 := 0
+	sprite v0 v1 8
+
+	i := barbody
+	loop
+		v1 += 0x08
+		sprite v0 v1 8
+		if v1 != 0x30 then
+	again
+
+	v1 := 0x08
+	v0 := 0x78
+	loop
+		v1 += 0x08
+		sprite v0 v1 8
+		if v1 != 0x30 then
+	again
+
+	redraw-ballbar
+;
+
+## Draw Bumpers - draws the bumpers onto the screen
+: draw-bumpers
+	i := bumper
+	v1 := bumperxpos
+	v2 := bumperypos
+	mm := 0
+	loop
+		sprite v1 v2 6
+		mm += 1
+		v1 += bumperxshift
+		if mm != bumpers then
+	again
+;
+
+## Get Bumper Pos - gets the position of the bumper vased on the value of v0, which will be 0-9 or something, and then wraps around. I'm pretty sure the last 0x0D is never used.
+: get-bumper-pos
+	jump0 freeballxpos
+	: freeballxpos
+	v1 := 0x0D ;
+	v1 := 0x20 ;
+	v1 := 0x33 ;
+	v1 := 0x46 ;
+	v1 := 0x59 ;
+	v1 := 0x6C ;
+	v1 := 0x59 ;
+	v1 := 0x46 ;
+	v1 := 0x33 ;
+	v1 := 0x20 ;
+	#v1 := 0x0D ;
+
+## Redraw Ballbar - Redraws the LIFE bar filling between stages
+: redraw-ballbar
+	i := peghits
+	load v0
+
+	if v0 != 0 begin
+		v1 := 0x00
+		v2 := BarBottomFill
+		i := barfill
+		loop
+			v0 += -1
+			v2 += -2
+			sprite v1 v2 2
+			if v0 != 0 then
+		again
+		end
+;
+
+## Boost Ballbar - Adds a count to the LIFE bar. Also accounts for when it fills up
+: boost-ballbar
+	i := peghits
+	load v0
+	v0 += 1
+	i := peghits
+	save v0
+
+	v1 := 0x00
+	v2 <<= v0
+	vf := BarBottomFill
+	v2 =- vf
+	i := barfill
+	if v0 == lifebarsize begin
+		v0 := v2
+		mm := 0
+		# do sweet bar flashing
+		loop
+			v2 := v0
+			v2 += 0x02
+
+			clear-bar
+
+			mm += 1
+
+			# lock the framerate of this program via the delay timer:
+			quick-delay
+
+			if mm != barflashes then
+		again
+
+		v0 := 1
+		i := peghits
+		save v0
+
+		# creep up slightly so we draw our new block in the right place:
+		v2 += 0x02
+		i := barfill
+		sprite v1 v2 2
+
+		boost-life
+		return
+
+		end
+
+	sprite v1 v2 2
+;
+
+## Clear Feverbar / Clear bar - clears out the filling of the fever or 'a' bar for us. Useful to make the bar flash
+: clear-feverbar
+	i := barfill
+	v1 := 0x78
+	v2 := 0x0a
+: clear-bar
+	sprite v1 v2 8
+	v2 += 0x08
+	sprite v1 v2 8
+	v2 += 0x08
+	sprite v1 v2 8
+	v2 += 0x08
+	sprite v1 v2 8
+	v2 += 0x08
+	sprite v1 v2 8
+	v2 += 0x08
+	sprite v1 v2 8
+	v2 += 0x08
+	sprite v1 v2 4
+;
+
+## Boost Feverbar - Adds a segment to the combo bar. Also catches when the bar is full.
+: boost-feverbar
+	i := peghits2
+	load v0
+
+	if v0 == feverbarsize begin
+
+		# we are at fever cap
+		# let's give extra points!
+
+		# let's set fever to on, actually, so you have to get it with your ball
+		# rather than having a shot you can do what you want with
+
+		v1 := v0
+
+		i := fevershot-bool
+		load v0
+		if v0 == 0 begin
+			# We are NEWLY in fever mode.
+			# Display FEVER! text
+			mm := 0
+			loop
+				vf := 0
+				v1 := fevershot-text-x
+				v2 := fevershot-text-y
+				loop
+					i := fevershot-text
+					drawtext
+					if vf != 0xff then
+				again
+
+				mm += 1
+				normal-delay
+				if mm != feverflashes then
+			again
+
+			# Now turn on the byte we checked!
+			i := fevershot-bool
+			v0 := 1
+			save v0
+
+			end
+
+			# we can have ssc, which holds the increasing 'move the
+			# free ball' indicator do the constantly flashing of the bar maybe?
+		
+		# Get the value back, load it, and add a bonus for each hit
+		v0 := v1
+		v0 += feverbonus
+		return
+
+		end
+
+	v0 += 1
+	i := peghits2
+	save v0
+
+	v1 := 0x78
+	v2 := v0
+	vf := BarBottomFill
+	v2 =- vf
+	i := barfill
+	sprite v1 v2 1
+;
+
+## Freeball get text - displays the FREE BALL text on the screen.
+: freeball-get-text
+	# must be even number of flashes
+	mm := 0
+	loop
+		vf := 0
+		v1 := freeball-text-x
+		v2 := freeball-text-y
+		loop
+			i := freeball-text
+			drawtext
+			if vf != 0xff then
+		again
+		mm += 1
+		normal-delay
+		if mm != textflashes then
+	again
+;
+
+#############################
+# Peg Level Drawing Things
+#############################
+
+:alias peg-x v3 # Our current y pos to render
+:alias peg-y v4 # Our current x pos to render
+:alias cur-bit v5 # Our current bit within a block
+
+:alias hstep v6 # Our current horizontal block
+:alias vstep v7 # Our current vertical block
+:alias fulldraw v8 # Our full draws so far, not actually used
+
+:alias repeatmode v9 # Our repeat state
+:alias cmd-hi va	# High bits of cmd
+:alias cmd-lo vb	# Low bits of cmd
+:alias amode-reps vc # Repeats until pass a 0xc0 command
+
+:const pegreadstartx 16	# The start X of where we draw pegs
+:const pegreadstarty 16 # The start Y of where we draw pegs
+
+:const mpegx 2 # The X gap between pegs
+:const mpegy 10 # The Y gap between pegs
+:const mpegx_skip 16 # If our value is 0, we skip the block, and move this much
+
+:const mpegcappx 6	# We go 6 blocks on X before we wrap
+:const mpegcappy 4  # We go 4 blocks on Y before we wrap
+:const pegrightshift -96 # But our Y wrap is deliberately imperfect, so we can have multiple stacked pegs with small y offsets
+:const pegdownshift -38 # But our Y wrap is deliberately imperfect, so we can have multiple stacked pegs with small y offsets
+:const maxoverrows 5 # Actually deliberately disabled. but would stop us reading data when we hit our 6th? attempt to run through (which would draw on top of our first row)
+
+## Micropeg Render - Draws an individual peg
+: micropeg-render
+	sprite peg-x peg-y 1
+;
+
+## Peg Renderer - Goes through a byte of data, and renders a peg if the bit is 1. Is Big Endian, so 10000000 draws a peg on the left
+: peg-renderer
+	# for all 8 bits...
+	cur-bit := 8
+	loop
+		# rotate out our msb
+		v0 <<= v0
+		# if it's true, render a peg
+		if vf == 1 then micropeg-render
+		# increment peg-x, our peg-x coord
+		peg-x += mpegx
+		# reduce number of bits to test
+		cur-bit += -1
+		# and check if we're done
+		if cur-bit != 0 then
+	again
+	# increment horizontal block
+;
+
+## Address LevelPegs - Self Modifying code target for changing where we are in the peg data
+: address-levelpegs
+	: load-peg 0x00 0x00
+;
+: increment-levelpegs
+	i := load-peg
+	load v1
+	vf := v2
+	v1 += vf
+	v0 += vf
+	i := load-peg
+	save v1
+;
+
+## Load Peg LoopA/B/C - used for the flip/flop level data command and the 'repeat this many times' command
+: load-peg-loopA 0x00 0x00
+: load-peg-loopB 0x00 0x00
+: load-peg-loopC 0x00 0x00
+
+# Draw Pegs - You call this - Draws the pegs associated with the level stored in v0
+: draw-pegs
+	# put your level in v0
+	# Multiply by 8 and...
+	v0 <<= v0
+	v0 <<= v0
+	v0 <<= v0
+	# Select our level
+	select-level
+
+	# store this level in our loadpeg area
+	i := load-peg
+	save v1
+
+	# horizontal step
+	hstep := 0
+	# vertical step
+	vstep := 0
+
+	# full draws passes
+	fulldraw := 0
+
+	# double repeat mode
+	repeatmode := 0
+
+	# individual peg x and y coords
+	peg-x := pegreadstartx
+	peg-y := pegreadstarty
+
+	# Load up some of our data, and...
+	address-levelpegs
+	load v0
+	loop
+		# Split the byte into the 3 high bits and the 5 low bits
+		cmd-hi := 0xE0
+		cmd-lo := 0x1F
+		cmd-hi &= v0
+		cmd-lo &= v0
+
+		# cmd-hi is the value that decides the command we perform
+		# Regular Repeat Command:
+		if cmd-hi == 0x20 begin
+			# Load the data in question
+			load v0
+			# Take a copy of it
+			v2 := v0
+
+			i := peg
+			# our pattern is in v0, and we have a copy in v2 we can restore from
+			# we repeat cmd-lo times
+			loop
+				v0 := v2
+				# Horizontal Wrapping
+				if hstep == mpegcappx begin
+					hstep := 0
+					vstep += 1
+					peg-x += pegrightshift
+					peg-y += mpegy
+					end
+				# Vertical wrapping
+				if vstep == mpegcappy begin
+					vstep := 0
+					peg-y += pegdownshift
+					fulldraw += 1
+					end
+
+				# This would force the process to end when we reach the end of the data we can really fit
+				# But because we can do sculduggary, I commented it out.
+				#if fulldraw == maxoverrows then
+					#return
+
+				# If this data is worth actually rendering
+				if v0 != 0 begin
+					# render this peg chunk
+					peg-renderer
+					else
+					# quickly skip over it
+					peg-x += mpegx_skip
+					end
+				# Increase hstep
+				hstep += 1
+				# Decrase the remaining loop times
+				cmd-lo += -1
+				if cmd-lo != 0 then
+			again
+
+			v2 := 2	# This command takes up 2 bytes
+			increment-levelpegs # Advance.
+			end
+
+		# Double Repeat Command. Repeats two alternating 0x20 commands. Or anything really but they MUST be length 2
+		if cmd-hi == 0x40 begin
+			# double repeat mode, alternate between two locations every time repeatmode != 0
+			# number of repeats
+			repeatmode := cmd-lo
+
+			# multiply by two
+			repeatmode <<= repeatmode
+			# address into the start entry
+			v2 := 1 # This command takes up 1 bytes
+			increment-levelpegs
+
+			#i := load-peg # This data is actually already in v0 and v1 from the increment
+			#load v1
+			i := load-peg-loopA
+			save v1
+
+			v2 := 2 # The NEXT command is assumed to take up 2 bytes, but it might not! That's going to suck!
+			increment-levelpegs
+
+			# Same deal, already in the registers
+			#i := load-peg
+			#load v1
+			i := load-peg-loopB
+			save v1
+
+			end
+
+		# tweak x/y pos command
+		if cmd-hi == 0x60 begin
+			load v1
+			peg-x += v0
+			peg-y += v1
+
+			v2 := 3  # This command takes up 3 bytes
+			increment-levelpegs
+
+			end
+
+		# Resets where we're rendering
+		if cmd-hi == 0x80 begin
+			# reset everything because we're a hacker! We can do whatever we want!!
+			hstep := 0
+			vstep := 0
+			fulldraw := 0
+			repeatmode := 0
+			peg-x := pegreadstartx
+			peg-y := pegreadstarty
+
+			v2 := 1 # This command takes up 1 byte
+			increment-levelpegs
+			end
+
+		# Start marked repeats command
+		if cmd-hi == 0xa0 begin
+			# We will go back to the next command every time we hit 0xc0 until the value in cmd-lo has been hit
+			amode-reps := cmd-lo
+			v2 := 1 # This command takes up 1 bytes
+			increment-levelpegs
+			# And save this
+			i := load-peg-loopC
+			save v1
+			end
+
+		# Backtrack to marker command - will be bypassed after cmd-lo from the marker times
+		if cmd-hi == 0xc0 begin
+			amode-reps += -1
+			if amode-reps != 0 begin
+				i := load-peg-loopC
+				load v1
+				i := load-peg
+				save v1
+
+				else
+
+				v2 := 1
+				increment-levelpegs
+
+				end
+
+			end
+
+		# Handle the flip flopping alternating repeats
+		if repeatmode != 0 begin
+			vf := 0x01
+			vf &= repeatmode
+			if vf == 0 begin
+				# we are an even number, we must set up loopA
+				i := load-peg-loopA
+				else
+				i := load-peg-loopB
+				end
+
+			load v1
+			i := load-peg
+			save v1
+
+			repeatmode += -1
+			end
+
+		# get next command
+		address-levelpegs
+		load v0
+
+		if v0 != 0x00 then
+	again
+;
+
+#############################
+# Delay Functions
+#############################
+
+## Ultra Delay - the longest delay, used between text updates between levels
+## Can be skipped with key presses!
+: ultra-delay
+	# Super Long delay between score updates between shots
+	vf := 60
+	delay := vf
+	loop
+		vf := delay
+		v0 := 4   if v0 key then vf := 0 # keyboard Q
+		v0 := 7   if v0 key then vf := 0 # keyboard A
+		v0 := 9   if v0 key then vf := 0 # keyboard D
+		v0 := 5   if v0 key then vf := 0 # keyboard W
+		v0 := 8   if v0 key then vf := 0 # keyboard S
+		if vf != 0 then
+	again
+;
+
+## Regular Delay - used in aim mode and when flashing some text
+: normal-delay
+	vf := 2
+	delay := vf
+	loop
+		vf := delay
+		if vf != 0 then
+	again
+
+;
+
+## Quick Delay - used in when the ball is in play for a higher FPS
+: quick-delay
+	# short delay for high fps
+	vf := 1
+	delay := vf
+	loop
+		vf := delay
+		if vf != 0 then
+	again
+;
+
+#############################
+# Collision Hell
+#############################
+
+# Oh collisions.
+# This is where 90% of 'complication' of this game is.
+# I wasn't content to just have left/right or up/down mirrored bounces, oh no.
+# Not even diagonal bounces would satisfy
+# I had to have the best I could reasonably accompish.
+# The ball can reflect in a large number of ways based on the subpixels it resides in when it collides.
+# if it's a corner collision, it reflects on a normal diagonal line
+# if it's a 'side' 'ish' collision, it will bounce on a steep or shallow diagonal.
+# These sideish collisions are actually also responsible for 90% of velocity loss that the ball experiences
+# This actually turned out to be a nice effect so I haven't sought an alternative.
+
+## Bumper Collide - we run this code if we collide with a bumper
+: bumper-collide
+
+	# If we haven't gone too low
+	if py < max-bump-collide begin
+
+		# Backup our temporary registers
+		i := regdump
+		save ssc
+
+		# Find the pixel
+		pixel-detect
+		# restore it
+		pixel-detect-restore
+		# find our xzone because we need it
+		xzone-detect
+		# We skip subpixel detection because we will force a corner collision:
+		v0 := v2
+		# select our xzone from our detected x zone (to be honest I don't think we need this x zone stuff here)
+		xzone-select
+		# Resolve the collision
+		collide-resolve
+
+		# Restore our temporary registers
+		i := regdump
+		load ssc
+
+		# bullshit bumper powers:
+		py += -1
+
+		# bounce up super high
+		signy := 1
+		vy := vnegspeedcap
+
+		# rob sideways
+		vx >>= vx
+		if signx == 1 then vx += 128
+
+		else
+
+		# just bounce into the pit and dieeeee
+		hbounce
+		end
+;
+
+## Peg Collide - this is where the magic happens.
+: peg-collide
+	# Here we use octo draw overflow to detect which pixel collided.
+
+	# Increase progress towards an extra ball
+	boost-ballbar
+	
+	# increase our streak, so we can use it to boost fever:
+	ssa += 1
+	# fever bar must helpfully leave our multiplier in a register for us!!!
+
+	# if our streak is 16 or above
+	# I want to add 2 points instead of just 1
+	# this is a lot work though. Maybe I'll just forget about it for now.
+	# the only problem is that streak does nothing atm.
+
+	boost-feverbar
+	# OK so, this is kind of lazy but it was the nicest way I could find to do it
+	# Literally I just call the function again
+	# This is a load more work, but, fixing the code to work like this is a pig
+	# Streaks aren't that often over 16 anyway so I don't think it's so bad.
+	vf := 0xf0
+	vf &= ssa
+	if vf != 0 then boost-feverbar
+
+	# convert bar fill to our multiplier
+	v0 += feverbaradjust
+
+	# We do some bitmasking here to figure out which 'interval' of the COMBO BAR we're on.
+	# Each interval is an extra 8 points. Also it would resolve to 0 so we have to add an extra 8
+	vf := 0xf8
+	v0 &= vf
+	v0 += 8
+
+	# ssb will keep our peg score for this turn, if it overflows then we store it in memory (we always set it to -100 so it overflows every 100)
+	ssb += v0
+	if vf == 1 begin
+		# we have overflowed
+		ssb += -100
+		i := pegoverflow
+		load v0
+		v0 += 1
+		i := pegoverflow
+		save v0
+		end
+
+	# Save our variables
+	i := regdump
+	save ssc
+
+	# Detect which pixel of the square has collided
+	pixel-detect
+	# Make sure that pixel is gone!
+
+	# Detect which xzones we're in
+	xzone-detect
+	# Detect our subpixel state
+	subpixel-detect
+	# Select the correct x-zone for our collision type
+	xzone-select
+	# Resolve the collision
+	collide-resolve
+
+	# Restore our variables
+	i := regdump
+	load ssc
+;
+
+## Pixel Detect - This iterates through the 4 pixels of the ball to find out which is the one that's colliding
+# We just use the peg graphic for this since it is 1 px
+: pixel-detect
+	i := peg
+
+	v0 := px
+	v1 := py
+	v2 := 0
+
+	# if the first pixel colides, we don't need to loop
+	sprite v0 v1 1
+	if vf == 0 begin
+		loop
+			# remove the old test pixel
+			sprite v0 v1 1
+			v2 += 1
+			if v2 == 1 then v0 += 1
+			if v2 == 2 then v1 += 1
+			if v2 == 3 then v0 += 255
+			# add the new test pixel
+			sprite v0 v1 1
+			# if no overflow, loop
+			if vf == 0 then
+		again
+		end
+
+	# First step is to change 3 to 2 and 2 to 3 in v2
+	#vf := v2
+	#if vf == 0x02 then v2 := 0x03
+	#if vf == 0x03 then v2 := 0x02
+	# Shorter version of the above:
+	mm >>= v2
+	v2 ^= mm
+;
+
+## Pixel Detect Restore - Restores the pixel removed by pixel detect.
+: pixel-detect-restore
+	# It will also backtrack the ball to its position in the previous frame, since a ball can't be inside something it hasn't destroyed
+
+	# if this is not commented out, pegs live FOREVER~~
+	sprite v0 v1 1
+
+	# weasel our way out of what we hit:
+	i := ballsave
+	load v1
+	px := v0
+	py := v1
+	load v1
+	sx := v0
+	sy := v1
+
+	return
+
+## X Zone detect - We scan to see which regions the line of the ball's movement is in.
+: xzone-detect
+	# This subroutine works out which region our velocity falls in
+	# and stores this in v1
+	# This also needs a 4th register to function, so I've bit the bullet and save all my registers before/ restore after collision
+	:alias xzone-xtrareg v3
+
+	# Why do we do this?
+	# So that we can eliminate certain kinds of reflection that
+	# are already travelling away from the vector between the two objects
+	# these are caused by catching our back edge on pixels
+
+	# For example, if we were to reflect on a vertical line of reflection, we bounce away from the object with a horizontal mirroring
+	# However, when we're falling down onto a pixel, we can be travelling left or right, and collide eith either our left, or right lower pixel
+	# If we collide with our lower right pixel when we are travelling to the left, when we bounce 'off', we actually bounce *towards* where the peg was, even though that makes no sense at all - it looks more like we orbit around it.
+	# This code does the same kind of detection, but, for the lines y=x, y=2x and y=0.5x - it detects if the x volicty is less than the y velocty in a series of circumstances
+	# It doesn't attempt to make use of this data, just generate it.
+
+	if signx == 0 begin
+		if vx != 0 then vx += negair
+
+		if signy == 0 begin
+			# both values are positive
+			v0 := vy
+			else
+			# y is negative
+			# Flip them bits~
+			v0 := 0
+			v0 -= vy
+			end
+
+			# What does v1's value mean???
+			# It used to mean;
+			# 0 was LR
+			# 1 was UD
+			# merely stated if we were in UD or not
+			# now we need more info
+			# We need 2 extra bits
+			# 1 -> is in UD
+			# 2 -> is in 2xUD
+			# 4 -> is in 1/2xUD
+
+			v1 := 0
+			# v1 being 0 means, vx is MORE than vy
+			if vx < v0 then v1 += 0x01
+
+			# if y was half as big:
+			xzone-xtrareg >>= v0
+			# if vx is less than that
+			if vx < xzone-xtrareg then v1 += 0x04
+			# And if the hoziontal velocity was half as big, is it bigger still?
+			xzone-xtrareg >>= vx
+			if xzone-xtrareg < v0 then v1 += 0x02
+
+		else
+
+		if vx != 0 then vx += airres
+
+		if signy == 0 begin
+			# x is negative, y is positive
+			# invert x...
+			v0 := 0
+			v0 -= vx
+
+			# We now have a vx we can compare with vy...
+			v1 := 0
+			if vy > v0 then v1 += 0x01
+
+			# if y was half as big:
+			xzone-xtrareg >>= vy
+			# if vx is still less than that
+			if v0 < xzone-xtrareg then v1 += 0x04
+			# And if the hoziontal velocity was half as big, is it bigger still?
+			xzone-xtrareg >>= v0
+			if xzone-xtrareg < vy then v1 += 0x02
+
+			else 
+			# both are negative
+			# we actually don't have enough registers to do all of this easily!
+			# but it doesn't matter!
+
+			v1 := 0
+			# again, if vx is smaller than vy, then, vx is a bigger -ve number
+			if vx > vy then v1 := 1
+
+			# if y was half as big:
+			xzone-xtrareg >>= vy
+			xzone-xtrareg += 128
+			# if vx is still less than that
+			if vx > xzone-xtrareg then v1 += 0x04
+			# And if the hoziontal velocity was half as big, is it bigger still?
+			xzone-xtrareg >>= vx
+			xzone-xtrareg += 128
+			if xzone-xtrareg > vy then v1 += 0x02
+
+			end
+
+		end
+;
+
+## Subpixel Detect - This picks out the msb of the subpixel registers, and stores that information in a register. We use this to decide if we're a corner or a side collision.
+: subpixel-detect
+	# need to know the msb of the subpixels
+	v0 := 0
+	mm <<= sx
+	if vf == 1 then v0 += 0x01
+	mm <<= sy
+	if vf == 1 then v0 += 0x02
+;
+
+## XZone Select - This is where the big stuff starts happening. This function selects which one of the x zone datas we will need based on our corner and subpixel results. It still doesn't actually USE the data to do anything though!
+: xzone-select
+	# Here we use our colliding pixel in v2 and our subpixel data in v0
+	# to work out which type of collision we should perform
+	# (corner or edge type)
+
+	# We also use this information to select only the relevent velocity region.
+
+	# v0 must have 0-3 based on the subpixel states
+	# v1 must have our LR / UD velocity zone bitmask
+	# v2 must have 0-3 based on our collision corner.
+
+	# If our collision corner and our subpixels match, then, we are a corner collision
+	# if our collision corner and our subpixels are exactly opposed, then we are a corner collision
+	# if our collision corner and our subpixels do not match and are not opposed, then we are on a 'side' collision
+
+	# Force a corner collision by setting v0 == v2
+
+	mm := 0
+	vf := 0x03
+	vf ^= v0
+	if v2 == v0 then mm := 1
+	if v2 == vf then mm := 1
+	# if 1 at ths point, we're a standard corner
+	# if 0 at this point, we're one of the sides
+	# we could do fancy reflections if we're a side, so, let's scan for this
+
+	# We resort to this matrix in order to accomplish this
+	# y=-x y=-2x y=2x  y=x
+	# y=-0.5x          y=0.5x
+	# y=0.5x           y=-0.5x
+	# y=x  y=2x  y=-2x y=-x
+
+	# We select this now
+
+	if mm == 0 begin
+		# We are a side pixel
+		# we must work out if we are 0x2, for 0.5x, or 0x4 for 2x
+		mm := 0x02
+		mm &= v2
+		# Take our real pixel collide and and in 0b10, so we select which of the pixel rows
+		# that we're on
+
+		# thus, if it's 0, we're either 00 or 01, and if it's 1, then it's either 10 or 11
+		if mm == 0 begin
+
+			# We are on the 'top' (more -ve) row of ball pixels
+			# now we can select from v0. v0 contains the subpixel data
+			# # we need to know if we're in the upper or lower subpixel row
+			# for upper upper & lower lower we use 0x04, for upper lower and lower upper we use 0x02
+
+			# for a long time, this has been BROKEN. Let's try and fix that?
+			# we tested v0 for 0 state, not mm
+
+			# It was also backwards. Pretty concerning, really.
+
+			mm := 0x02
+			mm &= v0
+
+			v0 := 0x02
+			# or, if we're on the more -ve subpixel side
+			if mm == 0 then v0 := 0x04
+
+			else
+
+			# we are on the 'bottom' (more +ve) row of ball pixels
+			mm := 0x02
+			mm &= v0
+
+			v0 := 0x04
+			# or, if we're on the more -ve subpixel side
+			if mm == 0 then v0 := 0x02
+			
+			end
+		else
+		# we are 0x1, for standard diagonal
+			v0 := 0x01
+		end
+
+	# Throw out the bits of v1 that we do not require
+	v1 &= v0
+	# convert this to being a simple 0/1
+	if v1 != 0 then v1 := 1
+
+	# v0 now contains our region selection
+;
+
+## Collide Resolve - This is the function that does all the things. All of them. I've rewritten it a lot.
+# It finds collisions we should ignore because they'll look bad
+# It makes them not look bad
+# Then it either bounces the ball on a diagonal axis
+# Or it calls Neo Bounce, the hyper advanced bounce subroutine that does all the magic.
+: collide-resolve
+	# so let's run some logic first shall we?
+	debugstop
+
+	# v0 will have our bounce line stored
+	# v1 will have our filtered LR / UD velocity zone.
+	# v2 will have 0-3 based on our collision corner.
+
+	# Here we will decide how we will reflect from this collision
+	# There is a problem though.
+	# We can reflect on the line x=y when our velocity is actually taking us
+	# I guess sort of *through* the body already, like, we catch our back corner on it as we go by
+	# Because of this, we will ricochet INTO the peg, rather than AWAY from it.
+	# We need to detect this and prevent it from occuring.
+	# In this case, we look at if our velocty vector is, when dot producted with the line between
+	# our corner and our peg, the result would be positive or negative.
+
+	# We calculated earlier, if vx > vy. If vx is greater than vy, then we know that we occupy
+	# the left and the right sides of the large X we would draw.
+	# we can then pick, based on which corner we are, which is acceptable and which is not
+	# for example, being in the up/down, AND travellnig in a +ve y direction, is not acceptable
+	# for an x=y collision on our top right corner.
+	# if we're in a -ve y direction, this is, of course, fine.
+
+	# PRETTY INSANE HUH??
+
+	:alias c-reject vf
+	c-reject := 0
+
+	# Case 1:
+	# v2 == 0, top left pixel
+	if v2 == 0x00 begin
+		# If we are in LR zone
+		if v1 == 0 begin
+			# and we are travelling right
+			# case 00 0 0
+			if signx == 0 then c-reject := 2
+			else
+			# if we are in the UD zone
+			# travelling down
+			# case 00 1 0
+			if signy == 0 then c-reject := 1
+			# It should be impossible for this to occur if signy is 0
+			end
+		end
+	# Case 2
+	# top right pixel
+	if v2 == 0x01 begin
+		# if we are in the LR zone
+		if v1 == 0 begin
+			# travelling left
+			# case 01 0 1
+			if signx == 1 then c-reject := 2
+			else
+			#we are in the UD zone
+			#travelling down
+			# case 01 1 0
+			if signy == 0 then c-reject := 1
+			end
+		end
+	# Case 3
+	# bottom left pixel
+	if v2 == 0x02 begin
+		# if we are in the LR zone
+		if v1 == 0 begin
+			# Travelling right
+			# case 10 0 0
+			if signx == 0 then c-reject := 2
+			else
+			# if we are in the UD zone
+			# travelling up
+			# case 10 1 1
+			if signy == 1 then c-reject := 1
+			end
+		end
+	# Case 4
+	# bottom right pixel
+	if v2 == 0x03 begin
+		if v1 == 0 begin
+			# case 11 0 1
+			if signx == 1 then c-reject := 2
+			else
+			# case 11 1 1
+			if signy == 1 then c-reject := 1
+			end
+		end
+
+	# You can see from the ifs you could probably use bit flipping
+	# to sort a lot of this out, but, whatever, it's a pain in the ass
+	# to do this in octo and I've already spent a whole day with this
+
+	# If we have decided that we are going to NOT do a corner reflection
+	if c-reject != 0 begin
+		if c-reject == 1 then hbounce
+		if c-reject == 2 then vbounce
+		return
+		end
+
+	# END OF NIGHTMARE MAYBE
+
+	# Here we use which corner we're on to pick the inverted line of reflection
+
+	# if the two bits are the same
+	# ie, 00 and 11
+	# we use a negated line of reflection
+	mm >>= v2
+	mm ^= vf
+	# The result will be 0 if they match
+	# Older long version:
+	#mm := 1
+	#if v2 == 0 then mm := 0
+	#if v2 == 3 then mm := 0
+
+	if v0 == 0x01 begin
+		# nice and simple, perfect mirroring
+
+		if mm == 0 begin
+			# We are on a y=-x reflection corner
+
+			# swap BOTH signs, because that's how this one works
+			vbounce
+			hbounce
+
+			# else
+			# we are on an y=x reflection corner
+			# nothing to do!
+
+			end
+
+		# swap vx/vy
+		vf := vx
+		vx := vy
+		vy := vf
+
+		# swap their signs
+		vf := signx
+		signx := signy
+		signy := vf
+
+		else
+
+		neo-bounce
+
+		# here is far simpler bounce code, that makes us bounce vertically/horizontally on
+		# side collisions
+		# I might want this if I do a chip-legit demake
+		#if v0 == 0x04 begin
+			#mm := 0x02
+			#mm &= v2
+			#if mm == 0 begin
+			#	if signy == 1 then vbounce
+			#	else
+			#	if signy == 0 then vbounce
+			#	end
+		#	else
+			#mm := 0x01
+			#mm &= v2
+			#if mm == 0 begin
+			#	if signx == 1 then hbounce
+			#	else
+			#	if signx == 0 then hbounce
+			#	end
+		#	end
+
+		end
+
+	debugstop
+;
+
+# Neo Bounce - Oh, Neo Bounce, I eventually got this working. It depends on twos compliment arithmatic working and being able to detect and resolve overflows. It also has to account for the special case where we select 00000000 w/a -ve sign, as that won't work for us.
+:const signfix 0xE0
+: neo-bounce
+	# I need an extra register right now. v0 has information in it that we need.
+	ssa := v0
+
+	# real answers for y = 2x
+	# (100,100) -> (20,140)
+	# (-100,100) -> 80 - (-60), -80 + 60 -> 140, -20
+	# (-255,255) -> 204 + 153, -204 + 153 -> 561, -51
+	# in this final case, I'm just going to cap at max xvel
+
+	# This is the bounce when things are reflecting off up in a narrow cone
+	# where y = 2x
+
+	# in order to accomplish this, we need to accept a loss of precision with our data
+	# We also need to be very careful about overflows, there's too much math going on here to
+	# make it worth actually checking, too many negatives to account for, etc.
+
+	# For a true y=2x reflection:
+	# Should approximately be
+	# vx = 4/5y - 3/5x
+	# vy = 4/5x + 3/5y
+
+	# Best chance of this being even remotely possible in 8 bit land
+	# vx = 0.75y - 0.5x
+	# vy = 0.75x + 0.5y
+
+	# if we are y=-2x, this would be:
+	# vx = -4/5y - 3/5x
+	# vy = -4/5x + 3/5y
+	# interestingly, this is only a negation of the FIRST term, not the rest
+
+	# where y = 0.5x
+	# vx = 4/5y + 3/5x
+	# vy = 4/5x - 3/5y
+
+	# where y = -0.5x
+	# vx = -4/5y + 3/5x 
+	# vy = -4/5x - 3/5y
+
+	# Here we can see that this follows the same rules, however, our latter section is flipped in sign.
+
+	# but if x and y are 255, then obviously, 0.75 + 0.5 > 255
+	# which naturally we can't do.
+	# So, let's throw out some of the precision and play it safe + have sign bits.
+	v0 >>= vx
+	v0 >>= v0
+	v1 >>= vy
+	v1 >>= v1
+
+	# now we do the needed divisions to get 0.5x of each, and give them the correct bits
+	v0 >>= v0
+	if signx == 1 then v0 += signfix	# stores 0.5 x
+	v1 >>= v1
+	if signy == 1 then v1 += signfix	# stores 0.5 y
+
+	# additionally, we need an extra 0.25 y for our vx, and an extra 0.25x for our vy.
+	# I'm going to store that in v2, then recalculate the other later
+	v2 >>= v1
+	if signy == 1 then v2 += 128		# Stores 0.25 y
+
+	# Alls the way back before this whole show started, we set mm as being a 'need negative reflection'
+	# so, now we use this to work that out.
+	# if mm is 1 then we act as normal
+	# if mm is 0 then we must negate only the first term of the two.
+	if mm == 1 begin
+
+		# + 0.75
+		vx := v1	# 0.5y
+		vx += v2	# 0.25y
+
+		else
+
+		# - 0.75
+		vx := 0
+		vx -= v1
+		vx -= v2
+
+		end
+	#
+
+	if ssa == 0x04 begin # 2x & -2x
+		vx -= v0	# - 0.5x
+		else # if ssa == 0x02 # 0.5x & -0.5x
+		vx += v0	# + 0.5x
+		end
+
+	v2 >>= v0							# stores 0.25 x
+	if signx == 1 then v2 += 128
+
+	# if mm is 0 then we act as normal
+	# if mm is 1 then we must negate the first term
+	# vy = 0.75x + 0.5y
+	if mm == 1 begin
+		# + 0.75
+		vy := v0	# 0.5y
+		vy += v2	# 0.25y
+		else
+		# - 0.75
+		vy := 0
+		vy -= v0
+		vy -= v2
+		end
+	#
+	if ssa == 0x04 begin # 2x & -2x
+		vy += v1	# 0.5y
+		else # if ssa == 0x02 # 0.5x & -0.5x
+		vy -= v1	# 0.5y
+		end
+
+	# Multiply up again...
+	vx <<= vx
+	if vf == 1 begin	# and catch our errors
+		vx <<= vx
+		# detect underflow:
+		if vf == 0 then vx := hnegspeedcap
+		if vx == 0 then vx := hnegspeedcap
+		vf := 1
+		else
+		vx <<= vx
+		# detect overflow:
+		if vf == 1 then vx := hposspeedcap
+		vf := 0
+		end
+
+	# snag the sign bit
+	signx := vf
+
+	# Multiply up again...
+	vy <<= vy
+	if vf == 1 begin	# and catch our errors
+		vy <<= vy
+		if vx == 0 then vx := vnegspeedcap
+		# detect impending underflow:
+		if vf == 0 begin
+			vy := vnegspeedcap
+			vf := 1
+			end
+		else
+		vy <<= vy
+		# detect impending overflow:
+		if vf == 1 begin
+			vy := vposspeedcap
+			vf := 0
+			end
+		end
+
+	# snag the sign bit
+	signy := vf
+;
+
+## Vbounce - flips vertical
+: vbounce
+	vf := 0
+	vy =- vf
+
+	vf := 0x1
+	signy ^= vf
+;
+
+## Hbounce - flips horizontal
+: hbounce
+	vf := 0
+	vx =- vf
+
+	vf := 0x1
+	signx ^= vf
+;
+
+#############################
+# The GAME sort of!
+#############################
+
+## Draw Aimcross - draws the aiming crosshair for us.
+: draw-aimcross
+	v0 := vx
+	v1 := vy
+
+	v0 += ballstartxl2
+	v1 += ballstartyl2
+
+	# The way we use this insures that i: points at the cross perpetually
+	#i := cross
+	sprite v0 v1 5
+;
+
+## Aim Mode - the loop of the game where we're aiming the cannon
+: aim-mode
+
+	# load our aim data
+	i := lastaim
+	load v1
+	vx := v0
+	vy := v1
+
+	# draw the cannon
+	i := cannon
+	v0 := cannonx
+	v1 := cannony
+	sprite v0 v1 7
+
+	i := cross
+	draw-aimcross
+
+	# we will ssa for determining if we should fire
+	ssa := 0
+
+	# clean up any extra bits from play mode, which adds a smaller quantity to the free ball counter
+	vf := freeball-filter
+	ssc &= vf
+
+	loop
+		# Service the free ball gutter thing.
+		pump-freeball-aim
+		# Restore the I register if we redrew the indicator
+		if ssc == 0 then i := cross
+		
+
+		# we will constrain our vx/vy values from 128 and then transform them to valid data when we're done
+
+		# Step 1) remove old cross
+		draw-aimcross
+
+		# Step 2) Read input
+		v0 := 7   if v0 key then vx += 255 # keyboard A
+		v0 := 9   if v0 key then vx += 1 # keyboard D
+		v0 := 5   if v0 key then vy += 255 # keyboard W
+		v0 := 8   if v0 key then vy += 1 # keyboard S
+		v0 := 6   if v0 key then ssa := 1 # keyboard e, fire!
+
+		# Step 3) Ensure we don't go too far
+		if vx == minxaim then vx += 1
+		if vx == maxxaim then vx += 0xff
+		if vy == minyaim then vy += 1
+		if vy == maxyaim then vy += 0xff
+
+		# Step 4) draw new cross
+		draw-aimcross
+
+		# Step 5) Repeat
+		# lock the framerate to a nice normal rate
+		normal-delay
+		if ssa == 0 then
+	again
+
+	# Remove the lingering cross
+	draw-aimcross
+	# Take a life away
+	take-life
+
+	# remove the cannon
+	i := cannon
+	v0 := cannonx
+	v1 := cannony
+	sprite v0 v1 7
+
+	# save our aim data so we can start with it next time
+	i := lastaim
+	v0 := vx
+	v1 := vy
+	save v1
+
+	# initialise peg hit stuff
+	ssa := 0
+	ssb := -100
+	i := pegoverflow
+	v0 := 0
+	save v0
+;
+
+## Play Level - loops around until we run out of lives. This handles the entire level experience. It calls Aim Mode for us at the start, and then runs all the set up and then play for it. It ends when we're out of lives.
+: play-level
+	loop
+		# aim mode, this sorts out the whole... uh... aiming? part? OK great
+		aim-mode
+
+		# Position our ball
+		px := ballstartx
+		py := ballstarty
+		sx := 0x80
+		sy := 0x80
+
+		# Draw ball
+		i  := ball
+		sprite px py 2
+
+		# scale our vx and vy from the aimed ranges to their real ranges
+		# Set midpoint values, and a handy xoring value
+		v0 := 0x80
+		v1 := 0x01
+
+		vx += v0
+		signx := vf
+		signx ^= v1
+
+		vy += v0
+		signy := vf
+		signy ^= v1
+
+		# multiply up our velocity a bunch. This is capped sufficiently by our constants probably
+		vx <<= vx
+		vx <<= vx
+		vx <<= vx
+
+		vy <<= vy
+		vy <<= vy
+		vy <<= vy
+
+		# The GAME part
+		loop
+			# Cycle free ball chute
+			pump-freeball
+
+
+			# save the old position for a later redraw
+			i := ballsave
+			v0 := px
+			v1 := py
+			save v1
+			v0 := sx
+			v1 := sy
+			save v1
+
+			# Ball movement changes:
+			# debugstop
+			mm := gravity
+			# Apply Acceleration
+			vy += mm
+			if vf == 1 begin
+				# if this overflows from -1 to 0
+				if signy == 1 begin
+					# we aren't going -ve already
+					signy := 0
+					else
+					# we are at speed cap
+					vy := vposspeedcap
+					end
+				end
+
+			# Apply ball velocity
+			if signx == 1 begin
+				# store inverted vx
+				mm := 0
+				mm -= vx
+
+				sx -= mm
+				# if we underflow
+				# decrease position by 1
+				if vf == 0 then px += -1
+
+				else
+
+				sx += vx
+
+				# when we overflow, we want to increase px
+				px += vf
+
+				end
+			
+			if signy == 1 begin
+				# store inverted vy
+				mm := 0
+				mm -= vy
+				
+				sy -= mm
+				# if we underflow
+				# decrease position by 1
+				if vf == 0 then py += -1
+
+				else
+
+				sy += vy
+				# when we overflow, we want to increase py
+				py += vf
+
+				end
+
+			# Attempt to monitor bouncing
+			if py < thetop begin
+				# filter based on moving -vely
+				if signy == 1 begin
+					# left side
+					if px < toparea-left begin
+						py := thetopp1
+						vbounce
+						end
+					# right side
+					if px > toparea-right begin
+						py := thetopp1
+						vbounce
+						end
+
+					# or if we're at the absolute top
+					if py == theothertop begin
+						py := theothertop
+						vbounce
+						end
+
+					end
+
+				if px == toparea-left begin
+					if signx == 1 then hbounce
+					end
+				if px == toparea-right begin
+					if signx == 0 then hbounce
+					end
+
+				end
+
+			if signx == 1 begin
+				if px == wallleft begin
+					# left wall
+					px := wallleft
+					hbounce
+					end
+				else
+				if px == wallright begin
+					# right wall
+					px := wallright
+					hbounce
+					end
+				end
+
+			# Check if we're in fever or not
+			i := fevershot-bool
+			load v0
+			if v0 != 0 begin
+				# If we are, flash the F at the top of the bar
+				v1 := 0x02
+
+				v0 ^= v1
+				i := fevershot-bool
+				save v0
+
+				i := fever-f
+
+				v1 := feverflash-x
+				v2 := feverflash-y
+				sprite v1 v2 5
+			end
+
+			# remove the old ball:
+			i := ballsave
+			load v1
+			i := ball
+			sprite v0 v1 2
+
+			# If we press Q, we kill our ball
+			v0 := 4   if v0 key begin  # keyboard Q
+				py := BallDeathY
+				px := 0 
+				end
+
+			# Deal wih the new location
+			if py == BallDeathY begin
+				# ball is dead
+
+				else
+
+				# New ball position
+				sprite px py 2
+
+				# if we get a vf hit, it means it drew over something
+				# this can only be a peg
+				if vf == 1 begin
+					debugstop
+					# We should test if we're in the score area or hitting other stuff
+					# We have hit something, remove the ball
+					sprite px py 2
+					# Run collision 
+					v0 := py
+					v0 += 4
+					if v0 > bumperypos begin
+						bumper-collide
+						else
+						peg-collide
+						end
+					# draw the ball back in
+					i := ball
+					sprite px py 2
+					end
+
+				end
+
+			# lock the framerate
+			quick-delay
+
+			# if our ball died or whatever, then, we exit this loop
+			if py != 0x3e then
+		again
+
+		#debugstop
+
+		# 1) Check if we got a free ball:
+		# check the location of the ball vs freeball bonus
+		i := freeball-locate
+		load v0
+		get-bumper-pos
+		v1 += -4
+		v1 =- px
+		if v1 < freeball-window begin
+			boost-life
+			freeball-get-text
+			end
+
+		#debugstop
+
+		# 2) Score some points
+		# we need to score based on ssb
+		# I want to have the value of the fever bar be a multiplier, so I've made SSB count up based on that vlaue
+		# every time we hit. The max value is 100, and it overflows into a memory address of hundreds
+		# These are BCDed into memory to do our score math with. This does mean that you can at most get 25599 points from pegs in a single turn
+
+		# 2.1) Store the streak
+		i := streakmem
+		bcd ssa
+		load v2
+		vf := v2
+		v2 := v0
+		v0 := vf
+		i := streakmem
+		save v2
+
+		# 2.2) switch ssb back to non overflow detection mode:
+		ssb += 100
+
+		# write these digits:
+		i := multiplymem
+		bcd ssb
+		# bcd is big endian numeric order, I need little
+		load v2
+		vf := v2
+		v2 := v0
+		v0 := vf
+		i := multiplymem
+		# this one will only ever be 2 digits!
+		save v1
+
+		# peg overflow contains how many hundreds we have
+		i := pegoverflow
+		load v0
+
+		i := multiplymem-hund
+
+		if v0 != 0x00 begin
+			bcd v0
+			# bcd is big endian numeric order, I need little
+			load v2
+			vf := v2
+			v2 := v0
+			v0 := vf
+			i := multiplymem-hund
+			save v2
+			end
+
+		# make sure there's an ff on the end;
+		v0 := 0xff
+		save v0
+
+		# Give us the points!
+		:unpack 0xA multiplymem-makeitx10
+		i := load-BigDecimalB
+		save v1
+		givepoints
+
+		debugstop
+
+		# 2.3) Deal with FEVER!
+		i := fevershot-bool
+		load v0
+		sx := v0
+		if sx != 0 begin
+			if sx != 1 begin
+				# if we have to clean up the fever indicator:
+
+				#v1 := feverletterf
+				#i := myfont
+				#i += v1
+				i := fever-f
+
+				v1 := feverflash-x
+				v2 := feverflash-y
+				sprite v1 v2 5
+				end
+
+			# clear fever, we won't need it
+			i := fevershot-bool
+			v0 := 0
+			save v0
+
+			# This was a fever shot
+			# We get a big bonus depending on which gutter we've fallen in.
+
+			# First though, let's check px. If px is 0 then they pressed Q and are a dirty cheater. Give them no points!
+			if px != 0 begin
+				# so, which gutter are we in?
+				v0 := 0
+				get-bumper-pos
+				# This will return the first gutter position in v1
+				mm := px
+			    mm += 4
+				mm -= v1
+				v0 := 0xf8
+				v1 := bumperxshift
+				loop
+					v0 += 8	# We're iterating through an address call? no? I guess we're not
+					# What ARE we doing?
+					# Aha we're using this for select bonus.
+					mm -= v1
+					if vf == 1 then
+				again
+				# mm will now be 0 to whatever, left to right.
+				# just need to select our bonus now
+				# bonuses in peggle proper are be 10k, 50k, 100k, 100k, 50k, 10k
+				# these are pretty damn big!
+				# I picked some smaller ones because I only have 6 score digits
+
+				select-bonus
+
+				i := load-BigDecimalB
+				save v1
+				i := keep-Bonus
+				save v1
+
+				# Instead of giving the points here, we give them when we go BONUS!!!! FLASH WOO!
+				#givepoints
+
+				else
+
+				# no bonus!
+				sx := 0
+
+				end
+
+			# empty the hits bar
+			i := peghits2
+			v0 := 0
+			save v0
+			clear-feverbar
+
+			end
+
+		# 3) Display ALL OF THAT STUFF
+
+		# I want to display the extra score, streak and bonus the player got
+
+		# score this turn should be stored in
+		# multiplymem-makeitx10
+		# bonus this turn should be stored in load-BigDecimalB still
+
+		# Draw the Streak
+		end-life-draw-Streak
+		ultra-delay
+		end-life-draw-Streak
+
+		# Draw the Points This Turn
+		end-life-draw-PTT
+		ultra-delay
+		end-life-draw-PTT
+
+		# If we were in fever, draw the BONUS and like flash it a bunch because bonusses own
+		if sx != 0 begin
+			sx := 0
+			givepoints
+			loop
+				end-life-draw-Bonus
+				# Flash the screen ooooh~
+				quick-delay
+				end-life-draw-Bonus
+				quick-delay
+				sx += 1
+				if sx != 30 then
+			again
+			end
+
+		# Load the lives, check we have any, if we don't, next level~
+		i := lives
+		load v0
+		if v0 != 0 then
+	again
+;
+
+# Debug Stop - I used this to have an optional breakpoint by hodling the 1 key down
+: debugstop
+	#vf := 1	  if vf key begin # If we're pressing 1, break point here
+		#:breakpoint test
+		#vf := 1
+		#end
+;
+
+## Main - the start of the program. We set px to 1 which causes us to draw our program to the lower half of the screen. Subsequently we won't do that, and px will not be 1 ever again. Probably.
+: main
+	px := 1
+
+	# This is where we restart the game
+	: restart
+
+	# Title screen
+	vf := 0
+	v1 := Title-x
+	v2 := Title-y
+	loop
+		i := title-text
+		drawtext
+		if vf != 0xff then
+	again
+
+	# Address into one of the first parts of the program. We use a different address later, which gives us a slightly different seed so we can never fully blank out our noise.
+	i := givepoints
+	v4 := 16
+
+	loop
+		v0 := 0
+		v1 := 0
+		v2 := 8
+		mm := 0
+		v4 += -1
+
+		if v4 == 0 begin
+			v4 := random 0x0F
+			v4 += 3
+			i := setupscore
+			i += v4
+		end
+
+		loop
+			sprite v0 v1 8
+			i += v2
+			v0 += 8
+			mm += 1
+			if mm != 8 then
+		again
+
+		if px == 1 begin
+			v0 := 0
+			v1 := 17
+			v2 := 15
+			mm := 0
+			loop
+				sprite v0 v1 15
+				i += v2
+				v0 += 8
+				mm += 1
+				if mm != 8 then
+			again
+		end
+	
+		# Pressing any of these keys will exit the loop and start the game
+		v1 := 0
+		v0 := 7   if v0 key then v1 := 1 # keyboard A
+		v0 := 9   if v0 key then v1 := 1 # keyboard D
+		v0 := 5   if v0 key then v1 := 1 # keyboard W
+		v0 := 8   if v0 key then v1 := 1 # keyboard S
+		v0 := 6   if v0 key then v1 := 1 # keyboard e, fire!
+		
+		normal-delay
+		if v1 == 0 then
+	again
+
+	# select hi res mode
+	# Our only super chip instruction
+	# Stay pure~
+	hires
+
+	# Call setup score for some reason that escapes me.
+	setupscore
+	loop
+		clear
+		# Set up our starting lives value from the constant
+		# We do this at the start of each level as you only progress when you run out!
+		v1 := startlives
+		i := level-number
+		load v0
+
+		v0 >>= v0
+		v2 >>= v0
+
+		v0 =- v1
+		v0 -= v2
+		i := lives
+		save v0
+
+		# draw the arena
+		draw-arena
+		draw-bars
+
+		# select level
+		i := level-number
+		load v0
+		draw-pegs
+
+		redraw-score
+		draw-fakelives
+
+		i := peghits2
+		v0 := 0
+		save v0
+		redraw-freeball
+
+		# we initiate in aiming mode
+
+		# then when we fire, we go into ball mode
+
+		# then, when we crash and burn, we go back into aim mode
+
+		play-level
+
+		# Increase level
+		i := level-number
+		load v0
+		v0 += 1
+
+		
+		i := level-number
+		save v0
+		if v0 != maxlevels then
+	again
+
+	endgame
+	jump restart
+##################
+
+## This is the stuff that runs at the end of the game. It draws the final score text, and the score itself.
+# After that, it clears them
+: endgame
+	clear
+	# I guess this is our 'other' super chip instruction.
+	lores
+	vf := 0
+	v1 := endtext-x
+	v2 := endtext-y
+	loop
+		i := finalscore-text
+		drawtext
+		if vf != 0xff then
+	again
+
+	ssa := endscore-x
+	ssb := endscore-y
+	mm := 0
+	v1 := 0
+	loop
+		i := scoremem
+		ssa += scorexshift
+		draw-bonusses-bigD-sub
+		if mm != 7 then
+	again
+
+	# In theory, I could try to save your score into saveflags here. But I'm not going to because loading it all back in a pain in the ass and I might run out of bytes.
+
+	v0 := 0
+	v1 := 0
+	v2 := 0
+	v3 := 0
+	i := scoremem
+	save v3
+	save v3
+	i := level-number
+	save v0
+	i := peghits
+	save v0
+;
+
+#############################
+# MOSTLY GRAPHICS!
+#############################
+
+: ball
+	0xC0 0xC0
+#: life # A life graphic that I don't use
+#	0xF8 0xF8 0xD8 0xF8 0xF8 
+: peg
+	0x80
+
+# Here is all the arena art
+# I'm CERTAIN that I could compact this down a bit
+: cornerTL
+	0xFF 0x80 0xBF 0xA0 0xA0 0xA0 0xA0 0xA0 
+: cornerTR
+	0xFF 0x01 0xFD 0x05 0x05 0x05 0x05 0x05 
+: sideT
+	0xFF 0x00 0xFF 0x00 0x00 0x00 0x00 0x00 
+: sideL
+	0xA0 0xA0 0xA0 0xA0 0xA0 0xA0 0xA0 0xA0 
+: sideR
+	0x05 0x05 0x05 0x05 0x05 0x05 0x05 0x05 
+: invcornerTL
+	0xA0 0x20 0xE0 0x00 0x00 0x00 0x00 0x00 
+: invcornerTR
+	0x05 0x04 0x07 0x00 0x00 0x00 0x00 0x00 
+: bumper
+	0x30 0x78 0x78 0xFC 0xFC 0xFC 0xFC 0xFC 
+: barbottom
+	0x5a 0x42 0x42 0x42 0x42 0x42 0x7E 0x00 
+: barbody
+	0x5a 0x42 0x42 0x42 0x42 0x42 0x42 0x42 
+: bartop
+	0x00 0x7E 0x42 0x42 0x42 0x42 0x42 0x42 
+: barfill
+	0x3C 0x3C 0x3C 0x3C 0x3C 0x3C 0x3C 0x3C
+
+: cross # the aiming cross
+	0x20 0x20 0xF8 0x20 0x20 
+: cannon # the cannon graphic
+	0xBD 0xC3 0xDB 0xDB 0xC3 0x7E 0x3C
+: freeball # the free ball indicator
+	0xFE
+
+#############################
+# MOSTLY MEMORY ADDRESS TO SAVE DATA IN!
+#############################
+
+: regdump
+	0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0
+	
+: multiplymem-makeitx10	# Makes our score 10x bigger by just offsetting the addresses by one
+	0x00
+: multiplymem
+	0xFF 0xFF 
+: multiplymem-hund
+	0xFF 0xFF 0xFF 0xFF 0xFF 0xFF
+: scoremem
+	0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+: streakmem
+	0x00 0x00 0x00
+
+: ballsave # used to save the previous px py sx sy registers
+	0x00 0x00 0x00 0x00
+: lives # number of lives left, set to default lives at the start of every level
+	0x00
+: lastaim # The last place you aimed, conviniently saved for you
+	0x80 0x88
+: freeball-locate # The location of the free ball indicator
+	0x00
+
+
+: peghits # pegs hit for the life bar
+	0x00
+: peghits2 # pegs hit for the fever bar
+	0x00
+: pegoverflow
+	0x00
+: fevershot-bool # value that stores if we're in fever or not, as well as the status of the indicator
+	0x00
+
+: select-bonus
+	jump0 bonuspick
+
+	: bonuspick
+	:unpack 0xA fever-small ; 0x01 0x02
+	:unpack 0xA fever-med ; 0x03 0x03
+	:unpack 0xA fever-large ; 0x04 0x05
+	:unpack 0xA fever-large ; 0x06 0x07
+	:unpack 0xA fever-med ; 0x08 0x09
+	:unpack 0xA fever-small ; 0x0a 0x0b
+
+: fever-large # Something about 12-20k would be great. But what would it be?
+			  # For now, just take 32768. That's a good number.
+	8 6 7 2 3 0xff
+: fever-med	# Motorola 6800
+	0 0 8 6 0xff
+: fever-small # Telmac 1800
+	0 0 8 1 0xff
+
+#############################
+# Level stuff
+#############################
+
+: level-number # level number that we're on
+	0x00
+
+# Level data:
+# Reads 1 byte at a time and behaves based on its value
+# These commands are packed together with paramaters for your inconvinience!
+# repeats a binary pattern in particular ways with a bunch of cool options
+# 0b00000000				# ends level definition. Must be all 0s!
+# 0b001##### pattern      	# repeats the pattern of pegs a number of times based on the 5 LSBs
+# 0b010##### 				# repeats the next 2 items ? many times based on the 5 LSBs
+# 0x011XXXXX pix-x pix-y	# Adjusts the position registers by the given values
+# 0x100XXXXX				# Resets everything to starting values in case you are doing some wiggy maths
+# 0x101##### 				# Will repeat from next instruction # times when it hits...
+# 0x110XXXXX 				# Marker for the above. Will skip when # runs out
+
+: level-1
+	0x26 0b01000100
+	0x26 0b00010001
+	0x26 0b01000100
+	0x26 0b10101010
+	0x00
+
+: level-2
+	0x38 0b01010101	# 001 + 24
+	0x60 0 3
+	0x38 0b10101010 # 001 + 24
+	0x00
+
+
+: level-3
+	0xa2
+	0x21 0xff # give me an ff
+	0x24 0    # 4 gaps
+	0x21 0xff # give me another ff
+	0xc0      # repeat for 2nd row
+
+	0x2c 0
+
+	0xa2
+	0x21 0xff
+	0x24 0
+	0x21 0xff
+	0xc0
+
+	0x60 1 0
+	0xa2
+	0x22 0x00
+	0x22 0x55
+	0x22 0x00
+	0xc0
+	
+	0x38 0xaa
+
+	0x00
+
+: level-4
+	0xa5
+	0x38 0b01000100
+	0xc0
+	0x00
+
+: level-5
+	0x2c 0b01010101
+	0x60 1 0
+	0x2c 0b01100110
+	0x2c 0
+	0x2c 0b10011001
+	0x00
+
+: level-6
+	0xa5
+	0x38 0b10001000
+	0x60 1 0
+	0xc0
+	0x00
+
+: level-7
+	0x38 0b11100000
+	0x60 3 0
+	0x38 0b00000111
+	0x60 -3 0
+	0x38 0b00111000
+	0x60 3 0
+	0x38 0b11000001
+	0x00
+
+: level-8
+	0x60 1 0
+	# our octopus
+	0x43	0x21 0b00000111 0x21	0b11000000	#1	
+	0x43	0x21 0b01111111 0x21	0b11111100	#6
+	0x43	0x21 0b11011011 0x21	0b10110110	#11
+	0x43	0x21 0b00110010 0x21	0b10011000	#16
+
+	0x43	0x21 0b00011111 0x21	0b11110000	#2
+	0x43	0x21 0b01111111 0x21	0b11111100	#7
+	0x43	0x21 0b01111111 0x21	0b11111100	#12
+	0x43	0x21 0b00100110 0x21	0b11001000	#17
+
+	0x43	0x21 0b00111111 0x21	0b11111000	#3
+	0x43	0x21 0b01111111 0x21	0b11111100	#8
+	0x43	0x21 0b00011111 0x21	0b11110000	#13
+	0x43	0x21 0b00000100 0x21	0b01000000	#18
+
+	0x43	0x21 0b00111111 0x21	0b11111000	#4
+	0x43	0x21 0b00111111 0x21	0b11111000	#9
+	0x43	0x21 0b01111111 0x21	0b11111100	#14
+	0x26 0
+	
+	0x43	0x21 0b01111111 0x21	0b11111100	#5
+	0x43	0x21 0b00011111 0x21	0b11110000	#10
+	0x43	0x21 0b11010010 0x21	0b10010110	#15
+	0x00
+
+: select-level
+	jump0 levelpick
+
+	: levelpick
+	:unpack 0xA level-1 ; 0x01 0x02
+	:unpack 0xA level-2 ; 0x03 0x03
+	:unpack 0xA level-3 ; 0x04 0x05
+	:unpack 0xA level-4 ; 0x06 0x07
+	:unpack 0xA level-5 ; 0x08 0x09
+	:unpack 0xA level-6 ; 0x08 0x09
+	:unpack 0xA level-7 ; 0x0a 0x0b
+	:unpack 0xA level-8 ;
+;
+
+#############################
+# Text stuff
+#############################
+: drawtext
+	# v1 v2 will be start x/y
+	# v0 will be used too, for loading purposes
+	# mm will see action also
+	
+	# Must have initialised mm := 0
+	# and run this in a loop
+	# setting i:= the text, then calling this, break their loop if mm == 0x255
+
+	i += vf
+	load v0
+	if v0 == 0xff begin
+		# we've reached the end
+		vf := 0xff
+		return
+
+		else
+
+		i := myfont
+		i += v0
+		v0 := vf
+		sprite v1 v2 5
+		vf := v0
+		v1 += 6
+		vf += 1
+
+		end
+;
+
+# A 4 px wide F
+: fever-f
+	0xF0 0x80 0xF0 0x80 0x80
+
+: myfont # (118 bytes), helpfully compacted by https://github.com/JohnEarnest/Octo/tree/66229e413cc63d9311f3ed926989ce904ab99abf/tools/TextPack
+	0x90 0xA0 0xC0 0xA0 0x90 0x78 0x80 0x70
+	0x08 0xF0 0xF8 0x20 0x20 0x20 0x20 0x88
+	0x50 0x20 0x40 0x80 0xF0 0x88 0xF0 0x88
+	0xF0 0x80 0x80 0x88 0x50 0x20 0x50 0x88
+	0xF8 0x88 0xF8 0x80 0xF0 0x80 0x80 0x80
+	0x80 0xF8 0x88 0x88 0xF8 0x88 0x88 0x88
+	0x88 0x70 0xF0 0x88 0x88 0x88 0xF0 0x88
+	0xF0 0x90 0x88 0xD8 0xA8 0x88 0x88 0x50
+	0x50 0x20 0x78 0x80 0x80 0x80 0x78 0x80
+	0x98 0x88 0x70 0x88 0x88 0x88 0x70 0x88
+	0x88 0x98 0x78 0xF8 0x80 0xF0 0x80 0xF8
+	0x20 0x20 0x20 0xF8 0x10 0x20 0x40 0xF8
+	0x20 0x20 0x20 0xC0 0x88 0xC8 0xA8 0x98
+	0x88 0x88 0xA8 0xA8 0x50 0x50 0x50 0x00
+	0x50 0x00 0x00 0x00 0x00 0x00 
+
+: freeball-text
+	0x22 0x36 0x53 0x53 0x71 0x14 0x1D 0x25
+	0x25
+	0xff
+: fevershot-text
+	0x22 0x53 0x3D 0x53 0x36 0x6C 
+	0xff
+: streak-text
+	0x05 0x0A 0x36 0x53 0x1D 0x00
+	0xff
+: points-text
+	0x1B 0x0A 0x36 0x1D 
+	0xff
+: bonus-text
+	0x14 0x4A 0x64 0x2D 0x05 
+	0xff
+
+: title-text
+	0x4A 0x42 0x0A 0x4A 0x16 0x53 0x46 
+	0xff
+
+: finalscore-text
+	0x22 0x57 0x64 0x1D 0x25 0x05 0x42
+	0x4A 0x36 0x53 
+	0xff
