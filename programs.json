@@ -554,5 +554,21 @@
 			"buzzColor": "#FFFFFF",
 			"quietColor": "#000000"
 		}
+	},
+	"rockto": {
+		"title":    "Flight Runner",
+		"authors":  ["TodPunk"],
+		"images":   ["flightrunner.gif"],
+		"desc":     "A simple flight runner for the Chip8.",
+		"event":	"Octojam1",
+		"release":  "2014-11-01",
+		"platform": "chip8",
+		"options": {
+			"tickrate": "15",
+			"fillColor": "#FFCC00",
+			"backgroundColor": "#0000FF",
+			"buzzColor": "#FFFFFF",
+			"quietColor": "#000000"
+		}
 	}
 }
