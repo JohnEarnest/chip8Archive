@@ -555,7 +555,7 @@
 			"quietColor": "#000000"
 		}
 	},
-	"rockto": {
+	"flightrunner": {
 		"title":    "Flight Runner",
 		"authors":  ["TodPunk"],
 		"images":   ["flightrunner.gif"],
