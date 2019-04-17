@@ -1,0 +1,581 @@
+#the rules of the game are unknown
+#the controls are unknown
+#the code is a mess of spaghetti
+#time of completion 5:09 am
+
+:alias currplayer vd
+:alias cursorX vc
+:alias cursorY vb
+:alias currboard v9
+:alias button va
+:alias tmp1 v0
+:alias tmp2 v1
+:alias tmp3 v2
+:alias tmp4 v3
+:alias tmp5 v4
+:alias ret v5
+
+
+
+: main
+	draw-board
+	cursorX := 61
+	cursorY := 30
+
+	i := cross
+	sprite cursorX cursorY 4	
+	loop
+		button := key
+		
+		sprite cursorX cursorY 4 #clear
+		if button == 5 then cursorY += -7
+		if button == 8 then cursorY += 7
+		if button == 7 then cursorX += -7
+		if button == 9 then cursorX += 7
+		check-bounds
+		if button == 6 then place-marker
+		sprite cursorX cursorY 4 # draw
+	again
+;
+
+: draw-board
+	hires
+	va := 32  # x
+	vb := 0   # y
+	vc := 32   # stride
+	i := boardimage
+	loop
+		sprite va vb 0
+		i  += vc
+		va += 16
+		if va == 96 then vb +=  16
+		if va == 96 then va :=  32
+		if vb != 64 then 
+	again
+;
+: place-marker
+	sprite cursorX cursorY 4 #draw
+	if vf != 0 begin
+		sprite cursorX cursorY 4 #clear
+		return
+	end
+	sprite cursorX cursorY 4 #clear
+	if currplayer == 0 then i := cross
+	if currplayer == 1 then i := circle
+	sprite cursorX cursorY 4
+	tmp3 := 0
+	tmp4 := 0
+#	sprite tmp3 tmp3 4
+	tmp1 := 1
+	currplayer ^= tmp1
+	if currplayer == 0 then i := cross
+	if currplayer == 1 then i := circle
+	#i := cursor	
+	check-wins
+	if ret == 4 then tieboard
+	if ret == 1 begin 
+		winboard
+	else if ret == 2 then 
+		winboard
+	end
+	tmp1 := 1
+	#middle column	
+	if cursorX == 40 then tmp1 := 2
+	if cursorX == 61 then tmp1 := 2
+	if cursorX == 82 then tmp1 := 2
+	#right column
+	if cursorX == 47 then tmp1 := 3
+	if cursorX == 68 then tmp1 := 3
+	if cursorX == 89 then tmp1 := 3
+	tmp2 := 1
+	#middle row
+	if cursorY == 9 then tmp2 := 2
+	if cursorY == 30 then tmp2 := 2
+	if cursorY == 51 then tmp2 := 2
+	#bottomrow
+	if cursorY == 16 then tmp2 := 3
+	if cursorY == 37 then tmp2 := 3
+	if cursorY == 58 then tmp2 := 3
+
+	currboard := tmp1
+	if tmp2 == 2 then currboard += 3
+	if tmp2 == 3 then currboard += 6
+	
+	cursorX := 40
+	cursorY := 9
+	if tmp1 == 2 then cursorX := 61
+	if tmp1 == 3 then cursorX := 82
+	
+	if tmp2 == 2 then cursorY := 30
+	if tmp2 == 3 then cursorY := 51
+	i := data
+	i += currboard
+	load v1
+	if tmp1 != 0 then currboard := 0
+	
+	if currplayer == 0 then i := cross
+	if currplayer == 1 then i := circle
+	
+;
+: tieboard
+	i := data
+	i += currboard
+	tmp1 := ret
+	save tmp1
+;
+
+: winboard
+	i := data
+	i += currboard
+	tmp1 := ret
+	tmp5 := ret
+	save tmp1
+	tmp1 := tmp3
+	tmp2 := tmp4
+	getvalatpos
+	clearfill
+	tmp1 += 7
+	clearfill
+	tmp1 += 7
+	clearfill
+	tmp2 += 7
+	clearfill
+	tmp2 += 7
+	clearfill
+	tmp1 += -7
+	clearfill
+	tmp1 += -7
+	clearfill
+	tmp2 += -7
+	clearfill
+	tmp1 += 7
+	clearfill
+	checkfullwin
+;
+: clearfill
+	getvalatpos
+	if ret != 0 then sprite tmp1 tmp2 4
+	i := circle
+	if tmp5 == 1 then i := cross
+	sprite tmp1 tmp2 4
+;
+: checkfullwin
+	i := data
+	load v9
+	v0 := 0b00000011
+	v9 &= v0
+	v8 &= v0
+	v7 &= v0
+	v6 &= v0
+	v5 &= v0
+	v4 &= v0
+	v3 &= v0
+	v2 &= v0
+	v1 &= v0
+	
+	if v1 != 0 begin
+		ve := v1
+		#top row
+		if v2 == v1 begin
+			if v3 == v1 then
+				winner
+		end
+		#left column
+		if v4 == v1 begin
+			if v7 == v1 then
+				winner
+		end
+	end
+	if v9 != 0 begin
+		ve := v9
+		#bottom row
+		if v8 == v9 begin
+			if v7 == v9 then
+				winner
+		end
+		#right column
+		if v6 == v9 begin
+			if v3 == v9 then
+				winner
+		end
+	end
+	if v5 != 0 begin
+		ve := v5
+		#upper diagonal
+		if v1 == v5 begin
+			if v9 == v5 then winner
+		end
+		#lower diagonal
+		if v7 == v5 begin
+			if v3 == v5 then winner
+		end
+		#middle column
+		if v2 == v5 begin
+			if v8 == v5 then winner
+		end
+		#middle row
+		if v4 == v5 begin
+			if v6 == v5 then winner
+		end
+	end 
+;
+: winner
+	ret := ve
+	tmp1 := 33
+	tmp2 := 2
+	tmp5 := ve
+	loop
+		clearfill
+		tmp1 += 7
+		if tmp1 == 96 then tmp2 += 7
+		if tmp1 == 96 then tmp1 := 33
+		if tmp2 != 65 then
+	again
+	
+	i := data
+	v0 := 0
+	v1 := 0
+	v2 := 0
+	v3 := 0
+	v4 := 0
+	v5 := 0
+	v7 := 0
+	v8 := 0
+	v9 := 0
+	save v9
+	v0 := key
+	clear
+	main
+;
+: check-wins
+	#get current board
+	tmp1 := 1
+	tmp2 := 2
+	#middle column	
+	if cursorX == 54 then tmp1 := 2
+	if cursorX == 61 then tmp1 := 2
+	if cursorX == 68 then tmp1 := 2
+	#right column
+	if cursorX == 75 then tmp1 := 3
+	if cursorX == 82 then tmp1 := 3
+	if cursorX == 89 then tmp1 := 3
+	tmp2 := 1
+	#middle row
+	if cursorY == 23 then tmp2 := 2
+	if cursorY == 30 then tmp2 := 2
+	if cursorY == 37 then tmp2 := 2
+	#bottomrow
+	if cursorY == 44 then tmp2 := 3
+	if cursorY == 51 then tmp2 := 3
+	if cursorY == 58 then tmp2 := 3
+	currboard := tmp1
+	if tmp2 == 2 then currboard += 3
+	if tmp2 == 3 then currboard += 6
+	# go to top left of board
+	tmp3 := 33
+	if currboard == 2 then tmp3 := 54
+	if currboard == 5 then tmp3 := 54
+	if currboard == 8 then tmp3 := 54
+	if currboard == 3 then tmp3 := 75
+	if currboard == 6 then tmp3 := 75
+	if currboard == 9 then tmp3 := 75
+	tmp4 := 2
+	if currboard == 4 then tmp4 := 23
+	if currboard == 5 then tmp4 := 23
+	if currboard == 6 then tmp4 := 23
+	if currboard == 7 then tmp4 := 44
+	if currboard == 8 then tmp4 := 44
+	if currboard == 9 then tmp4 := 44
+	tmp1 := tmp3
+	tmp2 := tmp4	
+	getvalatpos
+	tmp5 := ret
+	if tmp5 != 0 begin 
+		#top row
+		tmp1 += 7
+		getvalatpos
+		if tmp5 == ret begin
+			tmp1 += 7
+			getvalatpos
+			if tmp5 == ret then return
+		end
+		#left column
+		tmp1 := tmp3
+		tmp2 += 7
+		getvalatpos
+		if tmp5 == ret begin
+			tmp2 += 7
+			getvalatpos
+			if tmp5 == ret then return
+		end
+		
+	end
+	tmp2 := tmp4
+	tmp2 += 14
+	tmp1 += 14
+	getvalatpos
+	tmp5 := ret
+	if tmp5 != 0 begin 
+		#bottom row
+		tmp1 += -7
+		getvalatpos	
+		if tmp5 == ret begin
+			tmp1 += -7
+			getvalatpos
+			if tmp5 == ret then return
+		end
+		#right column
+		tmp1 := tmp3
+		tmp1 += 14
+		tmp2 += -7
+		getvalatpos
+		if tmp5 == ret begin
+			tmp2 += -7
+			getvalatpos
+			if tmp5 == ret then return
+		end
+		
+	end
+	#put in the rest of the checking here
+	tmp1 := tmp3
+	tmp2 := tmp4
+	tmp2 += 7
+	tmp1 += 7
+	getvalatpos
+	tmp5 := ret
+	if tmp5 != 0 begin
+		#middle horizontal line
+		tmp1 += -7
+		getvalatpos
+		if ret == tmp5 begin
+			tmp1 += 14
+			getvalatpos
+			if ret == tmp5 then return
+		end
+		#vertical line
+		tmp1 := tmp3
+		tmp2 := tmp4
+		tmp1 += 7
+		getvalatpos
+		if ret == tmp5 begin
+			tmp2 += 14
+			getvalatpos
+			if ret == tmp5 then return
+		end
+		#upperdiagonal
+		tmp1 := tmp3
+		tmp2 := tmp4
+		getvalatpos
+		if ret == tmp5 begin
+			tmp1 += 14
+			tmp2 += 14
+			getvalatpos
+			if ret == tmp5 then return
+		end
+		#lower diagonal
+		tmp1 := tmp3
+		tmp2 := tmp4
+		tmp2 += 14
+		getvalatpos
+		if ret == tmp5 begin
+			tmp1 += 14
+			tmp2 += -14
+			getvalatpos
+			if ret == tmp5 then return
+		end
+	end
+	#check draw
+	tmp1 := tmp3
+	tmp2 := tmp4
+	tmp5 := 4
+	getvalatpos
+	if ret == 0 then tmp5 := 0
+	tmp1 += 7
+	getvalatpos
+	if ret == 0 then tmp5 := 0
+	tmp1 += 7
+	getvalatpos 
+	if ret == 0 then tmp5 := 0
+	tmp2 += 7
+	getvalatpos
+	if ret == 0 then tmp5 := 0
+	tmp2 += 7
+	getvalatpos
+	if ret == 0 then tmp5 := 0
+	tmp1 += -7
+	getvalatpos
+	if ret == 0 then tmp5 := 0
+	tmp1 += -7
+	getvalatpos
+	if ret == 0 then tmp5 := 0
+	tmp2 += -7
+	getvalatpos
+	if ret == 0 then tmp5 := 0
+	tmp1 += 7
+	getvalatpos
+	if ret == 0 then tmp5 := 0
+	ret := tmp5
+	return
+	
+	;
+: getvalatpos
+	i := cross
+	sprite tmp1 tmp2 4
+	if vf == 0 begin #no sprite
+		ret := 0
+		sprite tmp1 tmp2 4
+		return
+	end
+	sprite tmp1 tmp2 4
+	if vf == 0 begin #cross
+		ret := 1
+		return
+	end
+	i := circle
+	ret := 2
+	return
+
+: check-bounds
+	#keep us inside the board
+	if cursorX == 26 then cursorX := 33
+	if cursorX == 96 then cursorX := 89
+	if cursorY == -5 then cursorY := 2
+	if cursorY == 65 then cursorY := 58
+	if currboard == 0 then return #free board so no more checks needed
+	if currboard == 1 begin #top left
+		if cursorX == 54 then cursorX := 47
+		if cursorY == 23 then cursorY := 16
+		return
+	end
+	if currboard == 2 begin #top middle
+		if cursorX == 47 then cursorX := 54
+		if cursorX == 75 then cursorX := 68
+		if cursorY == 23 then cursorY := 16
+		return
+	end
+	if currboard == 3 begin #top right
+		if cursorX == 68 then cursorX := 75
+		if cursorY == 23 then cursorY := 16
+		return
+	end
+	if currboard == 4 begin #middle left
+		if cursorX == 54 then cursorX := 47
+		if cursorY == 16 then cursorY := 23
+		if cursorY == 44 then cursorY := 37
+		return
+	end
+	if currboard == 5 begin #middle
+		if cursorX == 47 then cursorX := 54
+		if cursorX == 75 then cursorX := 68
+		if cursorY == 16 then cursorY := 23
+		if cursorY == 44 then cursorY := 37
+		return
+	end
+	if currboard == 6 begin #middle right
+		if cursorX == 68 then cursorX := 75
+		if cursorY == 16 then cursorY := 23
+		if cursorY == 44 then cursorY := 37
+		return
+	end
+	if currboard == 7 begin # bottom left
+
+		if cursorX == 54 then cursorX := 47
+		if cursorY == 37 then cursorY := 44
+		return
+	end
+	if currboard == 8 begin #bottom middle
+		if cursorX == 47 then cursorX := 54
+		if cursorX == 75 then cursorX := 68
+		if cursorY == 37 then cursorY := 44
+		return
+	end
+	if currboard == 9 begin #bottom right
+		if cursorX == 68 then cursorX := 75
+		if cursorY == 37 then cursorY := 44
+		return
+	end
+;
+: cross
+	0b1101000
+	0b0010000
+	0b0100000
+	0b1011000
+: circle
+	0b0110000
+	0b1001000
+	0b1001000
+	0b0110000
+: cursor
+	0b1111000
+	0b1111000
+	0b1111000
+	0b1111000
+
+: boardimage # (512 bytes)
+	0x00 0x00 0x01 0x02 0x01 0x02 0x01 0x02
+	0x01 0x02 0x01 0x02 0x01 0x02 0x7F 0xFF
+	0x01 0x02 0x01 0x02 0x01 0x02 0x01 0x02
+	0x01 0x02 0x01 0x02 0x7F 0xFF 0x01 0x02
+	0x00 0x00 0x00 0x08 0x00 0x08 0x00 0x08
+	0x00 0x08 0x00 0x08 0x00 0x08 0xFB 0xFF
+	0x00 0x08 0x00 0x08 0x00 0x08 0x00 0x08
+	0x00 0x08 0x00 0x08 0xFB 0xFF 0x00 0x08
+	0x00 0x00 0x10 0x00 0x10 0x00 0x10 0x00
+	0x10 0x00 0x10 0x00 0x10 0x00 0xFF 0xDF
+	0x10 0x00 0x10 0x00 0x10 0x00 0x10 0x00
+	0x10 0x00 0x10 0x00 0xFF 0xDF 0x10 0x00
+	0x00 0x00 0x40 0x80 0x40 0x80 0x40 0x80
+	0x40 0x80 0x40 0x80 0x40 0x80 0xFF 0xFE
+	0x40 0x80 0x40 0x80 0x40 0x80 0x40 0x80
+	0x40 0x80 0x40 0x80 0xFF 0xFE 0x40 0x80
+	0x01 0x02 0x01 0x02 0x01 0x02 0x01 0x02
+	0x01 0x02 0x00 0x00 0x01 0x02 0x01 0x02
+	0x01 0x02 0x01 0x02 0x01 0x02 0x01 0x02
+	0x7F 0xFF 0x01 0x02 0x01 0x02 0x01 0x02
+	0x00 0x08 0x00 0x08 0x00 0x08 0x00 0x08
+	0x00 0x08 0x00 0x00 0x00 0x08 0x00 0x08
+	0x00 0x08 0x00 0x08 0x00 0x08 0x00 0x08
+	0xFB 0xFF 0x00 0x08 0x00 0x08 0x00 0x08
+	0x10 0x00 0x10 0x00 0x10 0x00 0x10 0x00
+	0x10 0x00 0x00 0x00 0x10 0x00 0x10 0x00
+	0x10 0x00 0x10 0x00 0x10 0x00 0x10 0x00
+	0xFF 0xDF 0x10 0x00 0x10 0x00 0x10 0x00
+	0x40 0x80 0x40 0x80 0x40 0x80 0x40 0x80
+	0x40 0x80 0x00 0x00 0x40 0x80 0x40 0x80
+	0x40 0x80 0x40 0x80 0x40 0x80 0x40 0x80
+	0xFF 0xFE 0x40 0x80 0x40 0x80 0x40 0x80
+	0x01 0x02 0x01 0x02 0x01 0x02 0x7F 0xFF
+	0x01 0x02 0x01 0x02 0x01 0x02 0x01 0x02
+	0x01 0x02 0x01 0x02 0x00 0x00 0x01 0x02
+	0x01 0x02 0x01 0x02 0x01 0x02 0x01 0x02
+	0x00 0x08 0x00 0x08 0x00 0x08 0xFB 0xFF
+	0x00 0x08 0x00 0x08 0x00 0x08 0x00 0x08
+	0x00 0x08 0x00 0x08 0x00 0x00 0x00 0x08
+	0x00 0x08 0x00 0x08 0x00 0x08 0x00 0x08
+	0x10 0x00 0x10 0x00 0x10 0x00 0xFF 0xDF
+	0x10 0x00 0x10 0x00 0x10 0x00 0x10 0x00
+	0x10 0x00 0x10 0x00 0x00 0x00 0x10 0x00
+	0x10 0x00 0x10 0x00 0x10 0x00 0x10 0x00
+	0x40 0x80 0x40 0x80 0x40 0x80 0xFF 0xFE
+	0x40 0x80 0x40 0x80 0x40 0x80 0x40 0x80
+	0x40 0x80 0x40 0x80 0x00 0x00 0x40 0x80
+	0x40 0x80 0x40 0x80 0x40 0x80 0x40 0x80
+	0x01 0x02 0x7F 0xFF 0x01 0x02 0x01 0x02
+	0x01 0x02 0x01 0x02 0x01 0x02 0x01 0x02
+	0x7F 0xFF 0x01 0x02 0x01 0x02 0x01 0x02
+	0x01 0x02 0x01 0x02 0x01 0x02 0x00 0x00
+	0x00 0x08 0xFB 0xFF 0x00 0x08 0x00 0x08
+	0x00 0x08 0x00 0x08 0x00 0x08 0x00 0x08
+	0xFB 0xFF 0x00 0x08 0x00 0x08 0x00 0x08
+	0x00 0x08 0x00 0x08 0x00 0x08 0x00 0x00
+	0x10 0x00 0xFF 0xDF 0x10 0x00 0x10 0x00
+	0x10 0x00 0x10 0x00 0x10 0x00 0x10 0x00
+	0xFF 0xDF 0x10 0x00 0x10 0x00 0x10 0x00
+	0x10 0x00 0x10 0x00 0x10 0x00 0x00 0x00
+	0x40 0x80 0xFF 0xFE 0x40 0x80 0x40 0x80
+	0x40 0x80 0x40 0x80 0x40 0x80 0x40 0x80
+	0xFF 0xFE 0x40 0x80 0x40 0x80 0x40 0x80
+	0x40 0x80 0x40 0x80 0x40 0x80 0x00 0x00
+
+: data
+0 0 0 0 0 0 0 0 0 0
