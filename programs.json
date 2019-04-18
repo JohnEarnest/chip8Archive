@@ -919,5 +919,19 @@
 			"enableXO":false,
 			"screenRotation":0
 		}
+	},
+	"BadKaiJuJu": {
+		"title":    "Bad Kaiju Ju",
+		"authors":  ["MattBooth"],
+		"images":   ["kaiju.gif"],
+		"desc":     "The year is 1977. 90% of the world's landmass is now underwater and the world is at war...",
+		"event":    "Ludum Dare",
+		"release":  "2015-08-24",
+		"platform": "chip8",
+		"options": {
+			"tickrate": "7",
+			"fillColor": "#330033",
+			"backgroundColor": "#AAAAFF"
+		}
 	}
 }

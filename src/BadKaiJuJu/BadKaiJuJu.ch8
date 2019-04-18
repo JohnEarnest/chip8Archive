@@ -1,0 +1,271 @@
+:alias kaijuprevioussprite  	v1
+:alias kaijuhorizpos 		v2
+:alias kaijuvertpos    		v3
+:alias kaijuhorizdir    	v4
+:alias kaijuvertdir     	v5
+:alias kaijuprevhorizdir      	v6
+:alias kaijudirchanged          v7
+:alias boathorizpos		v8
+:alias boatmovecountdown	v9
+:alias killcounthorizpos	vA
+:alias boatmoveinterval		vB
+:alias temp1          		vC
+:alias temp2          		vD
+
+: sealinesprite
+	0b11111111
+: kaijuspritestart
+: kaijurightsprite
+	0b11111000
+	0b01101110
+	0b11011111
+	0b01101110
+	0b11111000
+
+: kaijuleftsprite
+	0b00011111
+	0b01110110
+	0b11111011
+	0b01110110
+	0b00011111
+
+: kaijuupsprite
+	0b00000000
+	0b00000000
+	0b00111100
+	0b01111110
+	0b11011011
+
+: kaijudownsprite
+	0b10101010
+	0b11101110
+	0b11010110
+	0b01111100
+	0b00111000
+	
+: boatsprite
+	0b00011000
+	0b00010000
+	0b00010000
+	0b11111111
+	0b01111110
+
+: citytopsprite
+	0b00010000
+	0b00111000
+	0b01111100
+	0b11111110
+
+: citymidsprite
+	0b10101010
+	0b11111110
+
+: killcountsprite
+	0b11110000
+	0b01100000
+
+:const KAIJUHEIGHT 5
+:const KAIJURIGHTSPRITEOFFSET 0
+:const KAIJULEFTSPRITEOFFSET 5
+:const KAIJUUPSPRITEOFFSET 10
+:const KAIJUDOWNSPRITEOFFSET 15
+:const KAIJUUPBOUND 8
+:const KAIJULEFTBOUND 8
+:const KAIJURIGHTBOUND 48
+:const SEAHEIGHT 1
+:const BOATHEIGHT 5
+:const KAIJUDEPTH 26
+:const SEAVERTPOS  20
+:const BOATVERTPOS 15
+:const BOATHORIZPOSINIT 56
+:const BOATMOVECOUNTDOWNINIT 10
+:const CITYTOPHEIGHT 4
+:const CITYMIDHEIGHT 2
+:const CITYVERTPOS 0
+:const KAIJUJUMP 5
+:const KAIJUHITHEIGHT 15
+:const KILLCOUNTHORIZPOSINIT 10
+:const KILLCOUNTVERTICALPOS 2
+:const KILLCOUNTSPRITEHEIGHT 2
+:const KILLCOUNTHORIZOFFSET 5
+:const KAIJUCOLLIDEUPHEIGHT 1
+
+: sync
+    loop
+        vf := delay
+        if vf != 0 then
+    again
+
+    # delay for up to 1/60th of a second
+    # using the fixed-rate delay timer
+    vf := 1
+    delay := vf
+;
+
+: init
+	kaijuhorizpos := KAIJULEFTBOUND 
+	kaijuvertpos := KAIJUDEPTH
+	kaijuhorizdir := 1
+	kaijuvertdir := 0
+	boathorizpos := BOATHORIZPOSINIT
+	killcounthorizpos := KILLCOUNTHORIZPOSINIT
+	boatmovecountdown := BOATMOVECOUNTDOWNINIT
+	kaijuprevioussprite := KAIJURIGHTSPRITEOFFSET 
+	boatmoveinterval := BOATMOVECOUNTDOWNINIT
+	
+	i := kaijurightsprite
+	sprite kaijuhorizpos kaijuvertpos KAIJUHEIGHT
+	temp1 := BOATVERTPOS  
+	i := boatsprite
+	sprite boathorizpos temp1 BOATHEIGHT
+; 
+
+: drawcitysprite
+	i := citytopsprite
+	temp1 := 0
+	temp2 := CITYVERTPOS 
+	sprite temp1 temp2 CITYTOPHEIGHT
+	temp2 += CITYTOPHEIGHT
+	i := citymidsprite
+	loop
+		sprite temp1 temp2 CITYMIDHEIGHT
+		temp2 += CITYMIDHEIGHT
+		if temp2 < SEAVERTPOS then
+	again
+;
+
+: drawsealinesprite
+	i := sealinesprite
+	temp1 := 0
+	temp2 := SEAVERTPOS
+	loop 
+		sprite temp1 temp2 SEAHEIGHT
+		temp1 += 8
+		if temp1 < 64 then
+	again
+;
+
+: killboat
+	i := boatsprite
+	temp1 := BOATVERTPOS 
+	sprite boathorizpos temp1 BOATHEIGHT
+	boathorizpos := BOATHORIZPOSINIT
+	sprite boathorizpos temp1 BOATHEIGHT
+
+	i := killcountsprite
+	temp1 := killcounthorizpos
+	temp2 := KILLCOUNTVERTICALPOS 
+	sprite temp1 temp2 KILLCOUNTSPRITEHEIGHT
+	boatmoveinterval += -1
+
+	killcounthorizpos += KILLCOUNTHORIZOFFSET 
+;
+
+: kaijuupdate
+	i := kaijuspritestart
+	i += kaijuprevioussprite	
+	sprite kaijuhorizpos kaijuvertpos KAIJUHEIGHT
+
+	if kaijudirchanged != 0 begin
+		if kaijuhorizdir == 1 begin
+			i := kaijurightsprite
+			kaijuprevioussprite := KAIJURIGHTSPRITEOFFSET 
+		else
+			if kaijuhorizdir == -1 begin	
+				i := kaijuleftsprite
+				kaijuprevioussprite := KAIJULEFTSPRITEOFFSET 
+			else
+				if kaijuvertdir == -1 begin
+					i := kaijuupsprite
+					kaijuprevioussprite := KAIJUUPSPRITEOFFSET 
+				else
+					i := kaijudownsprite
+					kaijuprevioussprite := KAIJUDOWNSPRITEOFFSET 
+				end
+			end 
+		end
+	end
+
+	kaijudirchanged := 0
+		if kaijuvertdir == 0 begin
+			if kaijuhorizpos == KAIJURIGHTBOUND begin
+				kaijuhorizdir := -1
+				kaijudirchanged := 1
+			else 
+				if kaijuhorizpos == KAIJULEFTBOUND begin
+					kaijuhorizdir := 1
+					kaijudirchanged := 1
+				end
+			end
+		else
+			if kaijuvertpos == KAIJUUPBOUND begin
+				kaijuvertdir := 1
+				kaijudirchanged := 1
+			else 
+				if kaijuvertpos == KAIJUDEPTH begin
+					kaijuvertdir := 0
+					kaijuhorizdir := kaijuprevhorizdir
+					kaijudirchanged := 1
+				end
+			end
+		end	
+
+		temp1 := KAIJUJUMP
+		if temp1 key begin
+			if kaijuvertdir == 0 begin
+				kaijuprevhorizdir := kaijuhorizdir
+				kaijuhorizdir := 0
+				kaijuvertdir := -1
+				kaijudirchanged := 1
+			end
+		end
+		
+	kaijuhorizpos += kaijuhorizdir
+	kaijuvertpos += kaijuvertdir
+
+	temp2 := 0
+	sprite kaijuhorizpos kaijuvertpos KAIJUHEIGHT
+
+	temp2 |= vf
+
+	if temp2 != 0 begin
+		if kaijuvertpos <= KAIJUHITHEIGHT begin
+			temp2 := 16
+			buzzer := temp1
+			killboat
+		end
+	end
+	
+;
+
+: boatupdate
+	boatmovecountdown += -1
+	temp2 := 0
+	if boatmovecountdown == 0 begin
+		temp1 := BOATVERTPOS 
+		i := boatsprite
+		sprite boathorizpos temp1 BOATHEIGHT
+		boathorizpos += -1 
+		boatmovecountdown := boatmoveinterval
+		if boathorizpos < KAIJULEFTBOUND begin
+			temp2 := 1
+		end
+		sprite boathorizpos temp1 BOATHEIGHT
+	end
+	if temp2 > 0 then killboat
+; 
+
+: main
+	loop
+		clear
+		init
+		drawsealinesprite
+		drawcitysprite
+		loop	
+			kaijuupdate
+			boatupdate
+			sync
+			if temp2 == 0 then
+		again
+		
+	again
