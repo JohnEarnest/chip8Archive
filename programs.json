@@ -919,5 +919,28 @@
 			"enableXO":false,
 			"screenRotation":0
 		}
+	},
+	"piper": {
+		"title":    "Piper",
+		"authors":  ["Aeris", "JordanMecom", "LillianWang"],
+		"images":   ["piper.gif"],
+		"desc":     "Play as a small bird to collect goodies and avoid waves.",
+		"event":	"GlobalGameJam2017",
+		"release":  "2017-01-23",
+		"platform": "chip8",
+		"options": {
+			"tickrate": "200",
+			"fillColor": "#FFCC00",
+			"backgroundColor": "#0000FF",
+			"buzzColor": "#FFFFFF",
+			"quietColor": "#000000",
+			"shiftQuirks":false,
+			"loadStoreQuirks":false,
+			"vfOrderQuirks":false,
+			"clipQuirks":false,
+			"jumpQuirks":false,
+			"enableXO":false,
+			"screenRotation":0
+		}
 	}
 }
