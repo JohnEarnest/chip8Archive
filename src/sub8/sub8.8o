@@ -1,0 +1,1236 @@
+:const KEYBOARD_1 0x1 :const KEYBOARD_2 0x2 :const KEYBOARD_3 0x3 :const KEYBOARD_4 0xC 
+:const KEYBOARD_Q 0x4 :const KEYBOARD_W 0x5 :const KEYBOARD_E 0x6 :const KEYBOARD_R 0xD
+:const KEYBOARD_A 0x7 :const KEYBOARD_S 0x8 :const KEYBOARD_D 0x9 :const KEYBOARD_F 0xE
+:const KEYBOARD_Z 0xA :const KEYBOARD_X 0x0 :const KEYBOARD_C 0xB :const KEYBOARD_V 0xF
+
+#----- keyconfig -----#
+:const KEY_THRUST KEYBOARD_W
+:const KEY_REVERSE KEYBOARD_S
+:const KEY_ROTATE_CW KEYBOARD_D
+:const KEY_ROTATE_CCW KEYBOARD_A
+:const KEY_RESET KEYBOARD_R
+#---------------------#
+
+#--- physicsconfig ---#
+:const GRAVITY 3
+:const PLAYER_ACCELERATION 11
+:const ROTATION_RATE 4
+:calc -ROTATION_RATE { ROTATION_RATE * -1 }
+:const BOUNCE_SPEED 60
+:const CRASH_SPEED 150
+:const CRASH_TILT 80
+:calc CRASH_TILTx2 { CRASH_TILT * 2 }
+#---------------------#
+
+:const FIRST_CLEAR_BONUS 20
+:const NO_DAMAGE_BONUS 10
+:const ALL_FIRST_CLEAR_BONUS 255
+:const ALL_NO_DAMAGE_BONUS 127
+
+:const FUEL_PICKUP_AMOUNT 20
+:const ORB_PICKUP_HITSTUN 2
+
+:const POSITIVE 0
+:const NEGATIVE 0xFF
+:const LEVEL_WIDTH 72
+:const TOTAL_LEVELS 9
+
+#register map
+
+:alias rot_masked v0 #rotation with lower 3 bits zeroed for 8-byte wide entries in jump tables
+
+#loaded constants, saves cycles on operations which require register operands
+:alias key-thrust v1
+:alias key-rotate-cw v2
+:alias key-rotate-ccw v3
+:alias always_1 v4
+
+#X
+:alias xvel_sign v5
+:alias xvel v6
+:alias x_lo v7 #sub-pixel position
+:alias x_hi v8 #pixel position
+
+#Y
+:alias y_hi v9
+:alias yvel va
+:alias yvel_sign vb
+:alias y_lo vc
+
+:alias rot_state vd #the player's orientation
+
+:alias fuel ve
+:alias tmp vf
+
+:alias compare-temp  v3
+
+:macro . { } #
+:macro nop { v0 += 0 }
+
+:macro sync {
+    loop
+        vf := delay
+        if vf != 0 then
+    again
+    delay := always_1
+}
+
+:macro draw-ship {
+    i := ship i += rot_masked
+    sprite x_hi y_hi 8
+}
+
+:macro draw-ship-same-index {
+    sprite x_hi y_hi 8
+}
+
+:macro compute-rot-mask {
+    rot_masked := 0b11111000 rot_masked &= rot_state
+}
+
+##########################################PHSYSICSCS##########################################
+
+#---------------------------------------- v += a --------------------------------------------#
+
+#################################################
+# Scalar addition of acceleration to velocity   #
+#################################################
+
+:macro add_sign_byte tgt tgt_sign src  call back {
+    if tgt_sign == POSITIVE begin
+    tgt += src
+        if vf != 0 then tgt := 0xFF #overflow - clamp
+        call back
+    end #else negative
+    tgt += src
+    if vf != 0 then tgt_sign := POSITIVE # roll over
+    call back
+}
+
+:macro sub_sign_byte tgt tgt_sign src call back {
+    if tgt_sign == NEGATIVE begin
+        tgt -= src
+        if vf == 0 then tgt := 0x00 #underflow - clamp
+        call back
+    end #else positive
+    tgt -= src
+    if vf == 0 then tgt_sign := NEGATIVE #roll over
+    call back
+}
+
+: add-y-vel add_sign_byte yvel yvel_sign tmp return .
+: sub-y-vel sub_sign_byte yvel yvel_sign tmp return .
+: add-x-vel add_sign_byte xvel xvel_sign tmp jump acceleration-return
+: sub-x-vel sub_sign_byte xvel xvel_sign tmp jump acceleration-return
+
+################################################################################
+#Table which figures out the player's direction vector based on their rotation #
+#and applies acceleration                                                      #
+################################################################################
+
+:const ROTATION_THRUST_STEPS 32
+:macro acceleration_table_entry x_velocity_func y_velocity_func {
+
+    :calc rads { 2 * PI * iterator / ROTATION_THRUST_STEPS }
+    :calc x_component { abs ( PLAYER_ACCELERATION * cos rads ) - GRAVITY }
+    :calc y_component { abs ( PLAYER_ACCELERATION * sin rads ) }
+    
+    tmp := y_component y_velocity_func
+    tmp := x_component jump x_velocity_func
+
+    :calc iterator { iterator + 1 }
+}
+
+:macro quadrant_1 { acceleration_table_entry add-x-vel add-y-vel }
+:macro quadrant_2 { acceleration_table_entry sub-x-vel add-y-vel }
+:macro quadrant_3 { acceleration_table_entry sub-x-vel sub-y-vel }
+:macro quadrant_4 { acceleration_table_entry add-x-vel sub-y-vel }
+:macro 8_times a { a a a a a a a a }
+
+
+: acceleration-table
+    :calc iterator { 0 }
+    8_times quadrant_1
+    8_times quadrant_2
+    8_times quadrant_3
+    8_times quadrant_4
+
+#--------------------------------------- r += v --------------------------------------------#
+
+##############################
+#Adds position to velocity   #
+##############################
+
+:macro add-long tgt_lo tgt_hi src {
+    tgt_lo += src
+    if vf != 0 then tgt_hi += 1
+}
+:macro sub-long tgt_lo tgt_hi src {
+    tgt_lo += src
+    if vf == 0 then tgt_hi += -1
+}
+
+:macro update-position {
+    if xvel_sign == POSITIVE begin
+        add-long x_lo x_hi xvel
+        jump update-y-pos
+    end
+    sub-long x_lo x_hi xvel
+    : update-y-pos
+    if yvel_sign == POSITIVE begin
+        add-long y_lo y_hi yvel
+        jump end-update-pos
+    end
+    sub-long y_lo y_hi yvel
+    : end-update-pos
+}
+
+#-------------------------------------collision physics--------------------------------#
+
+:alias tile_x v1
+:alias tile_y v2
+:alias collision_tmp v3
+:alias hit_state v4
+
+:const DEFAULT 1 #value carried over from main routine, represents a typical collision with wall
+:const CRASHED 0 #represents a collision where we took damage
+:const NO_HIT 2 #represents a collision where nothing was actually hit (if we grabbed a pickup)
+:const WIN 3 #we landed on the winning pad
+
+: collision
+    #redraw and sync to catch the frame boundary
+    #at x+1 for smooth landed state
+    draw-ship-same-index #clear
+    x_hi += 1
+    draw-ship-same-index #draw
+    sync
+    #put it back so we hit things properly
+    draw-ship-same-index #clear
+    x_hi += -1
+    draw-ship-same-index #draw
+    #get tile aligned coord for drawing test tile
+    tile_x := 0b01111000 tile_x &= x_hi
+    tile_y := 0b00111000 tile_y &= y_hi
+    #smush these coords into v0 for table lookup
+    collision_tmp <<= tile_x
+    v0 >>= tile_y v0 >>= v0
+    v0 += collision_tmp
+    #test all 4 tiles that we could possibly hit from our present location
+    perform-collision
+    tile_x += 8 v0 += 0b00010000
+    perform-collision
+    #TODO: Fix corner case where this rolls over into the x value.
+    tile_y += 8 v0 += 0b00000010
+    perform-collision
+    tile_x += -8 v0 += 0b11110000
+    perform-collision
+    if hit_state != NO_HIT begin
+    #halve speed, for friction
+        yvel ^= yvel_sign yvel >>= yvel yvel ^= yvel_sign
+        xvel ^= xvel_sign xvel >>= xvel xvel ^= xvel_sign
+end
+    if hit_state == CRASHED then jump crash
+    if hit_state == WIN then return    
+: end-crash
+    
+    i := playing-state load v4
+    compute-rot-mask
+    i := present-frame save vd save vd
+    jump collision-return
+
+
+#this needs to be split out into a function so the collision table can return
+: perform-collision 
+    jump0 collision-map
+
+: collision-map
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+
+
+
+:macro test-hit {
+    sprite tile_x tile_y 8 sprite tile_x tile_y 8
+    if vf == 0 then return
+}
+
+:macro diagonal-collide x-off y-off rotation invert-macro {
+    test-hit
+    #swap axes
+    collision_tmp := xvel xvel := yvel yvel := collision_tmp
+    collision_tmp := xvel_sign xvel_sign := yvel_sign yvel_sign := collision_tmp
+
+    #invert sign if necessary
+    invert-macro
+
+    #redraw ship so we can deflect its rotation and also push it out of the surface
+    collision_tmp := v0
+    compute-rot-mask draw-ship #clear 
+    #add the surface's rotation, so that we get a picture of which part of the ship is
+    #hitting the tile
+    v0 += rotation settle
+    x_hi += x-off
+    y_hi += y-off
+    compute-rot-mask draw-ship #draw
+    v0 := collision_tmp
+
+
+    xvel ^= xvel_sign
+    if xvel > CRASH_SPEED then hit_state := CRASHED
+    xvel ^= xvel_sign
+
+    yvel ^= yvel_sign
+    if yvel > CRASH_SPEED then hit_state := CRASHED
+    yvel ^= yvel_sign
+;
+}
+:macro invert {
+    collision_tmp := 0xFF
+    yvel ^= collision_tmp yvel_sign ^= collision_tmp
+    xvel ^= collision_tmp xvel_sign ^= collision_tmp
+}
+
+: down-left diagonal-collide  -1 -1 96 invert
+: up-right diagonal-collide 1 1 -32 invert
+: down-right diagonal-collide -1 1 -96 .
+: up-left diagonal-collide 1 -1 32 .
+
+: right
+    test-hit
+    collision_tmp := v0
+    compute-rot-mask draw-ship #clear
+    v0 += -64 #rotate 270 degrees
+    settle 
+    y_hi += 1
+    compute-rot-mask draw-ship #draw
+    v0 := collision_tmp
+
+    yvel ^= yvel_sign
+    yvel_sign := POSITIVE
+
+    if yvel > CRASH_SPEED then hit_state := CRASHED
+;
+: left
+    test-hit
+    collision_tmp := v0
+    compute-rot-mask draw-ship #clear
+    v0 += 64 #rotate 90 degrees
+    settle 
+    y_hi += -1
+    compute-rot-mask draw-ship #draw
+    v0 := collision_tmp
+
+    if yvel_sign == NEGATIVE then return
+
+    if yvel > CRASH_SPEED then hit_state := CRASHED
+
+    yvel_sign := NEGATIVE
+        yvel ^= yvel_sign
+;
+: up
+    test-hit
+    collision_tmp := v0
+    compute-rot-mask draw-ship #clear 
+    x_hi += 1
+    settle
+    compute-rot-mask draw-ship #draw
+    sync
+    v0 := collision_tmp
+
+        xvel ^= xvel_sign
+    xvel_sign := POSITIVE
+
+    if xvel > CRASH_SPEED then hit_state := CRASHED
+
+
+    if xvel > BOUNCE_SPEED then return
+    xvel := 0 
+    yvel_sign := POSITIVE yvel := 0
+;
+
+
+: goal-pad
+    test-hit
+    collision_tmp := v0
+    compute-rot-mask draw-ship #clear 
+    x_hi += 1
+    settle
+    compute-rot-mask draw-ship #draw
+    sync
+    v0 := collision_tmp
+
+        xvel ^= xvel_sign
+    xvel_sign := POSITIVE
+
+    if xvel > CRASH_SPEED then hit_state := CRASHED
+
+    if xvel > BOUNCE_SPEED then return
+    xvel := 0 
+    yvel_sign := POSITIVE yvel := 0
+
+    collision_tmp := 0b11111000 collision_tmp &= rot_state
+    if collision_tmp != 0 then return
+    :next orb-count
+    collision_tmp := 1
+    if collision_tmp != 0 then return
+    hit_state := WIN
+;
+
+: down
+    test-hit
+    collision_tmp := v0
+    compute-rot-mask draw-ship #clear 
+    v0 += 128 #rotate 180 degrees
+    settle
+    x_hi += -1
+    compute-rot-mask draw-ship #draw
+    v0 := collision_tmp
+   
+    if xvel_sign == NEGATIVE then return
+
+    if xvel > CRASH_SPEED then hit_state := CRASHED
+
+    xvel_sign := NEGATIVE
+    xvel ^= xvel_sign
+
+;
+
+:macro collide normal graphic {
+    i := graphic
+    jump normal
+}
+
+
+: get-fuel
+test-hit
+    # clear fuel sprite
+    sprite tile_x tile_y 8
+    #get some fuel
+    collision_tmp := 1
+    i := get-fuel-storage save v0
+    v0 := 0
+
+    i := fuelbar
+    loop
+    fuel += 1 sprite fuel collision_tmp 2
+    v0 += 1
+    if v0 != FUEL_PICKUP_AMOUNT then
+    again
+    :next get-fuel-storage
+    v0 := 0
+    #remove this entry from the collision table
+    remove-pickup
+;
+
+: get-orb
+test-hit
+    #hitstun
+    vf := ORB_PICKUP_HITSTUN delay := vf loop vf := delay if vf != 0 then again 
+    sprite tile_x tile_y 8
+    remove-pickup
+
+    collision_tmp := v0
+    i := orb-count
+    load v0 
+    v0 += -1
+    i := orb-count
+    save v0
+    v0 := collision_tmp
+    hit_state := NO_HIT
+;
+: remove-pickup
+    i := collision-map i += v0
+    collision_tmp := v0
+    vf := v1
+    v0 := 0x00 v1 := 0xEE #return
+    save v1
+    v0 := collision_tmp
+    v1 := vf
+    hit_state := NO_HIT
+;
+: settle
+    jump0 settling-table
+
+:macro settle_entry rotation {
+    rot_state += rotation
+    return
+#    nop nop
+}
+:macro crash_entry rotation {
+    rot_state += rotation
+    hit_state := CRASHED
+    return
+    nop
+}
+:macro crash_entry { settle_entry }
+
+: crash
+    :next health
+    v0 := 0 v1 := 0 
+    i := healthbar
+    sprite v0 v1 1
+    v0 += 8 sprite v0 v1 1
+    v0 += 8 sprite v0 v1 1
+    v0 += 8 sprite v0 v1 1
+    v0 += 8
+    i := health save v0
+    if v0 != 128 then jump end-crash
+
+    #we died
+    sync
+    vf := 2 delay := vf
+    i := playing-state load v4
+    compute-rot-mask
+    draw-ship # clear
+    x_hi += -4 y_hi += -4
+    i := explosion
+    sprite x_hi y_hi 0
+    sync
+    i := explosion
+    sprite x_hi y_hi 0
+    vf := key
+    hit_state := CRASHED
+    return
+;
+
+##################################LEVEL LOADING###########################################
+
+:alias level_data_iterator va
+:alias collision_table_iterator vb
+:alias orb_counter v6
+:alias prefix-byte v5
+:alias data-byte v4
+:alias byte-counter vd
+:alias decoded-tile-index v7
+
+: loadlevel
+level_data_iterator := 1
+collision_table_iterator := 240
+x_hi := 120 #v8
+y_hi := 0  #v9
+orb_counter := 0
+byte-counter := 0
+
+# This loop decodes squashed level data and turns them into useful data.
+# Tiles in a level are 5 bits of information. 8 tiles are squashed into
+# 5 bytes. The first byte contains 8 1 bit prefixes, and the next 4 bytes
+# are each 2 4 bit suffixes.
+loop
+    next-prefix
+    next-byte
+    data-byte := v0
+    decoded-tile-index := 0b11110000 decoded-tile-index &= data-byte
+    decoded-tile-index >>= decoded-tile-index
+    decoded-tile-index >>= decoded-tile-index
+    decoded-tile-index >>= decoded-tile-index
+    decoded-tile-index >>= decoded-tile-index 
+    decoded-tile-index += ve
+    add-tile
+    next-prefix
+    decoded-tile-index := 0b00001111 decoded-tile-index &= data-byte
+    decoded-tile-index += ve
+    add-tile
+    if level_data_iterator != 71 then
+again
+i := orb-count
+v0 := orb_counter
+save v0
+;
+: next-prefix
+    if byte-counter == 0 begin
+        next-byte
+        prefix-byte := v0
+        byte-counter := 8
+    end
+    byte-counter += -1
+    ve := 0b10000000
+    ve &= prefix-byte
+    prefix-byte <<= prefix-byte 
+    ve >>= ve ve >>= ve ve >>= ve
+;   
+: next-byte
+    level_data_iterator += 1
+
+    : level-pointer2
+        i := level1 i += level_data_iterator load v0
+;
+: add-tile
+    decoded-tile-index <<= decoded-tile-index
+    decoded-tile-index <<= decoded-tile-index
+
+    if y_hi == 0 begin 
+        ve := decoded-tile-index
+       :unpack 1 left-boundary-tile #jump
+       special-left-side-collision-and-draw
+        iterate-to-next-tile
+        decoded-tile-index := ve
+    end
+    if decoded-tile-index == 124 begin #special case for the blank tile
+        v0 := 0x00 v1 := 0xEE #return
+        i := collision-map i += collision_table_iterator save v1
+        jump next-tile
+    end
+    if decoded-tile-index == 0 then orb_counter += 1
+    store-collision-and-draw
+    : next-tile
+    iterate-to-next-tile 
+
+;
+
+: store-collision-and-draw
+    :unpack 1 tile-definitions #jump tile definitions
+    #offset to loaded tile
+    add-long v1 v0 decoded-tile-index add-long v1 v0 decoded-tile-index
+    : special-left-side-collision-and-draw
+    i := collision-map i += collision_table_iterator save v1
+   
+    #draw sprite by reading value from collision function
+    v0 += 0x90 #change from jump x to i := x
+    i := get-sprite save v1
+    : get-sprite nop
+    load v1
+    i := draw-sprite save v1
+    : draw-sprite nop
+    sprite x_hi y_hi 8
+;
+: iterate-to-next-tile
+    collision_table_iterator += 2
+    y_hi += 8
+    if y_hi == 64 then x_hi += -8
+    if y_hi == 64 then collision_table_iterator += -32
+    if y_hi == 64 then y_hi := 0
+;
+###############################PROROGRAMM####################################################
+
+:macro onpress k {
+    tmp := k if tmp key then
+}
+
+: sub-8 0x8F 0x89 0xF9 0x00 0xFF 0x80 0xFF 0x00 
+0xFF 0x89 0xF7 0x00 0xFF 0x89 0xFF 
+
+:alias isfirstattempt v0
+:alias fuelscore v1
+:alias firstattemptscore v2
+:alias nodamagescore v3
+
+: main
+hires
+always_1 := 1
+y_hi := 49
+i := sub-8 sprite x_hi y_hi 15
+vf := key
+isfirstattempt := 1 i := meta-game-storage save v0
+: meta-game-loop
+    play-game
+    if hit_state != WIN begin
+        isfirstattempt := 0
+        i := meta-game-storage save v0 
+        jump meta-game-loop
+    end
+    i := meta-game-storage load v3
+    firstattemptscore += isfirstattempt
+    fuel >>= fuel fuel >>= fuel fuel >>= fuel fuel >>= fuel
+    fuelscore += fuel
+    i := health load v0
+    if v0 == 0 then nodamagescore += 1
+    isfirstattempt := 1
+    i := meta-game-storage save v3
+    i := level-pointer1 load v1
+    ve := LEVEL_WIDTH
+    add-long v1 v0 ve
+    i := level-pointer1 save v1
+    i := level-pointer2 save v1
+    vf := 40 delay := vf loop vf := delay if vf != 0 then again
+    jump meta-game-loop
+
+:alias score_hi v4
+: addpoints
+    fuelscore += ve
+    if vf != 0 then score_hi += 8
+;
+: end-game
+    i := score-title x_hi := 230 y_hi := 24
+    sprite x_hi y_hi 15 
+    ve := 15
+    i += ve
+    y_hi += 15 sprite x_hi y_hi 1
+    i := meta-game-storage load v3
+    score_hi := 0 #score-hi
+    if firstattemptscore == TOTAL_LEVELS begin
+        ve := ALL_FIRST_CLEAR_BONUS
+        addpoints
+    end
+    ve := FIRST_CLEAR_BONUS
+    loop
+        if firstattemptscore != 0 begin
+        addpoints
+        firstattemptscore += -1
+    again
+    end
+    if nodamagescore == TOTAL_LEVELS begin
+        ve := ALL_NO_DAMAGE_BONUS
+        addpoints
+    end
+    ve := NO_DAMAGE_BONUS
+    loop
+        if nodamagescore != 0 begin
+        addpoints
+        nodamagescore += -1
+    again
+    end
+
+    fuelscore <<= fuelscore if vf != 0 then score_hi += 4
+    fuelscore <<= fuelscore if vf != 0 then score_hi += 2
+    fuelscore <<= fuelscore if vf != 0 then score_hi += 1
+    fuelscore >>= fuelscore fuelscore >>= fuelscore
+
+    i := orb-sprite
+    x_hi += -15 y_hi := 0
+    tally-score
+    i := fuel-sprite score_hi >>= fuelscore
+    x_hi += -8 y_hi := 0
+    tally-score
+    loop again
+
+: tally-score
+    loop
+        if score_hi != 0 begin
+
+        y_hi  += 8
+        if y_hi == 56 then x_hi += -8
+        if y_hi == 56 then y_hi := 8
+        sprite x_hi y_hi 8
+        score_hi += -1
+    again end
+;
+: play-game
+clear
+
+#get player position 
+: level-pointer1
+i := level1 load v1
+#we started loading sprite data, so we're at the end of the game
+if v0 == 0 then jump end-game
+i := initial-position save v1
+
+#world init
+loadlevel
+
+#reset health
+v0 := 0 i := health save v0
+
+#clear junk left over from init
+#and load constants and player position
+i := playing-state
+load ve
+
+#fuel bar setup
+i := fuelbar 
+loop
+    sprite fuel always_1 2
+    fuel += 1
+    if fuel != 128 then
+again   
+sprite fuel always_1 2
+
+i := present-frame save vd save vd
+draw-ship
+#----------------------------------------game loop------------------------------------#
+
+: acceleration-return
+    #we accelerated, so we subtract fuel
+    i := fuelbar sprite fuel always_1 2
+    fuel += -1
+
+: gravity-return
+    #rot masked is rotation but with the lower 3 bits removed so as to be
+    #aligned to 8 byte sprite and acceleration tables
+
+    compute-rot-mask
+
+    update-position
+    #get last-frame
+    i := present-frame save vd load vd
+    draw-ship #clear
+    #save present frame as last
+    i := present-frame load vd save vd
+
+    draw-ship #draw
+    if vf != 0 then jump collision
+    sync
+
+        : collision-return
+    if key-rotate-cw key then rot_state += ROTATION_RATE
+    if key-rotate-ccw key then rot_state += -ROTATION_RATE
+
+
+    if fuel == 255 then jump gravity #no fuel, so skip checking thrust
+
+    #v0 is rot_masked so we're jumping based on our rotation state
+    if key-thrust key then jump0 acceleration-table
+    rot_masked += 0x80 #rotate 180 degrees
+    onpress KEY_REVERSE jump0 acceleration-table
+    : gravity
+
+    onpress KEY_RESET return
+    tmp := GRAVITY
+    sub_sign_byte  xvel xvel_sign tmp jump gravity-return
+
+
+
+#########################################DATAS##############################################
+
+: playing-state
+# Stores the initial setup for the 
+# recall register map
+# key-thrust v1
+# key-rotate-cw v2
+# key-rotate-ccw v3
+# always_1 v4
+#
+# These values take on their appropriate values, and the rest are zeroed, to clear any
+# residual values from other routines
+
+0 :byte KEY_THRUST :byte KEY_ROTATE_CW :byte KEY_ROTATE_CCW 1 0 0 0 : initial-position 0 0 0 0 0 0 0 0
+
+: present-frame
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+: bcd-buff
+0 0 0
+: meta-game-storage
+0 0 0 0
+#------------------------------------tiles-------------------------------#
+:calc ITERATOR { 0 }
+:macro tile t {
+    :calc t { ITERATOR }
+    :calc ITERATOR { ITERATOR + 1 }
+}
+
+# a tile has 3 things: 
+# 2. a label for drawing maps
+# 3. a collision function (typically defines surface normal)
+# 4. a sprite
+
+: settling-table #this is interleaved with tile table to save a bitshift on collisions
+settle_entry 0 
+
+: tile-definitions
+tile O collide get-orb orb-sprite
+settle_entry -8 
+tile ▀ collide down ▀-sprite
+settle_entry -8 
+tile ▄ collide up ▄-sprite
+settle_entry -8 
+tile ▝ collide down-left ▝-sprite
+settle_entry -4 
+tile ▜ collide down-left ▜-sprite
+settle_entry 4 
+tile ▖ collide up-right ▖-sprite
+settle_entry 8 
+tile ▙ collide up-right ▙-sprite
+settle_entry 8 
+tile ▘ collide down-right ▘-sprite
+settle_entry 8 
+tile ▛ collide down-right ▛-sprite
+settle_entry 8 
+tile ▗ collide up-left ▗-sprite
+settle_entry 8 
+tile ▟ collide up-left ▟-sprite
+crash_entry 0 
+tile G collide goal-pad goal-left-sprite
+crash_entry -8 
+tile L collide goal-pad goal-right-sprite
+crash_entry -4 
+tile F collide get-fuel fuel-sprite
+crash_entry 4 
+tile █u collide up █-sprite 
+crash_entry 8 
+tile c1 collide right cap-1-sprite #2 uses
+settle_entry 0 
+tile c4 collide left cap-4-sprite #3 uses
+crash_entry -8 
+tile c5 collide up cap-5-sprite #3 uses
+crash_entry -4 
+tile c6 collide up cap-6-sprite #3 uses
+crash_entry 4 
+tile █l collide left █-sprite 
+crash_entry 8 
+tile █d collide down █-sprite
+crash_entry 0 
+tile ◢ collide up-left ◢-sprite
+settle_entry -8 
+tile ◣ collide up-right ◣-sprite
+settle_entry -8
+tile ◤ collide down-right ◤-sprite
+settle_entry -8
+tile ◥ collide down-left ◥-sprite
+settle_entry -8
+tile ▏ collide right ▏-sprite
+settle_entry -8
+tile ▕ collide left ▕-sprite
+settle_entry -4
+tile ¯ collide down ¯-sprite #2 uses
+settle_entry 4
+tile _ collide up _-sprite
+settle_entry 8
+tile ▐ collide left ▐-sprite
+settle_entry 8
+tile c2 collide left cap-2-sprite
+settle_entry 8
+
+:calc ▫ { 31 } #special blank tile, this gets escaped by the map drawer
+:calc █ { █u }
+
+#this exists outside the table and cannot be used in levels
+: left-boundary-tile
+collide right ▐-sprite #special tile used for left boundary
+    return
+#I warned you about the macros
+:macro group a b c d e f g h {
+    :calc prefixa { ( a & 0x10 ) << 3 }
+    :calc prefixb { ( b & 0x10 ) << 2 } 
+    :calc prefixc { ( c & 0x10 ) << 1 } 
+    :calc prefixd { ( d & 0x10 ) >> 0 }
+    :calc prefixe { ( e & 0x10 ) >> 1 }
+    :calc prefixf { ( f & 0x10 ) >> 2 } 
+    :calc prefixg { ( g & 0x10 ) >> 3 } 
+    :calc prefixh { ( h & 0x10 ) >> 4 }
+
+    :calc suffixa { ( a & 0x0F ) << 4 }
+    :calc suffixb { ( b & 0x0F ) >> 0 }
+    :calc suffixc { ( c & 0x0F ) << 4 }
+    :calc suffixd { ( d & 0x0F ) >> 0 }
+    :calc suffixe { ( e & 0x0F ) << 4 }
+    :calc suffixf { ( f & 0x0F ) >> 0 }
+    :calc suffixg { ( g & 0x0F ) << 4 }
+    :calc suffixh { ( h & 0x0F ) >> 0 }
+     
+    :calc prefix { prefixa + prefixb + prefixc + prefixd + prefixe + prefixf + prefixg + prefixh }
+    :calc suffix1 { suffixa + suffixb }
+    :calc suffix2 { suffixc + suffixd }
+    :calc suffix3 { suffixe + suffixf }
+    :calc suffix4 { suffixg + suffixh }
+    
+    :byte prefix :byte suffix1 :byte suffix2 :byte suffix3 :byte suffix4
+}
+#it keeps happening
+:macro cluster 
+t1 t2 t3 t4 t5 t6 t7 t8 
+t9 t10 t11 t12 t13 t14 t15 t16
+t17 t18 t19 t20 t21 t22 t23 t24
+t25 t26 t27 t28 t29 t30 t31 t32
+t33 t34 t35 t36 t37 t38 t39 t40
+t41 t42 t43 t44 t45 t46 t47 t48
+t49 t50 t51 t52 t53 t54 t55 t56
+{
+ group t1 t2 t3 t4 t5 t6 t7 t8
+ group t9 t10 t11 t12 t13 t14 t15 t16
+ group t17 t18 t19 t20 t21 t22 t23 t24
+ group t25 t26 t27 t28 t29 t30 t31 t32
+ group t33 t34 t35 t36 t37 t38 t39 t40
+ group t41 t42 t43 t44 t45 t46 t47 t48
+ group t49 t50 t51 t52 t53 t54 t55 t56
+}
+#-------------------------------levels-------------------------------------#
+
+: level1
+
+
+ 91 38
+cluster
+ ▛ ▀ ▜ ▛ ▀ ▀ ▜
+ ▘ ▫ ▝ ▘ ▫ ▫ ▐
+▫ ▫ ▫ ▫ ▫ ▫  ▐
+ ▫ ▫ ▫ ▫ ▫ ▗ ▟
+ ▫ ▫ ▗ ▄ ▄ ▟ █
+ ▫ ▫ ▝ ▀ ▜ █ █
+ ▫ ▫ ▫ ▫ ▝ ▀ ▜
+ ▖ ▫ ▫ ▫ ▫ ▫ ▐
+cluster
+ ▙ ▄ ▖ ▫ ▫ ▫ ▐
+ █ ▛ ▘ ▫ ▫ ▗ ▟
+ ▛ ▘ ▫ ▫ ▫ ▐ █
+ ▘ ▫ ▫ ▫ ▫ ▝ ▜
+ ▫ ▫ ▫ ▫ ▗ ▖ ▐
+ ▫ ▫ ▫ ▫ ▐ ▙ ▟
+ ▗ ▖ ▫ ▫ ▐ █ █
+ █u ▙ G L ▟ █ █
+
+
+32 36
+
+cluster
+ ▀ ▀ ▀ ▀ ▀ ▀ ▜
+ ▫ ▫ ▫ ▫ ▫ ▫ ▐
+ ▫ ▫ ▫ ▫ ▫ ▫ ▐
+ ▄ G L ▄ c1 ▫ ▐
+ ◥ █ █ ◤ ▫ ▫ ▐
+ ▫ ◥ ◤ ▫ ▫ ▫ ▐
+ ▫ ▕ ▏ ▫ ▫ ▫ ▐
+ ▫ ▕ ▏ ▫ ▫ _ ▐
+
+cluster
+ ▫ ▕ ▏ ▫ ▫ ◥ ▐
+ ▫ ▕ ▏ ▫ ▫ ▕ ▐
+ ▫ ▕ ▏ ▫ ▫ ▕ ▐
+ ◤ ▕ ▏ _ _ ▕ ▐
+ ▏ ▕ ▏ ◥ ◤ ▕ ▐
+ ▏ ▕ ▏ ▕ ▏ ▕ ▐
+ ▏ ▕ ▏ ▕ ▏ ▕ ▐
+ █u █u █u █u █u █u █u
+
+95 30
+
+cluster
+ ▀ ▀ ▀ ▀ ▀ ▀ ▜
+ ▫ ▫ ▫ ▫ ▫ ▫ ▐
+ ▫ ▫ ▫ ▫ ▫ ▫ ▐
+ ◣ _ _ _ c6 ▫ ▐
+ █ █ ▛ ▀ ▘ ▫ ▐
+ ▀ ▀ ▘ ▫ ▫ ▫ ▐
+ O ▫ ▫ ▫ ▫ ▫ ▐
+ _ _ _ ▫ ▫ ▫ ▐
+
+cluster
+ █d █d ◤ ▫ ▫ ▫ ▐
+ ▫ ▫ ▫ ▫ ▫ ▫ ▐
+ ▫ ▫ ▫ ▫ ▫ ▫ ▐
+ ▫ ▫ ▫ ▫ ▫ ▫ ▐
+ G L c1 ▫ ▫ ▫ ▐
+ █d ◤ ▫ ▫ ▫ ▫ ▐
+ ▖ ▗ ▖ ▫ F c6 ▐
+ ▙ ▟ █u ◣ ◢ ▙ ▟
+
+
+11 32
+
+cluster
+ ▀ ▀ ▀ ▀ ▀ ▀ ▜
+ ▫ ▫ ▫ ▫ F ▫ ▐
+ ▫ ▫ ▫ ▫ c5 _ ▐
+ ▫ ▫ O ▫ ▐ █ ▐
+ ▫ ▫ ◢ ▏ ▐ █ ▐
+ ▫ ▫ █l ▏ ▐ █ ▐
+ ▫ ▫ █l ▏ ▐ █ ▐
+ ▫ ▫ █l ▏ ▐ █ ▐
+
+cluster
+ ▫ ▫ █l ▏ ▐ █ ▐
+ ▫ ▗ █l █u █u █u █u
+ ▫ ▐ ▛ ▀ ▀ ▜ █
+ ▫ ▝ ▘ ▫ ▫ ▝ ▜
+ ▫ ▫ ▫ ▫ ▫ ▫ ▐
+ ▫ ▫ ▫ ▫ ▫ ▗ ▟
+ ▫ ▫ ▗ ▄ ▖ ▝ █l
+ G L ▟ █u █u █u █
+
+26 12
+
+cluster
+ ▀ ▀ ▀ ▀ ▀ ▀ ▜
+ ▫ ▫ ▫ ▫ ▫ ▫ ▐
+ ▫ ▫ ▫ O ▫ ▫ ▐
+ ▫ ▫ ▕ █u ▏ ▫ ▐
+ ▫ ▫ ▕ █ ▏ ▫ ▐
+ ▫ ▫ ▕ █ ▏ ▫ ▐
+ ▫ ▫ ▕ █ ▏ ▫ ▐
+ ▫ ▫ ▕ █ ▏ ▫ ▐
+cluster
+ ▫ ▫ c5 █l ▏ ▫ ▐
+ ▫ ▫ ▐ █ ▏ ▫ ▐
+ ▫ ▫ ▐ █ ▏ ▫ ▐
+ ▫ ▫ ▐ █ ▏ ▫ ▐
+  ▄ ▄  ▟ █ ▏ ▫ ▐
+ █ ◤ ◥ ◤ ▫ ▫ ▐
+ ◤ ▫ ▕ ▏ ▫ ▫ ▐
+▫ ▫ ◢ ◣ G L ▟
+
+
+13 36
+
+cluster
+ ▜ █ █ █ █d █d  █
+ ▝ █ █ ◤ ¯ ▝ ▜
+ ▫ ◥ ◤ ▫  ▫ ▫ ▐
+ ▫ ▕ ▏  ▫ ▫ O  ▐
+ ▫ ▕ ▏  ▫ ▗  ▄ ▟
+ ▫ ▕ ▏  ▫ ▝ ▜ █
+ ▫ ▕ ▏  ▫ ▫ ▐ █
+ ▫ ◢ ◣ ▫ ▫ ▝ █l
+cluster
+ ▟ █d █u ◣ ▫ c4 ▜
+ ▛ ▘ ◥ ◤  ▫ ▫ ▐
+ ▘ ▫ ▫  ▫ ▫ ▫ ▐
+ F F F _ ▫ ▫ ▐
+ █u █u █u ◤ ▫ c2 ▟
+ ◤ ¯ ¯ ▫ ▫ c4 ▜
+ ▖ c5 ▗ G L ▖ ▐
+ ▙ ▟ █u █ █ ▙ ▟
+
+
+87 14
+
+cluster
+ ◢ ▛ ◥ █d ▏ F ▕
+ ▛ ▘ ▫ ▫ ◥ _ ◤
+ ▘ ▫ ▫ ▫ ▫ █l ▫
+ ▫ ▫ ▫ ▫ ▫ █l ▫
+ c5 _ ▫ ▫ ▫ ◥ ▫
+ ▟ ◤ ▫ c5 _ ◢ █
+ ◤ ▫ ▫ ▝ ▜ ◣ ▫
+ ▫ ▫ ▫ ▫ ▝ ▜ ◣
+cluster
+ ▫ ▫ ▫ ▫ ▫ ▝ ▜
+ ▫ ▫ ▫ ◢ ▏ ▫ ▐
+ ▫ ▫ ▫ █l ▏ ▫ ▐
+ ▫ ▫ ◢ ¯ ◣ O ▐
+ ▫ ▕ ▏ F ▕ █u █u
+ ▫ ▫ ◥ _ ◤ ▫ ▫
+ ▫ ▫ ▫ █l ▫ ▫ ◥
+ G L ▄ █l ▫ ▗  ▫
+
+
+23 21
+
+cluster
+ ◢ ◣ ◢ ◣ ◢ ◣ ▜
+ ¯ ¯ ¯ ¯ ¯ ¯ ▐
+ ▫ ▫ ▫ ▫ ▫ ▫ ▐
+ ▫ ▫ ▫ c2 G L ▐
+ ▫ O ▫ ▫ ◥ ◤ ▐
+ ▫ _ _ ▫ ▫ ▫ ▐
+ ▫ ◥ ◤ ▫ ▫ ▫ ▐
+ _ _ c6 ▫ ▫ ▫ ▐
+cluster
+ ▜ ▛ ▘ ▫ ▫ O ▐
+ ▝ ▘ ▫ ▫ _ _ ▐
+ ▫ ▫ ▫ ▫ ◥ ◤ ▐
+ ▫ ▫ ▫ ▫ c5 c6 ▐
+ ▫ _ _ ▫ ▝ ▘ ▐
+ ▫ ◥ ◤ ▫ F F ▐
+ _ _ _ _ _ _ ▐
+ ◥ ◤ ◥ ◤ ◥ ◤ ▟
+
+92 43
+
+cluster
+ ▀ ▀ ▀ ▀ █l █ █
+ ▫ ▫ ▫ ▫ ◥ █ █
+ _ ▫ ▫ ▫ ▫ ◥ █
+ ◤ ▫ ▫ ▫ ▫ ▫ █l
+ ▫ ▫ c2 ▄ G L █l
+ F O ▫ ◥ █ █ █
+ _ _ ▫ ▫ ◥ █ █
+ █ ◤ ▫ ▫ ▫ ◥ █l
+cluster
+ ◤ ▫ ▫ ▫ ▫ O █l
+ O ▫ ▫ ▫ c5 _ █l
+ _ _ ▫ ▫ ▝ ▜ █l
+ █ ◤ ▫ ▫ ▫ ▝ ▜
+ ◤ ▫ ▫ ▫ ▫ ▫ ▐
+ ▫ ▫ ▫ ▫ ▫ c2 ▟
+ ◣ c6 F c5 _ ◢ █
+ █ ▙ ▄ ▟  █  █  █
+
+
+
+#################################################(f)ART######################################
+
+#tiles
+: ▐-sprite 0x00 0x00 0x00 0x00
+: █-sprite 0xFF 0xFF 0xFF 
+: ▙-sprite 0xFF 0xFF 0xFF 0xFF  
+: ◣-sprite 0xFF 0xFE 0xFC 0xF8 
+: ▖-sprite 0xF0 0xE0 0xC0 0x80 
+: ▝-sprite 0x00 0x00 0x00 0x00 
+: ◥-sprite 0x01 0x03 0x07 0x0F 0x1F 0x3F 0x7F 
+: ◤-sprite 0xFF 0x7F 0x3F 0x1F 
+: ▘-sprite 0x0F 0x07 0x03 0x01 
+: ▗-sprite 0x00 0x00 0x00 0x00
+: ◢-sprite 0x80 0xC0 0xE0 0xF0 
+: ▟-sprite 0xF8 0xFC 0xFE 0xFF 
+: ▌-sprite 0xFF 0xFF 0xFF 
+
+: healthbar
+: ▏-sprite 0xFF 
+: ▕-sprite 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xFF
+: cap-1-sprite 0xF0 
+: cap-2-sprite 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xF0 
+: cap-3-sprite 0x0F
+: cap-4-sprite 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x0F
+: ▜-sprite 0x1F 0x3F 0x7F
+: ▛-sprite 0xFF 0xFF 0xFF 0xFF 0xFF 0x7F 0x3F 0x1F
+: fuel-sprite 0x00 0x42 0x7E 0x42 0x6A 0x7E 0x42
+: cap-5-sprite 0x00 0x00 0x00 
+: fuelbar 0x00 
+: _-sprite 0x80 0x80 0x80 0x80
+: cap-6-sprite 0x80 0x80 0x80 0x80 0x00 0x00 0x00 
+: orb-sprite 0x00 0x18 0x34 0x7A 0x7A 0x3C 0x18 
+: cap-7-sprite 0x00 0x00 0x00 0x00
+: ¯-sprite 0x01 0x01 0x01 0x01
+: cap-8-sprite 0x01 0x01 0x01 0x01 0x00 0x00 0x00 0x00
+: goal-left-sprite 0xF0 0xF0 0xF4 0xFC
+: goal-right-sprite  0xF4 0xFC 0xF4 0xFC 0xF4
+: ▄-sprite 0xF0 0xF0 0xF0 0xF0 0xF0 0xF0 0xF0 0xF0
+
+: ▀-sprite 0x0F 0x0F 0x0F 0x0F 0x0F 0x0F 0x0F 0x0F
+
+: ship
+    0x30 0x1C 0x17 0x25 0x25 0x17 0x1C 0x30 
+    0x30 0x1C 0x14 0x27 0x4D 0x2A 0x3E 0x60
+    0x18 0x08 0x1E 0x26 0x45 0x2A 0xBC 0x40
+    0x08 0x0C 0x0C 0x36 0x27 0x29 0xFA 0x44
+    0x0C 0x06 0x1E 0x22 0xA6 0xE9 0x7B 0x06
+    0x02 0x03 0x1E 0x12 0xE6 0x79 0x1A 0x0C
+    0x02 0x09 0x16 0xA2 0xE6 0x3A 0x34 0x08
+    0x00 0x09 0x97 0xE2 0x4E 0x7A 0x16 0x18
+    0x00 0x00 0x99 0xE7 0x42 0x7E 0x24 0x3C
+    0x00 0x90 0xE9 0x47 0x72 0x5E 0x68 0x18
+    0x40 0x90 0x68 0x45 0x67 0x5C 0x2C 0x10
+    0x40 0xC0 0x78 0x48 0x67 0x9E 0x58 0x30
+    0x30 0x60 0x78 0x44 0x65 0x97 0xDE 0x60
+    0x10 0x30 0x30 0x6C 0xE4 0x94 0x5F 0x22
+    0x18 0x10 0x78 0x64 0xA2 0x54 0x3D 0x02
+    0x0C 0x38 0x28 0xE4 0xB2 0x54 0x7C 0x06
+    0x0C 0x38 0xE8 0xA4 0xA4 0xE8 0x38 0x0C
+    0x06 0x7C 0x54 0xB2 0xE4 0x28 0x38 0x0C
+    0x02 0x3D 0x54 0xA2 0x64 0x78 0x10 0x18
+    0x22 0x5F 0x94 0xE4 0x6C 0x30 0x30 0x10
+    0x60 0xDE 0x97 0x65 0x44 0x78 0x60 0x30
+    0x30 0x58 0x9E 0x67 0x48 0x78 0xC0 0x40
+    0x10 0x2C 0x5C 0x67 0x45 0x68 0x90 0x40
+    0x18 0x68 0x5E 0x72 0x47 0xE9 0x90 0x00
+    0x3C 0x24 0x7E 0x42 0xE7 0x99 0x00 0x00
+    0x18 0x16 0x7A 0x4E 0xE2 0x97 0x09 0x00
+    0x08 0x34 0x3A 0xE6 0xA2 0x16 0x09 0x02
+    0x0C 0x1A 0x79 0xE6 0x12 0x1E 0x03 0x02
+    0x06 0x7B 0xE9 0xA6 0x22 0x1E 0x06 0x0C
+    0x44 0xFA 0x29 0x27 0x36 0x0C 0x0C 0x08
+    0x40 0xBC 0x2A 0x45 0x26 0x1E 0x08 0x18
+    0x60 0x3E 0x2A 0x4D 0x27 0x14 0x1C 0x30
+
+: explosion
+0x03 0x80 0x06 0xE0 0x1E 0x36 0x31 0x3E 
+0x37 0xEF 0x3D 0x7B 0x6F 0xC3 0x6C 0xF2 
+0x6E 0x7E 0x6A 0x76 0x7A 0xDE 0x3F 0xFC 
+0x3F 0xF5 0x33 0x86 0x13 0x8C 0x0B 0xF8 
+
+: score-title
+0x8F 0xF9 0x00 0xFF 0x81 0x00 0xFF 0x81 
+0xFF 0x00 0xFF 0x09 0xF7 0x00 0xFF 0x89
