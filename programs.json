@@ -955,4 +955,6 @@
 			"jumpQuirks":false,
 			"enableXO":false,
 			"screenRotation":0
+		}
+	},
 }
