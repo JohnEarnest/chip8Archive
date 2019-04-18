@@ -1,0 +1,118 @@
+############################
+#Octo paint
+#
+#WASD Moves cursor
+#V to draw
+#C to erase
+#1,2,3 to select a brush
+#Z to choose layer 1
+#X to choose layer 2
+############################
+
+:alias px v3
+:alias py v4
+
+:alias brushtype v5
+:const smallbrush 0
+:const medbrush 1
+:const largebrush 2
+
+:alias drawmode v6
+:const draw 0
+:const erase 1
+
+: drawcursor
+	if brushtype == smallbrush then i := point
+	if brushtype == medbrush then i	:= square
+	if brushtype == largebrush then i := circle
+	sprite px py 4
+;
+: drawpoint
+	i := point
+	if drawmode == erase begin
+		sprite px py 1
+		if vf == 0 then sprite px py 4
+	else
+		sprite px py 1
+		if vf != 0 then sprite px py 4
+	end
+;
+
+#TODO implement generic additive sprite drawing
+: stamp
+	if brushtype == smallbrush begin
+		drawpoint
+		return
+	end
+	if brushtype == medbrush begin
+		drawpoint
+		px += 1 drawpoint
+		py += 1 drawpoint
+		px += -1 drawpoint
+		py += -1 
+		return
+	end
+	if brushtype == largebrush begin
+		px += 1 drawpoint
+		px += 1 drawpoint
+		py += 1 drawpoint
+		px += 1 drawpoint
+		py += 1 drawpoint
+		px += -1 drawpoint
+		py += 1 drawpoint
+		px += -1 drawpoint
+		py += -1 drawpoint
+		py += -1 drawpoint
+		px += -1 drawpoint
+		py += 1 drawpoint
+		py += -2
+		return
+	end
+;
+: main
+	px := 31
+	py := 15
+	drawcursor
+	loop
+		#clear
+		drawcursor
+		v0 := 0x01   if v0 key then brushtype := smallbrush #keyboard 1
+		v0 := 0x02   if v0 key then brushtype := medbrush   #keyboard 2
+		v0 := 0x03   if v0 key then brushtype := largebrush #keyboard 2
+		
+		v0 := 0x0a   if v0 key then plane 1 #keyboard Z
+		v0 := 0x00   if v0 key then plane 2 #keyboard X
+
+		v0 := 0x05   if v0 key then py += -1 # keyboard W
+		v0 := 0x08   if v0 key then py +=  1 # keyboard S
+		v0 := 0x07   if v0 key then px += -1 # keyboard A
+		v0 := 0x09   if v0 key then px +=  1 # keyboard D
+		
+		v0 := 0x0f   if v0 key begin #keyboard V
+			drawmode := draw
+			stamp
+		end
+		v0 := 0x0b   if v0 key begin #keyboard C
+			drawmode := erase
+			stamp
+		end
+
+		#draw
+		drawcursor
+
+		loop
+			vf := delay
+			if vf != 0 then
+		again
+		vf := 3
+		delay := vf
+	again
+
+: circle
+	0x60 0xF0 0xF0 0x60
+
+: square
+	0xC0 0xC0 0x00 0x00
+
+: point
+	0x80 0x00 0x00 0x00
