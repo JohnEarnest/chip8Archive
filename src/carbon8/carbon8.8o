@@ -1,0 +1,1289 @@
+#######################################################
+#
+#
+#		Carbon8 - A hyopthetical tie in game
+#
+#
+#######################################################
+
+# It's 1980.
+# A big sci fi movie just came out
+# What could be better than a Tie In game to really
+# cement it in pop culture memory
+# There's... not a lot of great options for computers right now
+# So, let's go mass market and use Cosmac compatible Chip8!
+
+# colours are:
+# background: orangered
+# foreground: black
+# buzzer: orangered
+# silence: black
+
+# 3 Control dials
+# Bar : Blast Power - how much cooling this tick will do?
+# Right Dial: filler mix - how much of the mix will solidify, as you have a mass target
+# Left Dial: Venting - how much warming air you allow in
+
+
+###########
+## knobs:
+:const knob1_x 16
+:const knob2_x 40
+:const knob1_y 27
+
+:const knob1_x_value 12	# _x - 4
+:const knob1_y_value 30	# _y + 3
+:const knob1_x_value_cap 17	# _x + 1 (this is a minimum position)
+:const knob1_y_value_cap 25	# _y - 2
+
+:const knob2_x_value 36	# _x - 4
+:const knob2_y_value 30	# _y + 3
+:const knob2_x_value_cap 41	# _x + 1 (this is a minimum position)
+:const knob2_y_value_cap 25	# _y - 2
+
+###########
+## Bar:
+:const bar_x 24
+:const bar_y 25
+:const bar_y_value 26	# value above + 1
+
+###########
+## Scanner:
+:const scanner_x 48
+:const scanner_y_top 17
+:const scanner_y_bot 30
+
+:const scanner_side_val1 49
+:const scanner_side_val2 62
+:const scanner_side_val3 18
+:const scanner_side_val4 30
+
+:const scanner_data_small_x 52
+:const scanner_data_small_y 20
+
+:const scanner_data_a_x 50
+:const scanner_data_a_y 18
+
+###########
+## Time and Temperature:
+
+:const time_between_pulses 10
+:const temp_delta_max 31
+
+# Aliases:
+
+# Least important:
+:alias compare-temp v3
+
+:alias until_next_tick v5
+:alias fill_remaining v6
+:alias fill_target v7
+:alias temp_sub v8
+
+:alias knob1 v9
+:alias knob2 va
+:alias bar1 vb
+
+# Internal and external temperatures:
+:alias temp_ex vc
+:alias temp_in vd
+
+:alias level_number ve
+# most important
+
+
+: main
+	# Probably a title screen
+
+	# Reset values as appropriate
+	draw-vestibule
+	i := start_level
+	load v0
+	level_number := v0
+
+	# Magic numbers for title position:
+	vf := 0
+	v1 := 12
+	v2 := 7
+	loop
+		i := text_carbon8
+		drawtext
+		if vf != 0xff then
+	again
+
+	
+	v0 := key
+	# Probably some other stuff
+
+	# MAIN LOOP HOORAY
+	#draw-claws
+
+: level_looparound
+	clear
+	# Level display page!
+
+
+	# Draw the text LEVEL 1-6
+	# Magic numbers for level text position:
+	vf := 0
+	v1 := 10
+	v2 := 2
+	loop
+		i := text_level
+		drawtext
+		if vf != 0xff then
+	again
+
+	v1 += 6
+
+	i := text_use_directly_123456
+	i += level_number
+	load v0
+	i := fivewide_space_first
+	i += v0
+	sprite v1 v2 5
+
+
+
+	# DRAW THE NAME OF THE LEVEL WITH SOME RIGHT BULLCRAP HACKING:
+	:unpack 0xA text_mynock
+	v2 := 0
+	if level_number == 1 then v2 := 8	# MAGIC NUMBERS HOORAY
+	if level_number == 2 then v2 := 15
+	if level_number == 3 then v2 := 22
+	if level_number == 4 then v2 := 31
+	if level_number == 5 then v2 := 39
+	v1 += v2
+	v0 += vf
+
+	i := appropriate_level_text
+	save v1
+
+	vf := 0
+	v1 := 8
+	v2 := 22
+	loop
+		: appropriate_level_text
+		i := text_tauntaun
+		drawtext
+		if vf != 0xff then
+	again
+
+	v0 := key
+
+	clear
+
+	draw-vestibule
+	draw-claws
+
+	draw-level-character
+
+	v0 := key
+
+	# remove the fancy art
+	draw-vestibule
+
+	# Reset tick timer:
+	until_next_tick := time_between_pulses
+
+	# Draw the two knob bases:
+	i := spr-knob
+	v0 := knob1_x
+	v1 := knob1_y
+	sprite v0 v1 4
+	v0 := knob2_x
+	sprite v0 v1 4
+
+	# Draw the 'scanner' top/bottom
+	i := horizontal_0_7F
+	v0 := scanner_x
+	v1 := scanner_y_top
+	sprite v0 v1 1
+	v0 += 7
+	sprite v0 v1 1
+	v1 := scanner_y_bot
+	sprite v0 v1 1
+	v0 += -7
+	sprite v0 v1 1
+
+	# Draw the sides:
+	i := single_dot
+	v0 := scanner_side_val1
+	v2 := scanner_side_val2
+	v1 := scanner_side_val3
+	loop
+		sprite v0 v1 1
+		sprite v2 v1 1
+		v1 += 1
+		if v1 != scanner_side_val4 then
+	again
+
+	# Draw the Bar:
+
+	i := horizontal_0_FF
+	v0 := bar_x
+	v1 := bar_y
+	sprite v0 v1 1
+	v0 += 8
+	sprite v0 v1 1
+	v1 += 5
+	sprite v0 v1 1
+	v0 += -8
+	sprite v0 v1 1
+
+	# Reset temp registers
+	temp_in := 0
+	temp_ex := 0
+	temp_sub := 0
+
+	i := goals
+	v0 <<= level_number # *2
+	v0 <<= v0	# *4
+	v0 <<= v0	# *8
+	i += v0
+	# Load the temperature goals:
+	load v3
+	load v1
+	load v1
+
+	# v0 v1 = internal temp display
+	# v2 v3 = external temp display
+
+	knob1 := 2
+	knob2 := 10
+
+	i := single_dot
+	sprite knob1 v2 1
+	loop
+		v2 += 1
+		sprite knob1 v2 1
+		if v2 != v3 then
+	again
+
+	sprite knob2 v0 1
+	loop
+		v0 += 1
+		sprite knob2 v0 1
+		if v0 != v1 then
+	again
+
+	draw-temps
+	draw-temp-markers
+
+	# Set initial values:
+	knob1 := 0xA
+	knob2 := 0
+	bar1 := 0
+
+
+
+	draw-knob1val
+	draw-knob2val
+	draw-bar1val
+
+
+
+
+	# Use this value for the starting level of filling:
+	i := starting_fill
+	i += level_number
+	load v0
+	fill_target := v0
+
+	draw-scan-data
+
+	# Main "loop"
+	loop
+
+		# The offset value of a rets:
+		v0 := 60
+		# Should use a control jump table to make control detection faster, currently we have to do 7 tests comparisons if the value is not 0. Let's try and bring up that worst case
+		# Let's store our value in v0 so we can use it directly in a jump0 table
+		# The amount of code we need in our table is pretty... consistent actually, at 10 bytes, so, let's be daft:
+
+
+		v1 := 0x4 if v1 key then v0 := 00	# keyboard Q # Increase Knob 1
+		v1 := 0x7 if v1 key then v0 := 10	# keyboard A # Decrease Knob 1
+
+		v1 := 0x9 if v1 key then v0 := 40	# keyboard S # Increase Bar
+		v1 := 0x8 if v1 key then v0 := 52	# keyboard D # Decrease Bar
+
+		v1 := 0xD if v1 key then v0 := 20	# keyboard R # Increase Knob 2
+		v1 := 0xE if v1 key then v0 := 30	# keyboard F # Decrease Knob 2
+
+		
+		# Use a subroutine so we can return
+		control_table
+		# lock the framerate of this program via the delay timer:
+
+		until_next_tick += -1
+		if until_next_tick == 0 begin
+			until_next_tick := time_between_pulses
+			# we need to apply our current power to our values
+
+			# Undraw internal and external temperatures
+			draw-temps
+
+
+			# warm up based on how cold it is, capped at venting value knob
+			v0 >>= temp_ex	# 256 -> 128
+			v0 >>= v0	# 128 -> 64
+			v0 >>= v0	# 64 -> 32
+			v0 >>= v0	# 32 -> 16
+			
+			if v0 > knob1 then v0 := knob1
+			v0 += 1
+
+			temp_ex -= v0
+			# if underflow:
+			if vf == 0 then temp_ex := 0
+
+			# next:
+			# apply cooling
+			temp_ex += bar1
+			if vf != 0 then temp_ex := 255
+
+			# what is the difference between temp_in and temp_ex:
+
+			# We are kind of lying about the value of temperatures
+			# Where positive = more cold
+			v1 := temp_ex
+			v1 -= temp_in
+
+			if v1 == 0 then jump skip_temp_process
+
+			# if internal temperature is actually warmer
+			# we need to invert v0 and flip the way we use it
+			# This is basically the game so let's not dick around:
+			if vf == 0 begin
+				# flip the maths
+				v1 := temp_ex
+				v1 =- temp_in
+				# we still cap it
+				if v1 > temp_delta_max then v1 := temp_delta_max
+				i := transfer_temp_root
+				i += v1
+				load v0
+				temp_sub -= v0
+				# incorporate the overflow
+				# In this case, no tick over = 1, yes tickover = 0
+				# So we want to flip our usage
+				v0 := 1
+				v0 -= vf
+				# but we use it the other way around
+				temp_in -= v0
+				temp_ex += v0
+
+				i := whole_degrees_root
+				i += v1
+				load v0
+				temp_in -= v0
+				temp_ex += v0
+
+
+			else
+				# We want to only bring in a certain amount of the delta per cycle
+				# cap at ... idk a value?
+				if v1 > temp_delta_max then v1 := temp_delta_max
+				i := transfer_temp_root
+				i += v1
+				load v0
+				temp_sub += v0
+				# incorporate the overflow
+				v0 := vf
+				temp_in += v0
+				temp_ex -= v0
+
+				i := whole_degrees_root
+				i += v1
+				load v0
+				temp_in += v0
+				temp_ex -= v0
+			end
+
+
+			: skip_temp_process
+			# restore temps:
+			draw-temps
+		end
+
+		# sum bar and knob value for how much filler has been added:
+		v0 >>= bar1
+		v0 += knob2
+		
+		fill_remaining += v0
+		# if we overflow:
+		if vf != 0 begin
+
+			if fill_target == 0x0F then jump level_complete
+
+			draw-scan-data
+			fill_target += 1
+			draw-scan-data
+
+			# Do the cool block effect!
+			v0 := 0x08
+			v0 &= fill_target
+			if v0 != 0 begin
+				# Work out which overfill this is:
+				v0 := fill_target
+				v1 := 16
+				v0 =- v1
+				v0 <<= v0
+				v1 := 26
+				i := claw_left
+				sprite v1 v0 2
+				v1 += 6
+				sprite v1 v0 2
+
+			end
+
+
+		end
+
+		#draw fill graph
+
+
+
+
+		loop
+			vf := delay
+			if vf != 0 then
+		again
+		vf := 3
+		delay := vf
+		
+	again
+
+: level_complete
+
+	# finish the blck:
+	i := claw_left
+	v0 := 0
+	v1 := 26
+	i := claw_left
+	sprite v1 v0 2
+	v1 += 6
+	sprite v1 v0 2
+
+
+	buzzer := fill_target
+
+	v0 := key
+	clear
+
+	# Judge a level
+
+	i := goals
+	v0 <<= level_number # *2
+	v0 <<= v0	# *4
+	v0 <<= v0	# *8
+	i += v0
+	# Load the temperature goals:
+	# none of our registers matter at this point so just load all 8 values
+	load v7
+	# the maximum and minimum values are in 0 1 for external
+	# and 4 and 5 for internal
+	# v2 can store what kind of result we've got
+	v6 := 0
+	v7 := 0
+	if temp_ex < v0 then v6 := 1
+	if temp_ex > v1 then v6 := 2
+	if temp_in < v4 then v7 := 1
+	if temp_in > v5 then v7 := 2
+
+	# draw jabba
+	v0 := 37
+	v1 := 22
+
+	i := jabba_tail
+	sprite v0 v1 8
+	v1 += -7
+	v0 += 8
+	i := jabba_body_a
+	sprite v0 v1 14
+	v0 += 8
+	i := jabba_body_b
+	sprite v0 v1 14
+
+	vf := 0
+	v1 := 1
+	v2 := 1
+	loop
+		i := text_jabba_says
+		drawtext
+		if vf != 0xff then
+	again
+
+	# Select the right text with this mess:
+	:unpack 0xA text_goodcrumb
+
+	if v7 == 1 begin
+		:unpack 0xA text_salla
+		end
+	if v7 == 2 begin
+		:unpack 0xA text_brokky
+		end
+
+	if v6 == 1 begin
+		:unpack 0xA text_soggy
+		end
+	if v6 == 2 begin
+		:unpack 0xA text_creespa
+		end
+
+	if level_number == 3 begin
+		if v7 == 1 begin
+			:unpack 0xA text_stinka
+		end
+	end
+
+	if level_number == 5 begin
+		v0 := v6
+		v0 += v7
+		if v0 == 0 begin
+			:unpack 0xA text_solo_good
+		else
+			:unpack 0xA text_solo_bad
+		end
+	end
+
+	i := judge_review
+	save v1
+
+	vf := 0
+	v3 := 1
+	v1 := 1
+	v2 := 7
+	loop
+		: judge_review
+		i := text_soggy
+		drawtext
+		if vf != 0xff then
+	again
+
+	v0 := key
+	level_number += 1
+
+	if level_number != 6 then jump level_looparound
+
+	clear
+
+	vf := 0
+	v3 := 1
+	v1 := 1
+	v2 := 1
+	loop
+		i := text_win_1
+		drawtext
+		if vf != 0xff then
+	again
+
+	v0 := key
+
+	clear
+
+	vf := 0
+	v3 := 1
+	v1 := 1
+	v2 := 1
+	loop
+		i := text_win_2
+		drawtext
+		if vf != 0xff then
+	again
+
+	v0 := key
+
+	clear
+
+	vf := 0
+	v3 := 1
+	v1 := 11
+	v2 := 13
+	loop
+		i := text_win_3
+		drawtext
+		if vf != 0xff then
+	again
+
+	v0 := key
+
+	clear
+
+jump main
+
+
+: control_table
+	# Work it out with a breakpoint like a real hacker:
+	#:breakpoint test
+	jump0 control_table_table
+	: control_table_table
+	: control_value_1
+	# Undraw:
+	draw-knob1val				# 0
+	knob1 += 1				# 2
+	if knob1 == 0x0B then knob1 := 0x0A	# 4	# 6
+	jump draw-knob1val			# 8	# Oh what's that? Jumping out of a subroutine?
+	# Well! We're jumping into a subroutine! So it's fine!
+	# ...
+	# I SAID ITS FINE
+
+	: control_value_2
+	# Undraw:
+	draw-knob1val				# 10
+	knob1 += -1				# 12
+	if knob1 == 0xFF then knob1 := 0x00	# 14	# 16
+	jump draw-knob1val			# 18
+	: control_value_3
+	# Undraw:
+	draw-knob2val				# 20
+	knob2 += 1				# 22
+	if knob2 == 0x0B then knob2 := 0x0A	# 24	# 26
+	jump draw-knob2val			# 28
+
+	: control_value_4
+	# Undraw:
+	draw-knob2val				# 30
+	knob2 += -1				# 32
+	if knob2 == 0xFF then knob2 := 0x00	# 34	# 36
+	jump draw-knob2val			# 38
+
+	: control_value_5
+	bar1 += 1				# 40
+	# Hmm, ok, so, if the value is 0x10, then we change it, and don't want to run the code. 
+	if bar1 != 0x10 then jump draw-bar1val	# 42	# 44
+	if bar1 == 0x10 then bar1 := 0x0F	# 46	# 48
+	return					# 50
+
+	: control_value_6
+	# Undraw:
+	if bar1 == 0x00 then return		# 52	# 54
+	draw-bar1val				# 56
+	bar1 += -1				# 58
+	return					# 60
+
+
+: draw-knob1val
+	i := single_dot
+
+	# I want to draw the value of eg knob 1 as a weird pixel
+	# the value is from 0 = bottom left
+	# 5 = upper left
+	# 10 = upper right
+
+	# Bottom left:
+
+	v0 := knob1_x_value
+	v1 := knob1_y_value
+
+	v1 -= knob1
+	v0 += knob1
+
+	# Clip this into minimum and maximum locale
+	v3 := -5
+	v2 := knob1
+	v2 += v3
+	if vf != 0 then v1 := knob1_y_value_cap
+	v2 := knob1
+	v2 += v3
+	if vf == 0 then v0 := knob1_x_value_cap
+
+	# Draw (or Undraw) the dot:
+	sprite v0 v1 1
+;
+
+: draw-knob2val
+	i := single_dot
+
+	v0 := knob2_x_value
+	v1 := knob2_y_value
+	v1 -= knob2
+	v0 += knob2
+
+	# Clip this into minimum and maximum locale
+	v3 := -5
+	v2 := knob2
+	v2 += v3
+	if vf != 0 then v1 := knob2_y_value_cap
+	v2 := knob2
+	v2 += v3
+	if vf == 0 then v0 := knob2_x_value_cap
+
+	# Draw (or Undraw) the dot:
+	sprite v0 v1 1
+;
+
+
+: draw-bar1val
+	i := single_dot
+
+	v0 := bar_x
+	v1 := bar_y_value
+
+	v0 += bar1
+
+	sprite v0 v1 4
+
+;
+
+: draw-vestibule
+	v0 := 0
+	v1 := 20
+	v2 := 12
+
+	i := vestibule
+
+	loop
+		sprite v0 v1 12
+		i += v2
+		v0 += 8
+		if v0 != 64 then
+	again
+;
+
+: draw-claws
+	i := claw_left
+	v0 := 20
+	v1 := 0
+	sprite v0 v1 15
+
+	i := claw_right
+	v0 := 36
+	sprite v0 v1 15
+;
+
+: draw-temp-markers
+	i := single_dot
+	v0 := 1
+	v2 := 9
+	v1 := 0
+
+	loop
+		sprite v0 v1 1
+		sprite v2 v1 1
+		v1 += 4
+		if v1 != 32 then
+	again
+
+;
+
+: draw-temps
+	i := arrow
+
+	# map temp1 to height
+	# height is going to be 32 max I guess?
+
+	v0 >>= temp_ex	# / 2
+	v0 >>= v0	# / 4
+	v0 >>= v0	# / 8
+
+	v1 := 2
+
+	sprite v1 v0 3
+
+	v0 >>= temp_in
+	v0 >>= v0	# / 4
+	v0 >>= v0	# / 8
+
+	v1 := 10
+
+	sprite v1 v0 3
+;
+
+: draw-scan-data
+	v0 := fill_target
+	v1 := 0x08
+	v1 &= v0
+	if v1 == 0 begin
+		# If there is no 8th bit set, we do a simple small draw
+		# multiply by 8
+		v0 <<= v0 # 2x
+		v0 <<= v0 # 4x
+		v0 <<= v0 # 8x
+		i := scanner_sprite
+		i += v0
+
+		v0 := scanner_data_small_x
+		v1 := scanner_data_small_y
+		sprite v0 v1 8
+	else
+		# These are 24 bits long, so, we need a 16x and an 8x and add them together
+		v0 += -8
+		v0 <<= v0 # 2x
+		v0 <<= v0 # 4x
+		v0 <<= v0 # 8x
+		v1 <<= v0 # 16x
+		v0 += v1
+
+		i := scannersprite_pairs
+		i += v0
+
+		v0 := scanner_data_a_x
+		v1 := scanner_data_a_y
+		sprite v0 v1 12
+
+		v0 += 8
+		v2 := 12
+		i += v2
+		sprite v0 v1 12
+
+	end
+
+;
+
+: draw-level-character
+	
+	i := mynock
+	v0 := level_number
+	v1 := 15
+	if v0 == 0 then jump draw-level-character-sub
+	loop
+		i += v1
+		v0 += -1
+		if v0 != 0 then
+	again
+: draw-level-character-sub
+	v0 := 28
+	v1 := 1
+	sprite v0 v1 15
+
+	if level_number == 5 begin
+		i := single_dot
+		v0 := 27
+		v1 := 3
+		sprite v0 v1 1
+	end
+
+;
+
+: spr-knob
+0x1E 0x12 0x12 0x1E 
+
+: horizontal_0_7F
+0x7F
+: horizontal_0_FF
+0xFF
+
+: single_dot
+0x80
+0x80
+0x80
+0x80
+
+: arrow
+#0x06 0x1E 0x7E 0x7E 0x1E 0x06
+0x7C 0x1C 0x04 
+
+: claw_left
+0xFC 0xFC 0xFC 0xFC 0xFC 0xFC 0xFC 0xFC 
+0x7C 0x7C 0x7C 0x3C 0x3C 0x3C 0x1C 
+
+: claw_right
+0x3F 0x3F 0x3F 0x3F 0x3F 0x3F 0x3F 0x3F 
+0x3E 0x3E 0x3E 0x3C 0x3C 0x3C 0x38 
+
+: vestibule	# (96 bytes)
+	0xFF 0xFF 0xF0 0xFF 0xFF 0xFF 0xFF 0xFE
+	0xF1 0xFF 0xFF 0xFF 0xFF 0xFF 0x00 0xFF
+	0xFF 0xF8 0xC7 0x3F 0xFF 0xFF 0xFE 0xFD
+	0xF8 0xF0 0x10 0xF8 0x0C 0xFF 0xF9 0xF7
+	0xCF 0xBE 0x7D 0xFD 0x00 0x00 0x00 0x00
+	0x00 0x00 0xE0 0x7F 0x6D 0xED 0xED 0xDD
+	0x00 0x00 0x00 0x00 0x00 0x00 0x07 0xFE
+	0xB6 0xB7 0xB7 0xBB 0x1F 0x0F 0x08 0x1F
+	0x30 0xFF 0x9F 0xEF 0xF3 0x7D 0xBE 0xBF
+	0xFF 0xFF 0x00 0xFF 0xFF 0x1F 0xE3 0xFC
+	0xFF 0xFF 0x7F 0xBF 0xFF 0xFF 0x0F 0xFF
+	0xFF 0xFF 0xFF 0x7F 0x8F 0xFF 0xFF 0xFF
+
+
+# a value from 0 to 15 (or whatever I put in temp_delta_max) will be supplied
+# these values are then applied to the sub temp register so we also have a table for whole dgrees
+# This needs to be a pre computed relationship so, I'll use a spread sheet to calculate it and copy it in
+: transfer_temp_root		
+0	#	0
+25	#	1
+51	#	2
+76	#	3
+102	#	4
+128	#	5
+153	#	6
+179	#	7
+204	#	8
+230	#	9
+0	#	10
+25	#	11
+51	#	12
+76	#	13
+102	#	14
+128	#	15
+153	#	16
+179	#	17
+204	#	18
+230	#	19
+0	#	20
+25	#	21
+51	#	22
+76	#	23
+102	#	24
+128	#	25
+153	#	26
+179	#	27
+204	#	28
+230	#	29
+0	#	30
+25	#	31
+: whole_degrees_root		
+0	#	0
+0	#	1
+0	#	2
+0	#	3
+0	#	4
+0	#	5
+0	#	6
+0	#	7
+0	#	8
+0	#	9
+1	#	10
+1	#	11
+1	#	12
+1	#	13
+1	#	14
+1	#	15
+1	#	16
+1	#	17
+1	#	18
+1	#	19
+2	#	20
+2	#	21
+2	#	22
+2	#	23
+2	#	24
+2	#	25
+2	#	26
+2	#	27
+2	#	28
+2	#	29
+3	#	30
+3	#	31
+
+
+: scanner_sprite
+# empty
+0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00	# 0
+
+0x00 0x00 0x00 0x18 0x18 0x00 0x00 0x00 # 1
+
+0x00 0x00 0x18 0x3C 0x3C 0x18 0x00 0x00 # 2
+
+0x00 0x00 0x3C 0x3C 0x3C 0x3C 0x00 0x00 # 3
+
+0x00 0x18 0x3C 0x7E 0x7E 0x3C 0x18 0x00 # 4
+
+0x00 0x3C 0x7E 0x7E 0x7E 0x7E 0x3C 0x00 # 5
+
+0x3C 0x7E 0xFF 0xFF 0xFF 0xFF 0x7E 0x3C # 6
+
+0x7E 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0x7E # 7
+
+# that's as high as we get with simple sprites
+
+: scannersprite_pairs
+0x00 0x06 0x1F 0x3F 0x3F 0x7F 0x7F 0x3F # 8
+0x3F 0x1F 0x06 0x00 
+0x00 0x00 0x80 0xC0 0xC0 0xE0 0xE0 0xC0 
+0xC0 0x80 0x00 0x00 
+
+0x00 0x0F 0x3F 0x3F 0x7F 0x7F 0x7F 0x7F # 9
+0x3F 0x3F 0x0F 0x00 
+0x00 0x00 0xC0 0xC0 0xE0 0xE0 0xE0 0xE0 
+0xC0 0xC0 0x00 0x00 
+
+0x06 0x1F 0x3F 0x7F 0x7F 0xFF 0xFF 0x7F # A
+0x7F 0x3F 0x1F 0x06 
+0x00 0x80 0xC0 0xE0 0xE0 0xF0 0xF0 0xE0 
+0xE0 0xC0 0x80 0x00 
+
+0x0F 0x3F 0x7F 0x7F 0xFF 0xFF 0xFF 0xFF # B
+0x7F 0x7F 0x3F 0x0F 
+0x00 0xC0 0xE0 0xE0 0xF0 0xF0 0xF0 0xF0 
+0xE0 0xE0 0xC0 0x00 
+
+0x1F 0x7F 0x7F 0xFF 0xFF 0xFF 0xFF 0xFF # C
+0xFF 0x7F 0x7F 0x1F 
+0x80 0xE0 0xE0 0xF0 0xF0 0xF0 0xF0 0xF0 
+0xF0 0xE0 0xE0 0x80 
+
+0x3F 0x7F 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF # D
+0xFF 0xFF 0x7F 0x3F 
+0xC0 0xE0 0xF0 0xF0 0xF0 0xF0 0xF0 0xF0 
+0xF0 0xF0 0xE0 0xC0 
+
+0x7F 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF # E
+0xFF 0xFF 0xFF 0x7F 
+0xE0 0xF0 0xF0 0xF0 0xF0 0xF0 0xF0 0xF0 
+0xF0 0xF0 0xF0 0xE0 
+
+: Lots_Of_FFs
+0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF # F
+0xFF 0xFF 0xFF 0xFF 
+0xF0 0xF0 0xF0 0xF0 0xF0 0xF0 0xF0 0xF0 
+0xF0 0xF0 0xF0 0xF0
+
+
+: jabba_tail
+# Tail is 7 px lower and only 8 bytes
+0x03 0x1F 0x7F 0xFF 0xFF 0xFB 0x7C 0x3E
+# Body is 14 lines and 7 px higher
+: jabba_body_a
+0x0F 0x1F 0x35 0x3F 0x78 0x67 0xFF 0xFF 
+0xFF 0xFF 0xFF 0xFF 0xFF 0x7F 
+: jabba_body_b
+0xE0 0xF0 0x58 0xF8 0x3C 0xCC 0xFE 0xFE 
+0xFF 0xFF 0xFD 0xFE 0xFC 0xF8
+
+: mynock
+0x00 0x00 0x00 0x00 0xF7 0x76 0x3C 0x14 
+0x1C 0x38 0x60 0x40 0x64 0x3C 0x00 
+
+: jawa
+0x00 0x00 0x00 0x08 0x1C 0x3E 0x2A 0x3E 
+0x3E 0x7F 0x7F 0x7F 0x3E 0x3E 0x00 
+
+: yoda
+0x00 0x00 0x00 0xFF 0xDB 0x7E 0x3C 0x7E
+0x7D 0x7D 0x3D 0x3D 0x00 0x00 0x00 
+
+: tauntaun
+0x00 0x08 0x70 0xD0 0xF0 0x38 0x3E 0x5E 
+0x1F 0x2F 0x0F 0x1E 0x7A 0x0A 0x1E 
+
+: wookie
+0x3C 0x7E 0x5A 0x7E 0x66 0xFF 0xDF 0xEF 
+0xF7 0xFB 0xFF 0xBD 0x3C 0x3C 0x7E 
+
+: solo
+0x38 0xA8 0xBB 0xFE 0x78 0x38 0x3C 0x3C 
+0x7E 0x66 0x67 0xC3 0xE6 0x63 0xC0 
+
+
+
+: text_carbon8
+	0x20 0x7D 0x04 0x74 0x6F 0x0C 0x46 0xFF 
+
+: text_level
+	0x93 0x31 0x1B 0x31 0x93 0xFF
+: text_use_directly_123456
+	0x3D 0x4A 0x60 0x89 0x5C 0x42 
+
+: text_mynock
+0x65 0x18 0x6A 0x0C 0x6F 0x20 0x08 0xFF
+: text_jawa
+0x65 0x65 0x4E 0x7D 0x53 0x7D 0xFF
+: text_yoda
+0x65 0x65 0x6A 0x6F 0x00 0x7D 0xFF
+: text_tauntaun
+0x39 0x7D 0x13 0x0C 0x39 0x7D 0x13 0x0C 0xFF
+: text_wookie
+0x65 0x53 0x6F 0x6F 0x08 0x35 0x31 0xFF
+: text_solo
+0x65 0x65 0x2C 0x6F 0x93 0x6F 0xFF
+
+: text_jabba_says
+0x4E 0x7D 0x74 0x74 0x7D 0x65 0x2C 0x7D
+0x6A 0x2C 0xFF
+
+
+
+# generic not cold enough outside
+: text_soggy
+0x7D 0x10 0x65 0x00 0x7D 0x65 0x74 0x6F
+0x2C 0x08 0xFE 0x6A 0x7D 0x2C 0x7D 0x65
+0x74 0x6F 0xFE 0x2C 0x6F 0x24 0x24 0x6A
+0xFE 0x74 0x6F 0x39 0x39 0x6F 0x18 0xFF
+
+# generic over chilled outside
+: text_creespa
+0x20 0x04 0x31 0x31 0x2C 0x76 0x7D 0x65
+0x7D 0x13 0xFE 0x10 0x6F 0x10 0x6F 0x10
+0x6F 0x57 0xFF
+
+# Generic good text
+: text_goodcrumb
+0x74 0x6F 0x00 0x6F 0x7D 0x65 0x24 0x6F
+0x6F 0x00 0xFE 0x20 0x04 0x13 0x18 0x74
+0x2C 0xFE 0x24 0x6F 0x65 0x00 0x31 0x31
+0xFE 0x20 0x10 0x6F 0x6F 0xFF
+
+
+# generic not cold enough inside
+: text_salla
+0x2C 0x7D 0x93 0x93 0x7D 0x65 0x18 0x6F
+0x0C 0xFE 0x31 0x93 0x65 0x93 0x7D 0x7D
+0xFE 0x6F 0x10 0x65 0x10 0x6F 0xFF
+
+
+
+# generic too cold inside
+: text_brokky
+0x74 0x04 0x6F 0x08 0x08 0x6A 0x65 0x18
+0x7D 0xFE 0x39 0x31 0x31 0x65 0x90 0x6F
+0x10 0xFE 0x74 0x7D 0x10 0x65 0x08 0x6F
+0xFF
+
+
+# special tauntaun not cold inside text
+: text_stinka
+0x2C 0x39 0x35 0x0C 0x08 0x7D 0x65 0x18
+0x13 0x93 0xFE 0x76 0x6F 0x0C 0x24 0x65
+0x39 0x13 0xFE 0x35 0x0C 0x2C 0x35 0x00
+0x31 0xFF
+
+
+
+: text_solo_bad
+0x2C 0x6F 0x08 0x6A 0x6F 0x65 0x31 0x31
+0x39 0x2C 0xFE 0x90 0x13 0x20 0x08 0x35
+0x0C 0x24 0xFE 0x65 0x04 0x7D 0x53 0x57
+0xFE 0x10 0x6F 0x10 0x6F 0x10 0x6F 0xFF
+
+
+: text_solo_good
+0x2C 0x6F 0x93 0x6F 0x65 0x39 0x10 0x7D
+0x53 0x39 0xFE 0x00 0x6F 0x18 0x6F 0x20
+0x08 0x6A 0xFE 0x20 0x10 0x7D 0x93 0x35
+0x7D 0xFE 0x10 0x6F 0x10 0x6F 0x10 0x6F
+0xFF
+
+
+: text_win_1
+0x53 0x31 0x93 0x93 0x65 0x00 0x6F 0x0C
+0x31 0xFE 0x6A 0x6F 0x13 0x65 0x53 0x6F
+0x0C 0x65 0x7D 0xFE 0x00 0x7D 0x39 0x31
+0x65 0x53 0x35 0x39 0x10 0xFE 0x7D 0x65
+0x04 0x7D 0x0C 0x20 0x6F 0x04 0xFF
+
+
+: text_win_2
+0x00 0x6F 0x0C 0x39 0x65 0x53 0x6F 0x04
+0x04 0x6A 0xFE 0x35 0x39 0x2C 0x65 0x35
+0x0C 0x65 0x39 0x10 0x31 0xFE 0x0C 0x31
+0x7B 0x39 0x65 0x18 0x6F 0x1B 0x35 0x31
+0xFE 0x39 0x10 0x31 0x6A 0x65 0x7D 0x04
+0x31 0xFE 0x1B 0x31 0x04 0x6A 0x65 0x0C
+0x35 0x20 0x31 0x57 0xFF
+
+: text_win_3
+0x39 0x10 0x31 0x65 0x31 0x0C 0x00 0xFF
+
+# DrawText - I STOLE THIS OUT OF MASQUER8 I have 4 hours left WHO KNOWS HOW IT WORKS!
+: drawtext
+	# Arguements: v1 v2 v3 - start x, start y, carriage return x
+	# Uses: v0 v1 v2 v3 vf
+
+	# v1 v2 will be start x/y
+	# v0 will be used too, for loading purposes
+	
+	# Must have initialised vf := 0
+	# and run this in a loop
+	# setting i:= the text, then calling this, break their loop if vf == -1
+
+	i += vf
+	load v0
+	if v0 == -1 begin
+		# we've reached the end
+		vf := -1
+		return
+		end
+	vf += 1
+	if v0 == -2 begin
+		v1 := v3
+		v2 += 6
+
+		else
+
+		i := fivewide_space_first
+		i += v0
+		v0 := vf
+		sprite v1 v2 5
+		vf := v0
+		v1 += 6
+
+		end
+;
+
+
+# Unoptimised font I have EVEN FEWER THAN 4 HOURS NOW
+: fivewide_space_first # (152 bytes)
+	0xF0 0x88 0x88 0x88 0xF0 0x88 0xF0 0x90
+	0x88 0x90 0xE0 0x90 0x88 0xC8 0xA8 0x98
+	0x88 0x88 0xF8 0x88 0x88 0x88 0x88 0x70
+	0x88 0xD8 0xA8 0x88 0x88 0x50 0x50 0x20
+	0x78 0x80 0x80 0x80 0x78 0x80 0x98 0x88
+	0x70 0x88 0x88 0x98 0x78 0x80 0x70 0x08
+	0xF0 0xF8 0x80 0xF0 0x80 0xF8 0x20 0x20
+	0x20 0xF8 0x20 0x20 0x20 0x20 0x60 0x20
+	0x20 0xF8 0x70 0x80 0xF0 0x88 0x70 0x88
+	0x70 0x88 0x70 0x88 0x30 0x40 0xF8 0x20
+	0x20 0x20 0xE0 0x88 0x88 0xA8 0xA8 0x50
+	0x50 0x50 0x00 0x50 0xF8 0x80 0xF0 0x08
+	0xF0 0x08 0x70 0x08 0xF0 0x00 0x00 0x00
+	0x00 0x00 0x88 0x50 0x20 0x40 0x80 0x70
+	0x88 0x88 0x88 0x70 0xF0 0x88 0xF0 0x88
+	0xF0 0x80 0x80 0x88 0x50 0x20 0x50 0x88
+	0xF8 0x88 0x78 0x88 0xF8 0x08 0x08 0x10
+	0x10 0x30 0x50 0x90 0xF8 0x10 0x20 0x40
+	0xF8 0x80 0xF0 0x80 0x80 0x80 0x80 0xF8
+
+: starting_fill
+# based on size of thing:
+	1	3	2	5	3	2
+
+
+
+# Let's say that the goals are to not over do the mynock fairly even temperature
+# range is 0-255 display range is 0-31 (divide by 8)
+
+# jawa 
+# cold on the outside, warm on the inside
+
+# yoda
+
+# Taun taun - needs to be colder on the inside than the outside
+
+# wookie
+
+# solo
+
+: start_level
+0
+
+: goals
+	# mynocks are simple space beasts, just chill em and I'm sure they hibernate or something
+	40 120 5 15
+	48 96 6 12
+
+	# jawas are from a sand planet
+	# I bet they need to stay warm inside
+	176 240 22 30
+	0 96 0 12
+
+	# yoda goals
+	# Yoda seems like he's kinda swampy, so, needs a good cooling off but need to lock in that moisture or he'll dry up
+	160 192 20 24
+	128 160 16 20
+
+	# taun tauns, they stink on the inside, we'd better make sure it's cold inside, but warm on the outside
+	40 72 5 9
+	128 160 16 20 
+
+	# wookies! They live in trees! on a jungle or something
+	# I bet they're really annoying to chill because of all their fur
+	# man that would be a neat mechanic, thermal shock!
+	224 255 28 31
+	152 168 19 21
+
+	# solo goals
+	120 136 15 17
+	136 152 17 19
