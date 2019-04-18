@@ -833,7 +833,7 @@
 		"authors":  ["Chromatophore"],
 		"images":   ["octopeg.gif"],
 		"desc":     "Peggle clone for Superchip",
-		"event":	"Octojam2",
+		"event":    "Octojam2",
 		"release":  "2015-10-29",
 		"platform": "schip",
 		"options": {
@@ -855,7 +855,7 @@
 		"authors":  ["Chromatophore"],
 		"images":   ["masquer8.gif"],
 		"desc":     "Cuttlefish pattern matching game for chip8.",
-		"event":	"Octojam2",
+		"event":    "Octojam2",
 		"release":  "2015-10-30",
 		"platform": "chip8",
 		"options": {
@@ -877,7 +877,7 @@
 		"authors":  ["Chromatophore"],
 		"images":   ["sens8tion.gif"],
 		"desc":     "Equilibrium faithfully reproduced in schip.",
-		"event":	"Octojam3",
+		"event":    "Octojam3",
 		"release":  "2016-11-01",
 		"platform": "schip",
 		"options": {
@@ -902,7 +902,7 @@
 		"authors":  ["Chromatophore"],
 		"images":   ["carbon8.gif"],
 		"desc":     "A period correct movie tie in game for a popular 1980s franchise.",
-		"event":	"Octojam5",
+		"event":    "Octojam5",
 		"release":  "2018-11-01",
 		"platform": "chip8",
 		"options": {
@@ -933,5 +933,28 @@
 			"fillColor": "#330033",
 			"backgroundColor": "#AAAAFF"
 		}
-	}
+	},
+	"piper": {
+		"title":    "Piper",
+		"authors":  ["Aeris", "JordanMecom", "LillianWang"],
+		"images":   ["piper.gif"],
+		"desc":     "Play as a small bird to collect goodies and avoid waves.",
+		"event":    "GlobalGameJam2017",
+		"release":  "2017-01-23",
+		"platform": "chip8",
+		"options": {
+			"tickrate": "200",
+			"fillColor": "#FFCC00",
+			"backgroundColor": "#0000FF",
+			"buzzColor": "#FFFFFF",
+			"quietColor": "#000000",
+			"shiftQuirks":false,
+			"loadStoreQuirks":false,
+			"vfOrderQuirks":false,
+			"clipQuirks":false,
+			"jumpQuirks":false,
+			"enableXO":false,
+			"screenRotation":0
+		}
+	},
 }

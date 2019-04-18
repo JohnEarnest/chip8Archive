@@ -10,7 +10,7 @@
 	"SystemLogoff": {
 		"email": "systemlogoffsa@gmail.com",
 		"url":   "https://systemlogoff.com"
-  },
+	},
 	"Rectus": {
 		"email": "rectus.sa@gmail.com",
 		"url":   "https://github.com/Rectus/"
@@ -23,12 +23,23 @@
 		"email": "chip8archive@todandlorna.com.com",
 		"url":   "https://github.com/TodPunk/"
 	},
-	"your name here": {},
+	"your name here": {
+	},
 	"Chromatophore": {
 		"url":	"https://github.com/Chromatophore"
 	},
 	"MattBooth": {
 		"email": "synchingfeeling@gmail.com",
 		"url":   "https://github.com/Mattpbooth/"
+	},
+	"Aeris": {
+		"email": "alicewang54@gmail.com",
+		"url":   "https://github.com/microaeris"
+	},
+	"JordanMecom": {
+		"url":   "https://github.com/jmecom"
+	},
+	"LillianWang": {
+		"url":   "https://github.com/lillworkspace"
 	}
 }
