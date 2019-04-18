@@ -1,0 +1,1014 @@
+﻿	#ChipSquare
+
+	:const playerTop 27
+	:const playerRight 68
+	:const playerBot 36
+	:const playerLeft 59
+
+	:alias playerPosition vd
+	:alias left1 vc
+	:alias left2 vb
+	:alias top1 va
+	:alias top2 v9
+	:alias right1 v8
+	:alias right2 v7
+	:alias bot1 v6
+	:alias bot2 v5
+	:alias checkDefeat v4
+	
+	: delayAmount
+		6
+	
+	
+	: delayTimer
+		0
+	
+	
+	: testBit
+		0b11111111
+		0b11111111
+		0b11111111
+		0b11111111
+	: side
+		0b11111111
+		0b11111111
+		0b11111111
+		0b11111111
+		0b11111111
+		0b11111111
+		0b11111111
+		0b11111111
+
+	: blk
+		0b11111100
+
+	: blkv
+		0b10000000
+		0b10000000
+		0b10000000
+		0b10000000
+		0b10000000
+		0b10000000
+
+	: px
+		0b10000000
+		
+	: vLine
+		0b10000000
+		0b10000000
+		0b10000000
+		0b10000000
+		0b10000000
+		0b10000000
+		0b10000000
+		0b10000000
+	
+	: square
+		0b00000000
+		0b01111110
+		0b01000010
+		0b01000010
+		0b01000010
+		0b01000010
+		0b01111110
+		0b00000000
+
+
+	: title
+		0b11111111
+		0b10000000
+		0b10001010
+		0b00000000
+		0b11101010
+		0b00101010
+		0b11101110
+		
+		0b11111111
+		0b00000000
+		0b11101110
+		0b00000000
+		0b11101110
+		0b10001000
+		0b10001110
+		
+		0b11110000
+		0b00000000
+		0b11100000
+		0b00000000
+		0b11000000
+		0b10100000
+		0b10100000
+		
+	: title2
+		0b11111111
+		0b10000000
+		0b10001110
+		0b00000000
+		0b11101110
+		0b00100010
+		0b11100010
+		
+		0b11111111
+		0b00000000
+		0b10101110
+		0b00000000
+		0b10101010
+		0b10101110
+		0b11101010
+		
+		0b11111111
+		0b00000000
+		0b11101110
+		0b00000000
+		0b11001110
+		0b10101000
+		0b10101110
+		
+	: score
+		0b00000000
+		
+: font4x5
+ 0xF0 0x40 0x40 0x40 0x40 0x90 0x90 0x70
+ 0x10 0xE0 0x20 0x20 0x20 0x00 0x20 0x40
+ 0x00 0x00 0x00 0x00 0x00 0xE0 0x90 0xE0
+ 0x90 0x90 0x90 0xE0 0x90 0xE0 0x90 0xE0
+ 0x80 0x80 0xD0 0xB0 0xB0 0x90 0x90 0x90
+ 0x90 0x60 0x60 0x90 0x90 0x90 0x60 0x90
+ 0xF0 0x90 0x90 0xF0 0x90 0x90 0xD0 0xB0
+ 0x90 0x90 0x90 0x50 0x20 0xF0 0x80 0xE0
+ 0x80 0x80 0x80 0x80 0xF0 0x80 0xE0 0x80
+ 0xF0 0x40 0x40 0x40 0xF0 0x60 0x90 0x80
+ 0x90 0x60 0x90 0x90 0xB0 0x70 0x80 0xB0
+ 0x90 0x70 0x80 0x60 0x10 0xE0 0x90 0xA0
+ 0xC0 0xA0 0x90 0x90 0xB0 0xB0 0xD0 0xF0
+ 0x20 0x40 0x80 0xF0 0x20 0x20 0x20 0xC0
+		
+: startText
+0x62 0x10
+0x00 0x2A 0x10 0x59 0x00 0x2E 0x15 0x00
+
+: controlsText
+0x2E 0x10 0x17 0x10
+0x00 0x2A 0x10 0x22 0x2A 0x38 0x44
+
+	: sync
+		loop
+			vf := delay
+			if vf != 0 then
+		again
+		i := delayAmount
+		load v0
+		vf := v0
+		delay := vf
+	;
+
+	: drawSetup
+		v0 := 60
+		v1 := 28
+		i := square
+		sprite v0 v1 8
+		i := side
+		
+		# draw left side
+		v0 := 0
+		v1 := 0
+		loop 
+			loop
+				sprite v0 v1 8
+				v1 += 8
+				if v1 != 64 then
+			again
+			v1 := 0
+			v0 += 8
+			if v0 != 32 then
+		again
+		
+		# draw right side
+		v0 := 120
+		v1 := 0
+		loop
+			loop
+				sprite v0 v1 8
+				v1 += 8
+				if v1 != 64 then
+			again
+		v1 := 0
+		v3 := 8
+		v0 -= v3
+		if v0 != 88 then
+		again
+	;
+
+	: input
+		#7 is A (left)
+		#9 is D (right)
+		v1 := 7 if v1 key then moveLeft
+		v1 := 9 if v1 key then moveRight
+	;
+
+	: update
+		if left1 != 0 then left1 += 1
+		if left1 == 61 then left1 := 0
+
+		if left2 != 0 then left2 += 1
+		if left2 == 61 then left2 := 0
+		
+		if right1 != 0 then right1 += 1
+		if right1 == 61 then right1 := 0
+		
+		if right2 != 0 then right2 += 1
+		if right2 == 61 then right2 := 0
+		
+		if top1 != 0 then top1 += 1
+		if top1 == 61 then top1 := 0
+		
+		if top2 != 0 then top2 += 1
+		if top2 == 61 then top2 := 0
+		
+		if bot1 != 0 then bot1 += 1
+		if bot1 == 61 then bot1 := 0
+		
+		if bot2 != 0 then bot2 += 1
+		if bot2 == 61 then bot2 := 0
+	;
+
+	: moveLeft
+
+		playerPosition += 255
+	;
+
+	: moveRight
+
+		playerPosition += 1
+	;
+
+	: drawStuff
+		drawPlayer
+		drawBlocks
+	;
+
+	: drawPlayer
+		#mask
+		
+		v0 := 0b000011000
+		v0 &= playerPosition
+		
+		v2 := 0b000000111
+		v2 &= playerPosition
+		
+		#v2 is the fine mask
+		
+		if v0 == 0 then drawPlayerTop
+		if v0 == 8 then drawPlayerRight
+		if v0 == 16 then drawPlayerBot
+		if v0 == 24 then drawPlayerLeft
+
+		# v0 v1 are now set to player Position
+		
+		i := px
+		sprite v0 v1 1
+	;
+
+	: drawPlayerTop
+		v0 := playerLeft
+		v0 += 1
+		v0 += v2
+		v1 := playerTop
+	;
+
+	: drawPlayerRight
+		v0 := playerRight
+		v1 := playerTop
+		v1 += 1
+		v1 += v2
+	;
+
+	: drawPlayerBot
+		v0 := playerRight
+		v0 += 255
+		v0 -= v2
+		v1 := playerBot
+	;
+
+	: drawPlayerLeft
+		v0 := playerLeft
+		v1 := playerBot
+		v1 += 255
+		v1 -= v2
+	;
+
+	
+	: drawBlocks
+	
+	
+		if left1 == 0 then jump drawLeft2
+		v0 := left1
+		drawLeftBlock
+		
+
+		: drawLeft2
+		if left2 == 0 then jump drawRight1
+		v0 := left2
+		drawLeftBlock
+		
+		
+		
+		: drawRight1
+		if right1 == 0 then jump drawRight2
+		v0 := right1
+		drawRightBlock
+		
+		
+		: drawRight2
+		if right2 == 0 then jump drawTop1
+		v0 := right2
+		drawRightBlock
+		
+		
+		: drawTop1
+		if top1 == 0 then jump drawTop2
+		v0 := top1
+		drawTopBlock
+		
+		
+		
+		: drawTop2
+		if top2 == 0 then jump drawBot1
+		v0 := top2
+		drawTopBlock
+	
+		
+		: drawBot1
+		if bot1 == 0 then jump drawBot2
+		v0 := bot1
+		drawBotBlock
+	
+		
+		
+		: drawBot2
+		if bot2 == 0 then return
+		v0 := bot2
+		drawBotBlock
+	
+		
+	;
+	
+	
+	
+
+	: drawRightBlock
+	
+		if v0 < 0x20 then return
+		
+		v1 := v0
+		v1 += 0xE0
+		v1 += 1
+		
+		v2 := 126
+		v2 -= v0
+		v2 -= v0
+		
+		v3 := 127
+		v3 -= v0
+		v0 := v3
+		
+		drawVerticalLine
+	;
+	
+	
+	: drawLeftBlock
+	
+		if v0 < 0x20 then return
+		v1 := v0
+		v1 += 0xE0
+		v1 += 1
+		
+		v2 := 126
+		v2 -= v0
+		v2 -= v0
+		
+		drawVerticalLine
+	;
+	
+	: drawTopBlock
+	
+		if v0 < 0x20 then return
+		v1 := v0
+		v3 := 0x20
+		v1 -= v3
+		v2 := 126
+		v2 -= v0
+		v2 -= v0
+		v0 += 1
+		drawHorizontalLine
+		
+	;
+	
+	: drawBotBlock
+		if v0 < 0x20 then return
+		v1 := 95
+		v1 -= v0
+		v2 := 126
+		v2 -= v0
+		v2 -= v0
+		v0 += 1
+		drawHorizontalLine
+	
+	;
+	
+	: drawVerticalLine
+		i := vLine
+		loop
+			while v2 > 7 draw8VerticalLine
+		again
+		drawVerticalVariableLine
+	;
+		
+	: draw8VerticalLine
+		
+		loop
+			v3 := 0b11111000
+			sprite v0 v1 8
+			if vf == 1 then gameOver
+			v2 += 248
+			v1 += 8
+			v3 &= v2
+			if v3 != 0 then
+		again
+	;
+
+	: drawVerticalVariableLine
+	if v2 == 0 then return
+		loop
+			sprite v0 v1 1
+			v1 += 1
+			v2 += 255
+			if v2 != 0 then
+		again
+	;
+	
+	: drawHorizontalLine
+		i := side
+		#v0 is x, v1 is y, v2 is width
+		loop
+			while v2 > 7 draw8HorizontalLine
+		again
+			drawVariableHorizontalLine
+	;
+	
+	: draw8HorizontalLine
+		loop
+			v3 := 0b11111000
+			sprite v0 v1 1
+			if vf == 1 then gameOver
+			v0 += 8
+			v2 += 248
+			v3 &= v2
+			if v3 != 0 then	
+		again
+	;
+	
+	: drawVariableHorizontalLine
+		v3 := 8
+		v3 -= v2
+		v2 := v3
+		v3 := 0b11111111
+		loop
+			v3 <<= v3
+			v2 += 255
+			if v2 != 0 then
+		again
+		i := testBit
+		save v3
+		i := testBit
+		v3 := 3
+		i += v3
+		sprite v0 v1 1
+	;
+	
+	
+	: gameOver
+		
+		if checkDefeat != 1 then ;
+		restartLoop
+	;
+
+
+
+
+	
+
+
+	: makeLeftBlock
+		#v0 is delay
+		if left1 != 0 then jump leftSecond
+		left1 := 32
+		left1 -= v0
+		return
+		: leftSecond
+		if left2 != 0 then return
+		left2 := 32
+		left2 -= v0
+	;
+
+	: makeRightBlock
+		
+		#v0 is delay
+		if right1 != 0 then jump rightSecond
+		right1 := 32
+		right1 -= v0
+		return
+		: rightSecond
+		if right2 != 0 then return
+		right2 := 32
+		right2 -= v0
+	;
+	
+	: makeTopBlock
+		#v0 is delay
+		if top1 != 0 then jump topSecond
+		top1 := 32
+		top1 -= v0
+		return
+		: topSecond
+		if top2 != 0 then return
+		top2 := 32
+		top2 -= v0
+	;
+	
+	: makeBotBlock
+		#v0 is delay
+		if bot1 != 0 then jump botSecond
+		bot1 := 32
+		bot1 -= v0
+		return
+		: botSecond
+		if bot2 != 0 then return
+		bot2 := 32
+		bot2 -= v0
+	
+	;
+
+	
+	# patterns!
+	: patternBlocks
+		v0 := 0
+		makeTopBlock
+		makeBotBlock
+		v0 += 6
+		makeLeftBlock
+		makeRightBlock
+		v0 += 6
+		makeTopBlock
+		makeBotBlock
+		v0 += 6
+		makeLeftBlock
+		makeRightBlock
+	;
+	
+	: patternBackwardsBlocks
+		v0 := 0
+		makeLeftBlock
+		makeRightBlock
+		v0 += 6
+		makeTopBlock
+		makeBotBlock
+		v0 += 6
+		makeLeftBlock
+		makeRightBlock
+		v0 += 6
+		makeTopBlock
+		makeBotBlock
+		
+	;
+	
+	: patternHCage
+		v0 := 0
+		makeTopBlock
+		makeLeftBlock
+		makeBotBlock
+		v0 += 12
+		makeTopBlock
+		makeRightBlock
+		makeBotBlock
+	;
+	
+	: patternHCage2
+		v0 := 0
+		makeTopBlock
+		makeRightBlock
+		makeBotBlock	
+	
+		v0 += 12
+		makeTopBlock
+		makeLeftBlock
+		makeBotBlock
+		
+		
+	;
+
+	: patternVCage
+		v0 := 0
+		makeTopBlock
+		makeLeftBlock
+		makeRightBlock
+		v0 += 12
+		makeLeftBlock
+		makeRightBlock
+		makeBotBlock
+	;
+
+	: patternVCage2
+		v0 := 0
+		makeLeftBlock
+		makeRightBlock
+		makeBotBlock
+		v0 += 12
+		makeTopBlock
+		makeLeftBlock
+		makeRightBlock
+	;
+	
+	: patternSwirl
+		v0 := 0
+		makeBotBlock
+		v0 += 5
+		makeLeftBlock
+		v0 += 5
+		makeTopBlock
+		v0 += 5
+		makeRightBlock
+		v0 += 5
+		makeBotBlock
+		v0 += 5
+		makeLeftBlock
+		v0 += 5
+		makeTopBlock
+	;
+	
+	: patternBackwardsSwirl
+		v0 := 0
+		makeTopBlock
+		v0 += 5
+		makeLeftBlock
+		v0 += 5
+		makeBotBlock
+		v0 += 5
+		makeRightBlock
+		v0 += 5
+		makeTopBlock
+		v0 += 5
+		makeLeftBlock
+		v0 += 5
+		makeBotBlock
+	;
+	: patternCorners
+		v0 := 0
+		makeBotBlock
+		makeRightBlock
+		v0 += 7
+		makeTopBlock
+		makeLeftBlock
+	;
+	
+	: patternRandom1
+		v0 := 0
+		makeBotBlock
+		v0 += 4
+		makeBotBlock
+		makeLeftBlock
+		v0 += 4
+		makeTopBlock
+		makeRightBlock
+		v0 += 4
+		makeRightBlock
+		makeLeftBlock
+	;
+	
+	: patternVBox1
+		v0 := 0
+		makeBotBlock
+		makeLeftBlock
+		makeRightBlock
+		v0 += 5
+		makeTopBlock
+		v0 += 5
+		makeBotBlock
+		makeLeftBlock
+		makeRightBlock
+		v0 += 5
+		makeTopBlock
+	;
+	
+	: patternHBox1
+		v0 := 0
+		makeBotBlock
+		makeLeftBlock
+		makeTopBlock
+		v0 += 5
+		makeRightBlock
+		v0 += 5
+		makeBotBlock
+		makeLeftBlock
+		makeTopBlock
+		v0 += 5
+		makeRightBlock
+	;
+	
+	: patternHTrap
+		v0 := 0
+		makeLeftBlock
+		makeRightBlock
+		v0 += 9
+		makeTopBlock
+		makeRightBlock
+		makeLeftBlock
+	;
+	
+	: patternVTrap
+		v0 := 0
+		makeTopBlock
+		makeBotBlock
+		v0 += 9
+		makeTopBlock
+		makeRightBlock
+		makeBotBlock
+	;
+	
+	: patternSlowSpiral
+		v0 := 0
+		makeLeftBlock
+		v0 += 2
+		makeLeftBlock
+		v0 += 2
+		makeTopBlock
+		v0 += 2
+		makeTopBlock
+		v0 += 2
+		makeRightBlock
+		v0 += 2
+		makeRightBlock
+		v0 += 2
+		makeBotBlock
+		v0 += 2
+		makeBotBlock
+	;	
+	
+	: patternBackwardsSlowSpiral
+		v0 := 0
+		makeRightBlock
+		v0 += 2
+		makeRightBlock
+		v0 += 2
+		makeTopBlock
+		v0 += 2
+		makeTopBlock
+		v0 += 2
+		makeLeftBlock
+		v0 += 2
+		makeLeftBlock
+		v0 += 2
+		makeBotBlock
+		v0 += 2
+		makeBotBlock
+	;
+	
+	
+	: checkPattern
+		v0 := top1
+		v0 += top2
+		v0 += bot1
+		v0 += bot2
+		if v0 != 0 then ;
+		v0 += left1
+		v0 += left2
+		v0 += right1
+		v0 += right2
+		if v0 == 0 then makePattern
+
+	;
+	
+	
+	
+	: makePattern
+		
+		
+		v2 := random 0b00001111
+
+		if v2 == 0 then patternBlocks
+		if v2 == 1 then patternHCage
+		if v2 == 2 then patternVCage
+		if v2 == 3 then patternSwirl
+		if v2 == 4 then patternCorners
+		if v2 == 5 then patternHCage2
+		if v2 == 6 then patternVCage2
+		if v2 == 7 then patternRandom1
+		if v2 == 8 then patternVBox1
+		if v2 == 9 then patternHBox1
+		if v2 == 10 then patternBackwardsSwirl
+		if v2 == 11 then patternHTrap
+		if v2 == 12 then patternVTrap
+		if v2 == 13 then patternSlowSpiral
+		if v2 == 14 then patternBackwardsSlowSpiral
+		if v2 == 15 then patternBackwardsBlocks
+		
+		i := delayTimer
+		load v0
+		v0 += 1
+		i := delayTimer
+		save v0
+		if v0 == 4 then decreaseDelay
+
+		drawScore
+		i := score
+		load v0
+		v0 += 1
+		i := score
+		save v0
+		drawScore
+		
+	;
+	
+	: decreaseDelay
+		v0 := 0
+		i := delayTimer
+		save v0
+		i := delayAmount
+		load v0
+		v0 += 255
+		if v0 == 2 then v0 := 3
+		i := delayAmount
+		save v0
+		#flipScreen
+	;
+
+	
+	: restartLoop
+	loop
+		
+		v1 := 5 
+		if v1 key then reset
+	again
+	;
+	: digits 0 0 0
+	: drawScore
+	
+
+		
+		i := score
+	    load v0
+	    i  := digits   # the destination for bcd
+	    bcd v0         # unpack digits in v0
+
+	    v0 := 0       # x position of first digit
+	    v1 := 1       # y position of first digit
+	    i := digits
+	    load v2        # load digits into v0-v2
+
+	    i := bighex v0    # hundreds digit
+	    sprite v0 v1 10
+	    v0 += 10
+
+	    i := bighex v1    # tens digit
+	    sprite v0 v1 10
+	    v0 += 10
+
+	    i := bighex v2    # ones digit
+	    sprite v0 v1 10
+
+	;
+	
+	: reset
+		i := score
+		v0 := 255
+		save v0
+		
+		clear
+		drawSetup
+		left1 := 0
+		left2 := 0
+		top1 := 0
+		top2 := 0
+		right1 := 0
+		right2 := 0
+		bot1 := 0
+		bot2 := 0
+		checkDefeat := 0
+		i := delayAmount
+		v0 := 6
+		save v0
+		i := delayTimer
+		v0 := 0
+		save v0
+		jump gameLoop
+	;
+	
+	: drawTitle
+		i := title
+		v0 := 54
+		v1 := 5
+		v2 := 7
+
+		
+
+		loop
+			sprite v0 v1 7
+			i += v2
+			v0 += 8
+			if v0 != 78 then
+		again
+
+		v0 := 52
+		v1 := 17
+		i := title2
+			loop
+			sprite v0 v1 7
+			i += v2
+			v0 += 8
+			if v0 != 76 then
+		again
+
+		
+	
+	;
+	
+	: drawRules
+		va := 39 # cursor x
+		vb := 44 # cursor y
+		vc := 0 # character index
+		loop
+			i := startText
+			i += vc
+			load v0
+			i := font4x5
+			i += v0
+			sprite va vb 5
+
+			va += 5
+		
+
+			vc += 1
+			# string length check
+			if vc != 10 then
+		again
+
+		va := 37 # cursor x
+		vb := 51 # cursor y
+		vc := 0 # character index
+		loop
+			i := controlsText
+			i += vc
+			load v0
+			i := font4x5
+			i += v0
+			sprite va vb 5
+
+			va += 5
+		
+
+			vc += 1
+			# string length check
+			if vc != 11 then
+		again
+
+	;
+
+	: gameLoop
+		
+		
+		drawScore
+
+		loop
+			checkPattern
+			input
+			v2 := 1
+			v2 -= checkDefeat
+			checkDefeat := v2
+			drawStuff
+			sync
+			v2 := 1
+			v2 -= checkDefeat
+			checkDefeat := v2
+			drawStuff
+			update
+			
+		again
+	;
+
+	# temporary storage for hundreds, tens and ones:
+
+
+	
+	: main
+	
+		
+		
+		hires
+		drawSetup
+		
+		drawTitle
+		drawRules
+		
+		
+		restartLoop
+		

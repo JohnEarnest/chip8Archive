@@ -956,5 +956,27 @@
 			"enableXO":false,
 			"screenRotation":0
 		}
+	},
+	"supersquare": {
+		"title":    "Super Square",
+		"authors":  ["tann"],
+		"images":   ["square.png"],
+		"desc":     "Inspired by Super Hexagon",
+		"event":    "Octojam1",
+		"platform": "chip8",
+		"options": {
+			"tickrate": "500",
+			"fillColor": "#FFFFFF",
+			"backgroundColor": "#552200",
+			"buzzColor": "#FFFFFF",
+			"quietColor": "#000000",
+			"shiftQuirks":false,
+			"loadStoreQuirks":false,
+			"vfOrderQuirks":false,
+			"clipQuirks":false,
+			"jumpQuirks":false,
+			"enableXO":false,
+			"screenRotation":0
+		}
 	}
 }
