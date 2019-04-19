@@ -956,5 +956,75 @@
 			"enableXO":false,
 			"screenRotation":0
 		}
+	},
+	"supersquare": {
+		"title":    "Super Square",
+		"authors":  ["tann"],
+		"images":   ["square.png"],
+		"desc":     "Inspired by Super Hexagon",
+		"event":    "Octojam1",
+		"platform": "chip8",
+		"options": {
+			"tickrate": "500",
+			"fillColor": "#FFFFFF",
+			"backgroundColor": "#552200",
+			"buzzColor": "#FFFFFF",
+			"quietColor": "#000000",
+			"shiftQuirks":false,
+			"loadStoreQuirks":false,
+			"vfOrderQuirks":false,
+			"clipQuirks":false,
+			"jumpQuirks":false,
+			"enableXO":false,
+			"screenRotation":0
+		}
+	},
+	"civiliz8n": {
+		"title":    "Civiliz8n",
+		"authors":  ["tann"],
+		"images":   ["civiliz8n.png"],
+		"desc":     "Grow a tiny civilization in 10 turns",
+		"event":    "Octojam2",
+		"platform": "chip8",
+		"options": {
+			"tickrate": "100",
+			"fillColor":"#754D27",
+			"fillColor2":"#738C3A",
+			"blendColor":"#E2CB8A",
+			"backgroundColor":"#141421",
+			"buzzColor":"#FFAA00",
+			"quietColor":"#000000",
+			"shiftQuirks":false,
+			"loadStoreQuirks":false,
+			"vfOrderQuirks":false,
+			"clipQuirks":false,
+			"jumpQuirks":false,
+			"enableXO":false,
+			"screenRotation":0
+		}
+	},
+	"skyward": {
+		"title":    "Skyward",
+		"authors":  ["tann","JackieKircher"],
+		"images":   ["skyward.png"],
+		"desc":     "Climb as high as you can!",
+		"event":    "Octojam3",
+		"platform": "chip8",
+		"options": {
+			"tickrate": "1000",
+			"fillColor":"#4B636F",
+			"fillColor2":"#AF2D3D",
+			"blendColor":"#AF2D3D",
+			"backgroundColor":"#121212",
+			"buzzColor":"#000000",
+			"quietColor":"#000000",
+			"shiftQuirks":false,
+			"loadStoreQuirks":true,
+			"vfOrderQuirks":false,
+			"clipQuirks":false,
+			"jumpQuirks":false,
+			"enableXO":false,
+			"screenRotation":0
+		}
 	}
 }
