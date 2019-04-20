@@ -26,6 +26,28 @@ The `src` directory contains directories corresponding to keys in `programs.json
 
 The `roms` directory contains compiled Chip8 binaries, ready for use in any emulator. Filenames should match keys in `programs.json`, plus a `.ch8` extension.
 
+Notes for Conservators
+----------------------
+If you are recording animated GIFs of a game with Octo, be sure to run the output through an optimizer before checking it in- Octo tends to produce very large files. One way to optimize a GIF is to use [gifsicle](https://www.lcdf.org/gifsicle/) like so:
+
+	gifsicle src/mygame/cool.gif --optimize=3 --colors=2 -o src/mygame/cool.gif
+
+Old shared Octo programs used GitHub gists to store their source and metadata. If you have a URL which looks like
+
+	http://johnearnest.github.io/Octo/index.html?gist=bdd2840b9fe5fad7bd5995423ea57a23
+
+You can use the gist ID to view the `options` dictionary and original submission date:
+
+	https://gist.github.com/bdd2840b9fe5fad7bd5995423ea57a23
+
+Octo's newer sharing system uses a custom storage API, and URLs look like this:
+
+	http://johnearnest.github.io/Octo/index.html?key=AcfYNFAu
+
+The `key` can be used to retrieve a JSON file with `options` and other metadata like this:
+
+	https://vectorland.nfshost.com/storage/octo/AcfYNFAu
+
 Licensing
 ---------
 Chip8 software, like most console homebrew, tends to exist in a murky gray area of copyright. In the interest of ensuring that others will be able to freely build upon and remix the works in this archive, everything in this repository is placed under the [Creative Commons 0](https://creativecommons.org/share-your-work/public-domain/cc0/) "No Rights Reserved" license.
