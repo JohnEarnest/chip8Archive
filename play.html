@@ -2,17 +2,23 @@
 <div id='game'>
 	<div class='heading'><h1 id='title'></h1><span id='by'></span></div>
 	<div id='play'><canvas id='target' width=512 height=256></canvas></div>
+	<div id='meta'>
+		<div>Released: <span id='release'></span></div>
+		<div>Platform: <span id='platform'></span></div>
+		<div><a id='download' href='#'>Download Rom</a></div>
+		<div><a id='source' href='#'>Source and Details</a></div>
+	</div>
 </div>
-<h3>Released: <span id='release'></span>.</h3>
 </body>
 
 <style>
 body{font-family:Helvetica;margin-left:10%;margin-right:10%;margin-top:5%;}
-h1{font-family:Futura;display:inline-block;margin:20px;}
-.heading{background:gray;}
+h1,#meta>div{font-family:Futura;display:inline-block;margin:20px;}
+.heading,#meta{background:gray;}
 canvas{border:1px solid black;}
 #game{background:gray;border-radius:14px;background:lightgray;overflow:hidden;}
 #play{display:flex;justify-content:center;padding:20px;}
+#meta{display:flex;justify-content:space-between;}
 </style>
 
 <script src='https://johnearnest.github.io/Octo/js/emulator.js'></script>
@@ -30,7 +36,9 @@ function run(options,rom) {
 	emulator.init(rom)
 	emulator.importFlags = _=> JSON.parse(localStorage.getItem('octoFlagRegisters'))
 	emulator.exportFlags = x=> localStorage.setItem('octoFlagRegisters', JSON.stringify(x))
+	emulator.buzzTrigger = (ticks,rest)=> playPattern(ticks, emulator.pattern, rest)
 	window.addEventListener('keydown',e=>{
+		if (!audio) audioSetup()
 		if (!(e.keyCode in emulator.keys)) emulator.keys[e.keyCode]=true
 	}, false)
 	window.addEventListener('keyup', e=>{
@@ -58,6 +66,9 @@ ajax('programs.json','',x=>{
 	const g=JSON.parse(x)[slug]
 	id('title').innerHTML=g.title
 	id('release').innerHTML=g.release||'Unknown'
+	id('platform').innerHTML=g.platform||'Unknown'
+	id('download').href='roms/'+slug+'.ch8'
+	id('source').href='https://github.com/JohnEarnest/chip8Archive/tree/master/src/'+slug
 	ajax('authors.json','',x=>{
 		const a=JSON.parse(x)
 		id('by').innerHTML='by '+g.authors.map(
