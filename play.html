@@ -3,7 +3,7 @@
 	<div class='heading'><h1 id='title'></h1><span id='by'></span></div>
 	<div id='play'><canvas id='target' width=512 height=256></canvas></div>
 </div>
-<h3>Released <span id='release'></span>.</h3>
+<h3>Released: <span id='release'></span>.</h3>
 </body>
 
 <style>
@@ -57,7 +57,7 @@ ajax('programs.json','',x=>{
 	const slug=new URLSearchParams(document.location.search).get('p')
 	const g=JSON.parse(x)[slug]
 	id('title').innerHTML=g.title
-	id('release').innerHTML=g.release
+	id('release').innerHTML=g.release||'Unknown'
 	ajax('authors.json','',x=>{
 		const a=JSON.parse(x)
 		id('by').innerHTML='by '+g.authors.map(

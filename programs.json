@@ -963,6 +963,7 @@
 		"images":   ["square.png"],
 		"desc":     "Inspired by Super Hexagon",
 		"event":    "Octojam1",
+		"release":  "2014-11-04",
 		"platform": "chip8",
 		"options": {
 			"tickrate": "500",
@@ -985,6 +986,7 @@
 		"images":   ["civiliz8n.png"],
 		"desc":     "Grow a tiny civilization in 10 turns",
 		"event":    "Octojam2",
+		"release":  "2016-09-26",
 		"platform": "chip8",
 		"options": {
 			"tickrate": "100",
@@ -1009,6 +1011,7 @@
 		"images":   ["skyward.png"],
 		"desc":     "Climb as high as you can!",
 		"event":    "Octojam3",
+		"release":  "2016-11-01",
 		"platform": "chip8",
 		"options": {
 			"tickrate": "1000",
