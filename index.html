@@ -6,6 +6,8 @@ a <a href="https://creativecommons.org/share-your-work/public-domain/cc0/">Creat
 "No Rights Reserved" license. If you've written anything that you would like to contribute,
 submit a pull request to our <a href="https://github.com/JohnEarnest/chip8Archive">GitHub Page</a>!</p>
 <div id="categories"></div>
+<div id="sorts"><a href="?sort=event">Sort By Category</a>
+<a href="?sort=platform">Sort By Platform</a><a href="?sort=author">Sort By Author</a></div>
 </body>
 
 <style>
@@ -19,25 +21,24 @@ body{font-family:Helvetica;margin-left:10%;margin-right:10%;margin-top:5%;}
 .title{font-weight:bold;}
 .screen img{width:100%;margin-top:5px;margin-bottom:5px;}
 .category,.entry,.screen img{border:1px solid black;}
-.desc{font-size:14px;}
+.desc{font-size:14px;overflow:hidden;}
+#sorts{display:flex;justify-content:space-between;margin-bottom:30px;}
 </style>
 
 <script>
-id=x=>document.querySelector('#'+x)
 dc=(c,x)=>`<div class='${c}'>${x}</div>`
-send=(u,v,x)=>{let r=new XMLHttpRequest();return r.open(v,u),r.send(x),r}
-ajax=(u,v,x,f)=>{let r=send(u,v,x);r.onreadystatechange=_=>r.readyState==4&&f(r.response)}
+send=(u,t)=>{let r=new XMLHttpRequest();return r.open('GET',u),r.responseType=t,r.send(),r}
+ajax=(u,t,f)=>{let r=send(u,t);r.onreadystatechange=_=>r.readyState==4&&f(r.response)}
 
-ajax('programs.json','GET','',x=>{
-	const p = JSON.parse(x)
-	const k = Object.keys(p)
-	const c = k.reduce((x,y)=>{
-		const e=p[y].event||'Uncategorized'
-		x[e]=(x[e]||[]).concat([p[y]])
-		p[y].slug=y
-		return x
+sort=new URLSearchParams(document.location.search).get('sort')||'event'
+ajax('programs.json','json',p=>{
+	const c = Object.keys(p).reduce((x,y)=>{
+		const e=sort=='event'?p[y].event||'Uncategorized':
+		        sort=='platform'?p[y].platform||'Unknown':p[y].authors[0]
+		return x[e]=(x[e]||[]).concat([p[y]]),p[y].slug=y,x
 	}, {})
-	id('categories').innerHTML = Object.keys(c).map(x=>
+	const k = sort=='event'?Object.keys(c):Object.keys(c).sort()
+	document.querySelector('#categories').innerHTML = k.map(x=>
 		dc('category',dc('heading',x)+dc('entries',c[x].map(
 			x=>`<div class='entry'>
 				<a href='play.html?p=${x.slug}'>

@@ -987,7 +987,7 @@
 		"desc":     "Grow a tiny civilization in 10 turns",
 		"event":    "Octojam2",
 		"release":  "2016-09-26",
-		"platform": "chip8",
+		"platform": "xochip",
 		"options": {
 			"tickrate": "100",
 			"fillColor":"#754D27",
@@ -1012,7 +1012,7 @@
 		"desc":     "Climb as high as you can!",
 		"event":    "Octojam3",
 		"release":  "2016-11-01",
-		"platform": "chip8",
+		"platform": "xochip",
 		"options": {
 			"tickrate": "1000",
 			"fillColor":"#4B636F",
