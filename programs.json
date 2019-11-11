@@ -1029,5 +1029,18 @@
 			"enableXO":false,
 			"screenRotation":0
 		}
+	},
+	"mini-lights-out": {
+		"title":    "Mini Lights Out",
+		"authors":  ["tobiasvl"],
+		"images":   ["mini-lights-out.gif"],
+		"desc":     "Turn the lights out",
+		"event":    "Octojam6",
+		"release":  "2019-10-04",
+		"platform": "chip8",
+		"options": {
+			"tickrate": "7",
+			"touchInputMode":"seg16"
+		}
 	}
 }

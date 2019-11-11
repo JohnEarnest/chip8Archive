@@ -1,0 +1,398 @@
+﻿:alias steps vd
+
+: main
+	# set up title screen
+	clear
+	v0 := 50
+	# you probably want to remove the following line if you're running on something that beeps
+	buzzer := v0
+	i := logo
+	va := 17
+	vb := 8
+	vc := 7
+	sprite va vb 7
+	i += vc
+	va += 8
+	sprite va vb 7
+	i += vc
+	va += 8
+	sprite va vb 7
+	i += vc
+	va += 8
+	sprite va vb 7
+	
+	va := 17
+	vb += 8
+	i += vc
+	va += 8
+	sprite va vb 7
+	i += vc
+	va += 8
+	sprite va vb 7
+	i += vc
+	va += 8
+	sprite va vb 1
+
+: title-screen
+	loop
+		v0 := 50
+		delay := v0	
+		# if the last blink inverted the title screen back, we buzz (ie. flash in Octo)
+		# you probably want to remove this if you're running on something that beeps
+		if vf == 1 then buzzer := v0
+		i := keys
+		load ve
+
+		loop
+			if v0 key then jump init-game
+			if v1 key then jump init-game
+			if v2 key then jump init-game
+			if v3 key then jump init-game
+			if v4 key then jump init-game
+			if v5 key then jump init-game
+			if v6 key then jump init-game
+			if v7 key then jump init-game
+			if v8 key then jump init-game
+			if v9 key then jump init-game
+			if va key then jump init-game
+			if vb key then jump init-game
+			if vc key then jump init-game
+			if vd key then jump init-game
+			if ve key then jump init-game
+			vf := 0x0f # we use vf below
+			if vf key then jump init-game
+			vf := delay
+			if vf != 0 then
+		again
+
+		# invert title screen
+		i := light
+		va := -8
+		vb := -15
+		loop
+			vb += 15
+			while vb != 45
+			loop
+			va += 8
+				while va != 64
+				if vb == 30 then sprite va vb 2
+				if vb != 30 then sprite va vb 15
+			again
+			va := -8
+		again
+	again
+
+: init-game
+	# initialize a game
+	steps := 0
+	buzzer := steps
+	i := light-on
+	
+	# randomize grid
+	vc := random 255
+	ve := random 255
+	# if all lights are off already, we need a new configuration
+	vb := vc
+	vb &= ve
+	if vb == 0 then jump init-game
+
+	# draw grid
+	clear
+	va := 8
+	vb := -8
+	loop
+		if vb == 0 then vc := ve
+		if vb == 16 then vc := ve
+		vb += 8
+		while vb != 32
+		loop
+			va += 8
+			while va != 48
+			sprite va vb 7
+			vc >>= vc
+			if vf == 1 begin
+				i := light
+				sprite va vb 8
+				i := light-on
+			end
+		again
+		va := 8
+	again
+	
+	draw-steps
+
+: game-loop
+	# wait for input
+	v3 := key
+	# try toggling the light
+	jump toggle
+	: toggled
+	# erase step counter
+	draw-steps
+	# increment step counter
+	steps += 1
+	# if we overflow the BCD step counter, the game is lost and we just
+	# reset the game
+	if steps == 100 then jump main
+	# draw step counter
+	draw-steps
+	
+: check-win
+	# check if all lights are off.
+	# draw a single pixel in the upper right corner of the border of every light
+	# if it fails to collide anywhere, it's found a lit light and returns
+	i := test
+	va := 8
+	vb := 8
+	loop
+		vb += 8
+		while vb != 48
+		loop
+			va += 8
+			while va != 48
+			sprite va vb 1
+			sprite va vb 1
+			# if we erased, this light is on
+			if vf == 1 then jump game-loop
+		again
+		va := 8
+	again
+
+	# the game is won!
+	clear
+	draw-steps
+	
+	i := congrats-text
+	va := 20
+	vb := 8
+	vc := 7
+	sprite va vb 7
+	i += vc
+	va += 8
+	sprite va vb 7
+	i += vc
+	va += 8
+	sprite va vb 7
+	
+	va := 12
+	vb += 8
+	i += vc
+	va += 8
+	sprite va vb 7
+	i += vc
+	va += 8
+	sprite va vb 7
+	i += vc
+	va += 8
+	sprite va vb 7
+	jump title-screen
+
+: draw-steps
+	i := steps-bcd
+	bcd steps
+	load v2
+	va := 52
+	vb := 14
+	i := hex v1
+	sprite va vb 5
+	va += 5
+	i := hex v2
+	sprite va vb 5
+	return
+
+: toggle
+	# map pressed key to light
+	v0 := v3
+	i := keys
+	i += v0
+	load v0
+	
+	va := v0
+	vb := v0
+
+	# X position of pressed light
+	vc := 0b00011
+	va &= vc
+	va <<= va
+	va <<= va
+	va <<= va
+	va += 16
+
+	# Y position of pressed light
+	vc := 0b11100
+	vb &= vc
+	vb <<= vb
+	
+	i := test
+	sprite va vb 1
+	sprite va vb 1
+	
+	if vf == 0 begin
+		v0 := 10
+		buzzer := v0
+		jump game-loop
+	end
+	
+	i := light
+	
+	# toggle pressed light
+	sprite va vb 8
+	
+	# toggle light to the left
+	v3 := va
+	va += -8
+	if va == 8 then va += -32
+	sprite va vb 8
+	
+	# toggle light to the right
+	va := v3
+	va += 8
+	if va == 48 then va += -32
+	sprite va vb 8
+	va := v3
+	
+	# toggle light above
+	vb += -8
+	sprite va vb 8
+	
+	# toggle light below
+	vb += 16
+	sprite va vb 8
+	
+	jump toggled
+
+: keys
+	# maps a key to its grid position
+	13 0 1 2 4 5 6 8 9 10 12 14 3 7 11 15
+
+: logo
+	# LIGHTS
+	#  OUT
+	0b10000100
+	0b10000100
+	0b10000100
+	0b10000100
+	0b10000100
+	0b10000100
+	0b11110100
+	
+	0b01110001
+	0b11001001
+	0b10000001
+	0b10011001
+	0b10001001
+	0b11001001
+	0b01110001
+	
+	0b00010111
+	0b00010001
+	0b00010001
+	0b11110001
+	0b00010001
+	0b00010001
+	0b00010001
+	
+	0b11001110
+	0b00010001
+	0b00010000
+	0b00001110 : test # a 1 pixel sprite we use for collision
+	0b00000001
+	0b00010001
+	0b00001110
+	
+	0b01110001
+	0b11011001
+	0b10001001
+	0b10001001
+	0b10001001
+	0b11011001
+	0b01110000
+	
+	0b00010111
+	0b00010001
+	0b00010001
+	0b00010001
+	0b00010001
+	0b00010001
+	0b11100001
+	
+	0b11000000
+	
+: congrats-text
+	# YOU
+	# WIN
+	0b10000010
+	0b01000101
+	0b00101001
+	0b00010001
+	0b00010001
+	0b00010001
+	0b00010000
+	
+	0b11110001
+	0b10011001
+	0b00001001
+	0b00001001
+	0b00001001
+	0b10011001
+	0b11110000
+
+	0b00001000
+	0b00001000
+	0b00001000
+	0b00001000
+	0b00001000
+	0b00001000
+	0b11110000
+	
+	0b01000100
+	0b01000100
+	0b00101010
+	0b00101010
+	0b00101010
+	0b00010001
+	0b00010001
+	
+	0b01010010
+	0b01010011
+	0b10010010
+	0b10010010
+	0b10010010
+	0b00010010
+	0b00010010
+	
+	0b00010000
+	0b00010000
+	0b10010000
+	0b10010000
+	0b01010000
+	0b00110000
+	0b00010000
+
+: light-on
+	0b00000000
+	0b01111110
+	0b01111110
+	0b01111110
+	0b01111110
+	0b01111110
+	0b01111110
+
+: light
+	0b11111111
+	0b11111111
+	0b11111111
+	0b11111111
+	0b11111111
+	0b11111111
+	0b11111111
+	0b11111111
+	0b11111111
+	0b11111111
+	0b11111111
+	0b11111111
+	0b11111111
+	0b11111111
+	0b11111111
+
+: steps-bcd
