@@ -23,6 +23,7 @@ canvas{border:1px solid black;}
 
 <script src='https://johnearnest.github.io/Octo/js/emulator.js'></script>
 <script src='https://johnearnest.github.io/Octo/js/shared.js'></script>
+<script src='https://johnearnest.github.io/Octo/js/input.js'></script>
 <script>
 id=x=>document.querySelector('#'+x)
 send=(u,t)=>{let r=new XMLHttpRequest();return r.open('GET',u),r.responseType=t,r.send(),r}
@@ -37,11 +38,13 @@ function run(options,rom) {
 	emulator.importFlags = _=> JSON.parse(localStorage.getItem('octoFlagRegisters'))
 	emulator.exportFlags = x=> localStorage.setItem('octoFlagRegisters', JSON.stringify(x))
 	emulator.buzzTrigger = (ticks,rest)=> playPattern(ticks, emulator.pattern, rest)
-	window.addEventListener('keydown',e=>{
+
+	const kd = e=>{
 		if (!audio) audioSetup()
 		if (!(e.key in emulator.keys)) emulator.keys[e.key]=true
-	}, false)
-	window.addEventListener('keyup', e=>{
+		e.preventDefault()
+	}
+	const ku = e=>{
 		if (e.key in emulator.keys) delete emulator.keys[e.key]
 		if (!emulator.waiting) return
 		const kindex = keymapInverse[e.key]
@@ -49,7 +52,10 @@ function run(options,rom) {
 			emulator.waiting = false
 			emulator.v[emulator.waitReg] = kindex
 		}
-	}, false)
+		e.preventDefault()
+	}
+	window.addEventListener('keydown',kd,false)
+	window.addEventListener('keyup',ku,false)
 	intervalHandle = setInterval(_=>{
 		if (emulator.halted) return
 		for(var z = 0; (z<emulator.tickrate) && (!emulator.waiting); z++) emulator.tick()
@@ -58,6 +64,7 @@ function run(options,rom) {
 		renderDisplay(emulator)
 		id('game').style.backgroundColor = emulator.st?emulator.buzzColor:emulator.quietColor
 	}, 1000/60)
+	injectAdaptiveControls(emulator.touchInputMode,document.getElementById('target'),ku,kd)
 }
 
 ajax('programs.json','',x=>{
