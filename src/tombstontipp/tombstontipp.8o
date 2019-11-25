@@ -1,0 +1,255 @@
+﻿# This is a turn based game to see who can find the
+# smile first. Each player presses a button in turn
+# until the smile is shown. The player who pressed
+# the button that found the smile wins. The game
+# automatically resets for another round.
+# This is the halloween version now. Smiles are zombies
+
+:const offset 16
+:const width 8
+:const height 8
+
+: win #A player has found the smile
+	i := smile
+	sprite v2 v3 height
+	v0 := 64
+	buzzer := v0
+	v0 := 128
+	delay := v0
+	loop
+		v0 := delay
+		if v0 != 0 then
+	again
+	setupgame
+;
+
+: drawsprite #Draw a sprite and check if win
+	i := strike
+	sprite v2 v3 height
+	if va == vb then win
+;
+
+: kone #Set the values for each key
+	v2 := 16
+	v3 := 0
+	drawsprite
+;
+
+: ktwo
+	v2 := 24
+	v3 := 0
+	drawsprite
+;
+
+: kthree
+	v2 := 32
+	v3 := 0
+	drawsprite
+;
+
+: kfour
+	v2 := 40
+	v3 := 0
+	drawsprite
+;
+
+: kq
+	v2 := 16
+	v3 := 8
+	drawsprite
+;
+
+: kw
+	v2 := 24
+	v3 := 8
+	drawsprite
+;
+
+: ke
+	v2 := 32
+	v3 := 8
+	drawsprite
+;
+
+: kr
+	v2 := 40
+	v3 := 8
+	drawsprite
+;
+
+: ka
+	v2 := 16
+	v3 := 16
+	drawsprite
+;
+
+: ks
+	v2 := 24
+	v3 := 16
+	drawsprite
+;
+
+: kd
+	v2 := 32
+	v3 := 16
+	drawsprite
+;
+
+: kf
+	v2 := 40
+	v3 := 16
+	drawsprite
+;
+
+: kz
+	v2 := 16
+	v3 := 24
+	drawsprite
+;
+
+: kx
+	v2 := 24
+	v3 := 24
+	drawsprite
+;
+
+: kc
+	v2 := 32
+	v3 := 24
+	drawsprite
+;
+
+: kv
+	v2 := 40
+	v3 := 24
+	drawsprite
+;
+
+: drawgrid #Draw the play field
+	clear
+	i := box
+	v1 := 0
+	v3 := 0
+	loop
+		v2 := offset
+		v0 := 0
+		loop
+			sprite v2 v3 height
+			v2 += width
+			v0 += 1
+			if v0 != 4 then
+		again
+		v3 += height
+		v1 += 1
+		if v1 != 4 then
+	again
+;
+
+: drawtitle
+	clear
+	i := title
+	v1 := 0
+	v3 := 0
+	v4 := 8
+	loop
+		v2 := offset
+		v0 := 0
+		loop
+			sprite v2 v3 height
+			moment
+			i += v4
+			v2 += width
+			v0 += 1
+			if v0 != 4 then
+		again
+		v3 += height
+		v1 += 1
+		if v1 != 3 then
+	again
+	i := box
+	v2 := offset
+	v0 := 0
+	loop
+		sprite v2 v3 height
+		moment
+		v2 += width
+		v0 += 1
+		if v0 != 4 then
+	again
+	i := strike
+	v2 := offset
+	v0 := 0
+	loop
+		sprite v2 v3 height
+		moment
+		v2 += width
+		v0 += 1
+		if v0 != 4 then
+	again
+	v2 := 24
+	v3 := 24
+	win	
+;
+
+: setupgame #Setup all the game values
+	v0 := 0
+	v1 := 0
+	v2 := 0
+	v4 := 0
+	va := 255
+	vb := random 0b00001111
+
+	drawgrid
+;
+
+: moment
+	v5 := 8
+	delay := v5
+	loop
+		v5 := delay
+		if v5 != 0 then
+	again
+;
+
+: main
+	drawtitle
+
+	loop
+		va := key
+		if va == OCTO_KEY_1 then kone
+		if va == OCTO_KEY_2 then ktwo
+		if va == OCTO_KEY_3 then kthree
+		if va == OCTO_KEY_4 then kfour
+		if va == OCTO_KEY_Q then kq
+		if va == OCTO_KEY_W then kw
+		if va == OCTO_KEY_E then ke
+		if va == OCTO_KEY_R then kr
+		if va == OCTO_KEY_A then ka
+		if va == OCTO_KEY_S then ks
+		if va == OCTO_KEY_D then kd
+		if va == OCTO_KEY_F then kf
+		if va == OCTO_KEY_Z then kz
+		if va == OCTO_KEY_X then kx
+		if va == OCTO_KEY_C then kc
+		if va == OCTO_KEY_V then kv
+	again
+
+: box
+	0x00 0x3C 0x7E 0x7E 0x7E 0x7E 0x7E 0x7E
+: strike
+	0x00 0x3C 0x7E 0x7E 0x7E 0x7E 0x56 0x00  
+: smile
+	0x00 0x1C 0x1D 0x49 0x3E 0x08 0x00 0x00 
+: title
+	0xFE 0xFE 0x38 0x38 0x38 0x38 0x38 0x00
+	0xFE 0xFE 0xC6 0xC6 0xC6 0xFE 0xFE 0x00 
+	0xFE 0xFE 0xD6 0xC6 0xC6 0xC6 0xC6 0x00 
+	0xFE 0xFE 0xC6 0xFC 0xC6 0xFE 0xFE 0x00 
+	0xFE 0xFE 0xC0 0xFE 0x06 0xFE 0xFE 0x00
+	0xFE 0xFE 0x38 0x38 0x38 0x38 0x38 0x00 
+	0xFE 0xFE 0xC6 0xC6 0xC6 0xFE 0xFE 0x00 
+	0xE6 0xE6 0xF6 0xFE 0xDE 0xCE 0xCE 0x00 
+	0xFE 0xFE 0x38 0x38 0x38 0x38 0x38 0x00 
+	0x7C 0x7C 0x38 0x38 0x38 0x7C 0x7C 0x00
+	0xFC 0xFE 0xC6 0xFE 0xFC 0xC0 0xC0 0x00 
+	0xFC 0xFE 0xC6 0xFE 0xFC 0xC0 0xC0 0x00 

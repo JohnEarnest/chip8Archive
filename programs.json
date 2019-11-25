@@ -1092,6 +1092,119 @@
 			"screenRotation":0,
 			"maxSize":65024
 		}
+	},
+	"horseWorldOnline": {
+		"title":    "Horse World Online",
+		"authors":  ["TomRintjema"],
+		"images":   ["title.gif"],
+		"desc":     "An online horse breeding game.",
+		"event":    "Octojam1",
+		"release":  "2014-10-28",
+		"platform": "chip8",
+		"options": {
+			"tickrate":30,
+			"fillColor":"#783809",
+			"backgroundColor":"#a0cb6d",
+			"buzzColor":"#FFAA00",
+			"quietColor":"#000000",
+			"shiftQuirks":false,
+			"loadStoreQuirks":false,
+			"vfOrderQuirks":false
+		}
+	},
+	"horseyJump": {
+		"title":    "Horsey Jump",
+		"authors":  ["LarissaR"],
+		"images":   ["jump.gif"],
+		"desc":     "Press the X button to make the horse jump over the fence.",
+		"event":    "Octojam2",
+		"release":  "2015-10-30",
+		"platform": "chip8",
+		"options": {
+			"tickrate":20,
+			"fillColor":"#C3C3C3",
+			"fillColor2":"#FF6600",
+			"blendColor":"#662200",
+			"backgroundColor":"#006C00",
+			"buzzColor":"#FFAA00",
+			"quietColor":"#000000",
+			"shiftQuirks":false,
+			"loadStoreQuirks":false,
+			"vfOrderQuirks":false,
+			"enableXO":false
+		}
+	},
+	"superOctoTrackXO": {
+		"title":    "Super Octo Track XO",
+		"authors":  ["TomRintjema"],
+		"images":   ["title.gif"],
+		"desc":     "Compose songs with the XO-Chip audio system.",
+		"event":    "Octojam2",
+		"release":  "2015-10-15",
+		"platform": "xochip",
+		"options": {
+			"tickrate":100,
+			"fillColor":"#FF00FF",
+			"fillColor2":"#00FFFF",
+			"blendColor":"#FFFFFF",
+			"backgroundColor":"#000000",
+			"buzzColor":"#990099",
+			"quietColor":"#330033",
+			"shiftQuirks":false,
+			"loadStoreQuirks":true,
+			"vfOrderQuirks":false,
+			"enableXO":true
+		}
+	},
+	"ghostEscape": {
+		"title":     "Ghost Escape",
+		"authors":  ["TomRintjema"],
+		"images":   ["ghostescape.gif"],
+		"desc":     "Seek revenge on mortal men in this exciting adventure!",
+		"event":    "Octojam3",
+		"release":  "2016-10-29",
+		"platform": "chip8",
+		"options": {
+			"tickrate":7,
+			"fillColor":"#FF00FF",
+			"fillColor2":"#FF6600",
+			"blendColor":"#662200",
+			"backgroundColor":"#00FFFF",
+			"buzzColor":"#990099",
+			"quietColor":"#330033",
+			"shiftQuirks":false,
+			"loadStoreQuirks":false,
+			"vfOrderQuirks":false,
+			"clipQuirks":false,
+			"jumpQuirks":false,
+			"enableXO":false,
+			"screenRotation":0
+		}
+	},
+	"tombstontipp": {
+		"title":    "TOMB STON TIPP",
+		"authors":  ["TomRintjema"],
+		"images":   ["tomb.gif"],
+		"desc":     "Take turns pressing buttons to see who wins.",
+		"event":    "Octojam5",
+		"release":  "2018-10-12",
+		"platform": "chip8",
+		"options": {
+			"tickrate":7,
+			"fillColor":"#FFFFFF",
+			"fillColor2":"#FF6600",
+			"blendColor":"#662200",
+			"backgroundColor":"#000000",
+			"buzzColor":"#FFAA00",
+			"quietColor":"#000000",
+			"shiftQuirks":false,
+			"loadStoreQuirks":false,
+			"vfOrderQuirks":false,
+			"clipQuirks":false,
+			"jumpQuirks":false,
+			"enableXO":false,
+			"screenRotation":0,
+			"touchInputMode":"seg16"
+		}
 	}
-
 }

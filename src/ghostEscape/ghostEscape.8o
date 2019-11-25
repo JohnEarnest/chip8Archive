@@ -1,0 +1,83 @@
+﻿# Video Game TomR
+
+:alias col v3	# column
+:alias row v4	# row
+:alias wid v5	# width
+:alias lst v8	# last row
+:alias ltw v9	# last width
+:alias ntw va	# next width
+
+: main
+	clear
+	i := dot
+	col := 0
+	row := 16
+	lst := row
+	wid := 10
+	ltw := wid
+	startline
+	col := 1
+	row := 1
+	startline
+
+	loop
+		v6 := row
+		v6 += wid
+		sprite col row 1
+		sprite col v6 1
+
+		row += 1
+
+		if v6 == 32 then jump main
+
+		v0 := 0
+		if v0 key begin
+			if row == 1 then jump main
+			v6 := row
+			ntw := wid
+			if v6 < lst begin
+				v6 =- lst
+				ntw -= v6
+			end
+			v6 += wid
+			lst += ltw
+			if v6 > lst begin
+				v6 -= lst
+				ntw -= v6
+			end
+			ltw := wid
+			lst := row
+			col += 1
+			row := 0
+			if ntw > 10 then jump main
+			if ntw == 0 then jump main
+			wid := ntw
+			startline
+			v6 := 8
+			delay := v6
+		end
+
+		# lock the framerate of this program via the delay timer:
+		loop
+			vf := delay
+			if vf != 0 then
+		again
+		vf := 3
+		delay := vf
+	again
+
+: startline
+
+	v6 := row
+	v7 := 0		
+
+	loop	
+		sprite col v6 1
+		v6 += 1
+		v7 += 1
+		if v7 != wid then
+	again
+return
+
+: dot
+	0b10000000
