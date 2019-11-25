@@ -114,6 +114,30 @@
 			"screenRotation":0
 		}
 	},
+	"octojam6title": {
+		"title":    "Octojam 6 Title",
+		"authors":  ["JohnEarnest"],
+		"images":   ["octojam6title.gif"],
+		"desc":     "Greeting program for the sixth annual 2019 Octojam.",
+		"event":    "Octojam6",
+		"release":  "2019-09-07",
+		"platform": "chip8",
+		"options":  {
+			"tickrate":7,
+			"fillColor":"#330033",
+			"fillColor2":"#00FFFF",
+			"blendColor":"#FFFFFF",
+			"backgroundColor":"#AAAAFF",
+			"buzzColor":"#990099",
+			"quietColor":"#330033",
+			"shiftQuirks":false,
+			"loadStoreQuirks":false,
+			"vfOrderQuirks":false,
+			"clipQuirks":false,
+			"jumpQuirks":false,
+			"screenRotation":0
+		}
+	},
 	"eaty": {
 		"title":    "Eaty The Alien",
 		"authors":  ["JohnEarnest"],
@@ -1042,5 +1066,32 @@
 			"tickrate": "7",
 			"touchInputMode":"seg16"
 		}
+	},
+	"anEveningToDieFor": {
+		"title":    "An Evening to Die For",
+		"authors":  ["JohnEarnest"],
+		"images":   ["murder.gif"],
+		"desc":     "It is a dark and stormy night. A murder has been committed...",
+		"event":    "Octojam6",
+		"release":  "2019-10-22",
+		"platform": "xochip",
+		"options": {
+			"tickrate":500,
+			"fillColor":"black",
+			"fillColor2":"red",
+			"blendColor":"red",
+			"backgroundColor":"white",
+			"buzzColor":"gray",
+			"quietColor":"#000000",
+			"shiftQuirks":0,
+			"loadStoreQuirks":0,
+			"vfOrderQuirks":0,
+			"clipQuirks":0,
+			"vBlankQuirks":0,
+			"jumpQuirks":0,
+			"screenRotation":0,
+			"maxSize":65024
+		}
 	}
+
 }
