@@ -1206,5 +1206,43 @@
 			"screenRotation":0,
 			"touchInputMode":"seg16"
 		}
+	},
+	"br8kout": {
+		"title":    "Br8kout",
+		"authors":  ["SharpenedSpoon"],
+		"images":   ["breakout.gif"],
+		"desc":     "You can't even imagine how amazing this breakout clone is!",
+		"event":    "Octojam1",
+		"release":  "2014-9-1",
+		"platform": "chip8",
+		"options": {
+			"tickrate":7,
+			"fillColor":"#ff84fe",
+			"backgroundColor":"#ca2553",
+			"buzzColor":"#FFAA00",
+			"quietColor":"#f090e4",
+			"shiftQuirks":false,
+			"loadStoreQuirks":false,
+			"vfOrderQuirks":false
+		}
+	},
+	"1dcell": {
+		"title":    "1D Cellular Automata",
+		"authors":  ["SharpenedSpoon"],
+		"images":   ["cellular.gif"],
+		"desc":     "An implementation of 1D Cellular Automata.",
+		"event":    "Octojam1",
+		"release":  "2014-10-26",
+		"platform": "chip8",
+		"options": {
+			"tickrate":1000,
+			"fillColor":"#00f80a",
+			"backgroundColor":"#274a17",
+			"buzzColor":"#FFAA00",
+			"quietColor":"#142a12",
+			"shiftQuirks":false,
+			"loadStoreQuirks":false,
+			"vfOrderQuirks":false
+		}
 	}
 }

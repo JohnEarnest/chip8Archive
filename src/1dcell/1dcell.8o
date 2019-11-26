@@ -1,0 +1,127 @@
+﻿##############################################
+#
+# Implementing 1D Cellular Automata in Octo
+#
+# See: mathworld.wolfram.com
+#            /ElementaryCellularAutomaton.html
+#
+# Written by: Ian Douglas, 10/26/2014
+#             150 bytes (115 without GUI)
+#
+##############################################
+
+:alias cell vd
+:alias row vc
+:alias prev-row vb
+:alias rule va
+
+:alias check-result v9
+:alias shifted-result v8
+
+
+
+: pixel
+	0b10000000
+
+: check-next-row
+	row += 1
+	cell := 0
+	loop
+		check-cell
+		shifted-result := 1
+		if check-result != 0 then shift-result
+
+		shifted-result &= rule
+		if shifted-result != 0 then sprite cell row 1
+
+		cell += 1
+		if cell != 64 then
+	again
+	prev-row += 1
+	cell := 0
+;
+
+# check the cells in previous row:
+# specifically, the cell in prev row to the left, above, and to the right
+: check-cell
+	check-result := 0 # tracks the current rule we need to follow
+
+	v0 := cell
+
+	sprite v0 prev-row 1
+	if vf == 1 then check-result += 2
+	sprite v0 prev-row 1 # redraw whatever used to be here
+
+	v0 += -1 # cell - 1
+	sprite v0 prev-row 1
+	if vf == 1 then check-result += 4
+	sprite v0 prev-row 1 # redraw whatever used to be here
+
+
+	v0 += 2 # cell + 1
+	sprite v0 prev-row 1
+	if vf == 1 then check-result += 1
+	sprite v0 prev-row 1 # redraw whatever used to be here
+;
+
+# IJ has a diff way to do this with load/save, but I don't grok
+# loading and saving quite yet, so here's another way to do
+# multiple bitshifts
+: shift-result
+	# shift "shifted-result" by "check-result" number of digits
+	v2 := 0
+	loop
+		shifted-result <<= shifted-result
+		v2 += 1
+		if v2 < check-result then
+	again
+;
+
+# reset and prep for drawing the next/current rule
+: reset
+	clear
+	cell := 0
+	row := 5 # offset starting row to make room for text at top
+	prev-row := row
+
+	rule += 1
+
+	show-rule
+
+	v0 := 31
+	v1 := row
+	i := pixel
+	sprite v0 v1 1
+;
+
+# draw the current rule in the upper left corner of the screen
+: show-rule
+	v0 := rule
+	i := bcd-buffer
+	bcd v0
+	load v2
+	v4 := 0
+
+	i := hex v0
+	v3 := 0
+	sprite v3 v4 5
+	i := hex v1
+	v3 += 5
+	sprite v3 v4 5
+	i := hex v2
+	v3 += 5
+	sprite v3 v4 5
+;
+
+: bcd-buffer 0 0 0
+
+
+: main
+	rule := 20
+
+	reset
+
+	loop
+		check-next-row
+		if row == 31 then reset
+	again

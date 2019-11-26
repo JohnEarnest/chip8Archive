@@ -1,0 +1,192 @@
+﻿###########################################
+#
+# A simple breakout game
+#
+###########################################
+
+
+# -----------------------
+# Aliases
+# -----------------------
+# vf used for collision (from sprite drawing)
+# ve used for delay
+:alias paddlex vd
+:alias paddley vc
+:alias ballx   vb
+:alias bally   va
+:alias ballvx v9
+:alias ballvy v8
+
+:alias brickrow v7
+:alias brickcol v6
+
+:const brickxoffset 5
+:const brickxoffsetnegative -5
+
+
+
+# -----------------------
+# Sprites
+# -----------------------
+: paddle
+	0b11111100
+
+: brick
+	0b11111100
+
+: ball
+	0b10000000
+
+
+# -----------------------
+# Methods
+# -----------------------
+: draw-paddle
+	i := paddle
+	sprite paddlex paddley 1
+;
+
+: draw-ball
+	i := ball
+	sprite ballx bally 1
+;
+
+: draw-bricks
+	i := brick
+	v0 := 2
+	loop
+		v1 := brickxoffset
+		loop
+
+			brickrow := v0
+			brickcol := v1
+			sprite brickcol brickrow 1
+
+			v1 += 8
+			if v1 < 56 then
+		again
+
+		v0 += 2
+		if v0 < 16 then
+	again
+;
+
+: right
+	draw-paddle
+	paddlex += 4
+	draw-paddle
+;
+
+: left
+	draw-paddle
+	paddlex += -4
+	draw-paddle
+;
+
+
+: ball-collide
+	v0 := ballvy
+	if v0 ==  1 then ballvy := -1
+	if v0 == -1 then ballvy :=  1
+
+	# the ball collided... but with what?
+	if bally != paddley then destroy-brick
+;
+
+: destroy-brick
+	# we hit a brick, so we need to erase it.
+	# but in order to do that, we need to figure out what brick was hit...
+	# but we can't divide or do mod or anything like that
+
+	v0 := ballx
+	v0 += brickxoffsetnegative
+	v1 := 0b11111000
+	v0 &= v1
+	v0 += brickxoffset
+
+	i := brick
+	sprite v0 bally 1
+
+;
+
+: move-ball
+	draw-ball
+
+	# Move the ball automatically
+	ballx += ballvx
+	bally += ballvy
+	draw-ball
+
+	if ballx ==  0 then ballvx :=  1
+	if ballx == 63 then ballvx := -1
+
+	if bally ==  0 then ballvy :=  1
+	if bally == 31 then ballvy := -1
+
+	# if vf is not 0, then there was a carry
+	# while adding pixels - hence, collision.
+	# since the only thing that is moving is
+	# the ball, we know that we want it to reverse
+	# direction
+	if vf == 1 then ball-collide
+
+	if bally == 31 then reset
+;
+
+: reset
+	# maybe try sucking less
+	clear
+	ballx := 30
+	bally := 20
+	draw-paddle
+	draw-ball
+	draw-bricks
+;
+
+
+
+# -----------------------
+# Game Loop
+# -----------------------
+
+# keep things timed well. see https://github.com/JohnEarnest/Octo/blob/gh-pages/docs/Chip8%20Programming.md#framerate
+: sync
+	loop
+		ve := delay
+		if ve != 0 then
+	again
+
+	# delay for up to 1/60th of a second
+	# using the fixed-rate delay timer
+	ve := 4
+	delay := ve
+;
+
+
+: main
+	paddlex := 30
+	paddley := 30
+	ballx   := 64 # middle of paddle
+	bally   := 29 # above paddle
+	ballvx  := random 0b1
+	if ballvx == 0 then ballvx := -1
+	ballvy  := -1
+
+	
+	draw-paddle
+	draw-ball
+	draw-bricks
+
+	loop
+		# Handle player input
+		v0 := 7
+		if v0 key then left
+		v0 := 9
+		if v0 key then right
+
+		move-ball
+
+		sync
+	again
+	
+
