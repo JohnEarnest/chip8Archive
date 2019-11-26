@@ -1244,5 +1244,101 @@
 			"loadStoreQuirks":false,
 			"vfOrderQuirks":false
 		}
+	},
+	"keshaWasBird": {
+		"title":    "Kesha Was Bird",
+		"authors":  ["Kesha"],
+		"images":   ["kesha.gif"],
+		"desc":     "A surreal telephone adventure.",
+		"release":  "2016-1-21",
+		"platform": "xochip",
+		"options": {
+			"tickrate":1000,
+			"fillColor":"#B8CD9E",
+			"fillColor2":"#ED656B",
+			"blendColor":"#55989E",
+			"backgroundColor":"#59755E",
+			"buzzColor":"#000",
+			"quietColor":"#000000",
+			"shiftQuirks":false,
+			"loadStoreQuirks":false,
+			"vfOrderQuirks":false,
+			"enableXO":true
+		}
+	},
+	"keshaWasBiird": {
+		"title":    "Kesha Was Biird",
+		"authors":  ["Kesha"],
+		"images":   ["kesha.gif"],
+		"desc":     "Second installment in epic saga about Kesha.",
+		"event":    "Octojam3",
+		"release":  "2016-10-31",
+		"platform": "xochip",
+		"options": {
+			"tickrate":1000,
+			"fillColor":"#1a1c19",
+			"fillColor2":"#a0a29f",
+			"blendColor":"#5d5b5d",
+			"backgroundColor":"#fafdf9",
+			"buzzColor":"#222211",
+			"quietColor":"#212110",
+			"shiftQuirks":false,
+			"loadStoreQuirks":false,
+			"vfOrderQuirks":false,
+			"clipQuirks":false,
+			"jumpQuirks":false,
+			"enableXO":true,
+			"screenRotation":0
+		}
+	},
+	"keshaWasNiiinja": {
+		"title":    "Kesha Was Niiinja",
+		"authors":  ["Kesha"],
+		"images":   ["kesha.gif"],
+		"desc":     "Legendary ninja returns! Who is he? Ruthless killer? Absolute evil? Character with his own purpose? His motives are still unclear, and his story is for you to unfold.",
+		"event":    "Octojam4",
+		"release":  "2017-10-31",
+		"platform": "xochip",
+		"options": {
+			"tickrate":1000,
+			"fillColor":"#b22d10",
+			"fillColor2":"#10b258",
+			"blendColor":"#ffffff",
+			"backgroundColor":"#283593",
+			"buzzColor":"#182583",
+			"quietColor":"#182583",
+			"shiftQuirks":false,
+			"loadStoreQuirks":false,
+			"vfOrderQuirks":false,
+			"clipQuirks":false,
+			"jumpQuirks":false,
+			"enableXO":true,
+			"screenRotation":0
+		}
+	},
+	"redOctober": {
+		"title":    "Red October V",
+		"authors":  ["Kesha"],
+		"images":   ["title.gif"],
+		"desc":     "A futuristic RPG.",
+		"event":    "Octojam5",
+		"release":  "2018-10-31",
+		"platform": "xochip",
+		"options": {
+			"tickrate":10000,
+			"fillColor":"#000000",
+			"fillColor2":"#ffff00",
+			"blendColor":"#808000",
+			"backgroundColor":"#b22d10",
+			"buzzColor":"#400000",
+			"quietColor":"#400000",
+			"shiftQuirks":false,
+			"loadStoreQuirks":false,
+			"vfOrderQuirks":false,
+			"clipQuirks":false,
+			"jumpQuirks":false,
+			"enableXO":true,
+			"screenRotation":0
+		}
 	}
 }
