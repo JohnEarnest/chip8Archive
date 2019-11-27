@@ -1340,5 +1340,45 @@
 			"enableXO":true,
 			"screenRotation":0
 		}
+	},
+	"sk8": {
+		"title":    "SK8 H8 1988",
+		"authors":  ["Willfor"],
+		"images":   ["sk8.gif"],
+		"desc":     "Don't get trashed out there, GRRL!",
+		"event":    "Octojam2",
+		"release":  "2015-10-28",
+		"platform": "xochip",
+		"options": {
+			"tickrate":20,
+			"fillColor":"#7B0201",
+			"fillColor2":"#F2FAF7",
+			"blendColor":"#E7ED3E",
+			"backgroundColor":"#D4D4D4",
+			"buzzColor":"#990099",
+			"quietColor":"#330033",
+			"shiftQuirks":false,
+			"loadStoreQuirks":false,
+			"vfOrderQuirks":false,
+			"enableXO":true
+		}
+	},
+	"snake": {
+		"title":    "Snake",
+		"authors":  ["TimoTriisa"],
+		"images":   ["snake.gif"],
+		"desc":     "Classic Snake game without walls.",
+		"event":    "Octojam1",
+		"release":  "2014-10-11",
+		"platform": "chip8",
+		"options": {
+			"tickrate":15,
+			"fillColor":"#84a174",
+			"backgroundColor":"#30283e",
+			"buzzColor":"#FFAA00",
+			"quietColor":"#000000",
+			"shiftQuirks":false,
+			"loadStoreQuirks":false
+		}
 	}
 }

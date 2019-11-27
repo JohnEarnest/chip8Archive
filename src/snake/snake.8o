@@ -1,0 +1,382 @@
+﻿#################################################
+#
+# Snake game
+# By Timo Triisa
+#
+# Made this game to learn basics of Octo.
+#
+# Snake tail length is limited to 255, but
+# it is extendable as there is still 2143
+# bytes free. You can use two registers for
+# tail index and allocate longer tail-array.
+#
+# Font: http://www.dafont.com/04b-03.font
+#   0-25 A-Z
+#   26-51 a-z
+#   52-62 .!?-:#()*+
+#   63 whitespace
+#
+#################################################
+
+:const W_KEY 5
+:const A_KEY 7
+:const S_KEY 8
+:const D_KEY 9
+
+:const JUMP  0x1 # jump <label>
+:const CALL  0x2 # <label>
+:const INDEX 0xA # i := <label>
+:const JUMP0 0xB # jump0 <label>
+
+: dot 0x80
+
+: highscore 0
+
+#Head pos
+:alias hx va
+:alias hy vb
+
+#Snake direction and lenght
+:alias dir vc
+:alias len vd
+
+#Food
+:alias fx v7
+:alias fy v8
+
+#Tail index
+:alias ti v9
+
+#Tail array[512] - xy pairs
+: tail-array
+  0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+
+: font
+  0x60 0x90 0x90 0xF0 0x90 0xE0 0x90 0xE0 0x90 0xE0 0x60 0x80 0x80 0x80 0x60 0xE0 0x90 0x90 0x90 0xE0 0xE0 0x80 0xE0 0x80 0xE0 0xE0 0x80 0xE0 0x80 0x80 0x70 0x80 0xB0 0x90 0x70 0x90 0x90 0xF0 0x90 0x90 0xE0 0x40 0x40 0x40 0xE0 0x30 0x10 0x10 0x90 0x60 0x90 0xA0 0xC0 0xA0 0x90 0x80 0x80 0x80 0x80 0xE0 0x88 0xD8 0xA8 0x88 0x88 0x90 0xD0 0xB0 0x90 0x90 0x60 0x90 0x90 0x90 0x60 0xE0 0x90 0x90 0xE0 0x80 0x60 0x90 0x90 0xB0 0x60 0xE0 0x90 0x90 0xE0 0x90 0x70 0x80 0x60 0x10 0xE0 0xE0 0x40 0x40 0x40 0x40 0x90 0x90 0x90 0x90 0x60 0x90 0x90 0xA0 0xA0 0x40 0x88 0xA8 0xA8 0xA8 0x50 0x90 0x90 0x60 0x90 0x90 0x90 0x90 0x70 0x10 0x60 0xE0 0x20 0x40 0x80 0xE0 0x0 0x70 0x90 0x90 0x70 0x80 0xE0 0x90 0x90 0xE0 0x0 0x60 0x80 0x80 0x60 0x10 0x70 0x90 0x90 0x70 0x0 0x60 0xB0 0xC0 0x60 0x20 0x40 0xE0 0x40 0x40 0x70 0x90 0xF0 0x10 0x60 0x80 0xE0 0x90 0x90 0x90 0x40 0x0 0x40 0x40 0x40 0x40 0x0 0x40 0x40 0x80 0x80 0x90 0xA0 0xE0 0x90 0x40 0x40 0x40 0x40 0x40 0x0 0xF0 0xA8 0xA8 0xA8 0x0 0xE0 0x90 0x90 0x90 0x0 0x60 0x90 0x90 0x60 0xE0 0x90 0xE0 0x80 0x80 0x70 0x90 0xF0 0x10 0x10 0x0 0xA0 0xC0 0x80 0x80 0x0 0x70 0xC0 0x30 0xE0 0x40 0xE0 0x40 0x40 0x20 0x0 0x90 0x90 0x90 0x70 0x0 0x90 0x90 0xA0 0x40 0x0 0xA8 0xA8 0x50 0x50 0x0 0xA0 0x40 0x40 0xA0 0x0 0x90 0x70 0x10 0x60 0x0 0xF0 0x20 0x40 0xF0 0x0 0x0 0x0 0x0 0x80 0x80 0x80 0x80 0x0 0x80 0xE0 0x10 0x60 0x0 0x40 0x0 0x0 0xE0 0x0 0x0 0x0 0x80 0x0 0x80 0x0 0x50 0xF8 0x50 0xF8 0x50 0x40 0x80 0x80 0x80 0x40 0x80 0x40 0x40 0x40 0x80 0x0 0xA0 0x40 0xA0 0x0 0x0 0x40 0xE0 0x40 0x0 0x0 0x0 0x0 0x0 0x0
+  
+: snake-title
+  0xF 0x3E 0x72 0xF8 0x1C 0x4 0x2 0x2 0x41 0x7E 0xFC 0x0 0x40 0x41 0x78 0x7C 0x6E 0x63 0x61 0x70 0x30 0x30 0x38 0x0 0xC0 0xC0 0xE1 0xE1 0x63 0x63 0x66 0xC7 0x47 0x46 0x8E 0x2 0x41 0xC1 0xE1 0xF1 0x31 0x39 0x19 0xE9 0x89 0x8 0x8 0x8 0xC 0xE 0xC 0x8C 0xB8 0xB0 0xF0 0xD8 0xCE 0xCF 0xE6 0x0 0x3F 0x47 0x42 0x40 0x62 0x7E 0x64 0x60 0x71 0x3F 0x36 0x0
+
+:const txt1-length 10 #Press WASD
+: txt1
+  0xf 0x2b 0x1e 0x2c 0x2c 0x3e 0x16 0x0 0x12 0x3
+
+:const txt2-length 8 #to start
+: txt2
+  0x2d 0x28 0x3e 0x2c 0x2d 0x1a 0x2b 0x2d
+
+:const txt3-length 10 #Game over!
+: txt3
+  0x6 0x1a 0x26 0x1e 0x3e 0x28 0x2f 0x1e 0x2b 0x35
+
+:const txt4-length 6 #Score:
+: txt4
+  0x12 0x1c 0x28 0x2b 0x1e 0x38
+
+:const txt5-length 7 #Game over!
+: txt5
+  0x11 0x1e 0x1c 0x28 0x2b 0x1d 0x38
+
+: start-text
+  0 0
+
+: draw-string
+  i := string-addr
+  save v1
+  v1 := v5 # character x
+  v2 := v6 # character y
+  v3 := 0 # byte index
+  # v4 contains string length
+  loop
+    : string-addr 0 0
+    i += v3
+    load v0
+    v5 := v0
+    
+    #Move index to character
+    i := font
+    ve := 5
+    if v0 != 0 then multiply-i #i += char_code*5
+    
+    sprite v1 v2 5
+    v1 += 5
+    
+    #Manual kerning
+    if v5 == 0x16 then v1 += 1  #W
+    if v5 == 0x26 then v1 += 1  #m
+    if v5 == 0x2b then v1 += -1 #r
+    if v5 == 0x2d then v1 += -1 #t
+    #Add here as needed because its slow
+    
+    #End of screen
+    #if v1 == 63 then v2 += 6
+    #if v1 == 63 then v1 := 2
+    
+    v3 += 1
+    if v3 != v4 then
+  again
+;
+
+#Add multiplication v0*ve to index
+: multiply-i
+  loop
+    i += ve
+    v0 += -1
+    if v0 != 0 then
+  again
+;
+
+: save-tail
+  ti += 1 #Increase tail index
+  i := tail-array
+  i += ti
+  i += ti
+  v0 := hx
+  v1 := hy
+  save v1
+;
+
+: load-tail
+  #v3 := 1
+  v2 := ti
+  v2 -= len
+  #v2 -= v3
+
+  i := tail-array
+  i += v2
+  i += v2
+  load v1
+;
+
+: generate-food
+  len += 1
+  fx := random 0b00111111
+  fy := random 0b00011111
+;
+
+: draw-digits
+  v1 := 0
+  v2 := 0
+  v3 := 0
+  if v0 == 0 then jump skip-digits-loop
+  loop
+    v0 += -1
+    v1 += 1
+    if v1 != 10 then jump skip-digits
+      v1 := 0
+      v2 += 1
+    if v2 != 10 then jump skip-digits
+      v2 := 0
+      v3 += 1
+    : skip-digits
+    if v0 != 0 then
+  again
+  : skip-digits-loop
+
+  i := hex v1
+  va := 55
+  sprite va vb 5
+  i := hex v2
+  va := 49
+  sprite va vb 5
+  i := hex v3
+  va := 43
+  sprite va vb 5
+;
+
+: gameover
+  clear
+  len += -5 #Initial tail length
+
+  loadflags v0
+
+  #Compare and save high score
+  va := len
+  vb := v0
+  loop
+    if va == 0 then jump skip-save
+    if vb == 0 then jump save-score
+    va += -1
+    vb += -1
+  again
+  : save-score
+    v0 := len
+    saveflags v0
+  : skip-save
+  vc := v0
+
+  #Game over text and score
+  :unpack INDEX txt3
+  v4 := txt3-length
+  v5 := 8
+  v6 := 3
+  draw-string
+
+  #Score
+  :unpack INDEX txt4
+  v4 := txt4-length
+  v5 := 5
+  v6 := 14
+  draw-string
+  v0 := len
+  vb := 14
+  draw-digits
+
+  #High score
+  :unpack INDEX txt5
+  v4 := txt5-length
+  v5 := 5
+  v6 := 22
+  draw-string
+  v0 := vc
+  vb := 22
+  draw-digits
+
+  vf := key
+  clear
+  
+  #Clear tail-array
+  v0 := 0  v1 := 0
+  v2 := 0  v3 := 0
+  v4 := 0  v5 := 0
+  v6 := 0  v7 := 0
+  vf := 64
+  i := tail-array
+  loop
+    save v7
+    vf += -1
+    if vf != 0 then
+  again
+jump main
+
+: food-routine
+  if v1 == 1 then sprite fx fy 1
+  generate-food
+jump food-routine-return
+
+: set-dir4
+  dir := 4
+jump keys-else-4
+: set-dir3
+  dir := 3
+jump keys-else-4
+: set-dir2
+  dir := 2
+jump keys-else-4
+: set-dir1
+  dir := 1
+jump keys-else-4
+
+: main
+  dir := 0
+  len := 4
+  hx := 32
+  hy := 16
+  ti := 0
+  generate-food
+
+  #Title
+  v0 := 4
+  v1 := 6
+  v2 := 12
+  v3 := 4
+  i := snake-title
+  loop
+    sprite v3 v0 12
+    v1 += -1
+    v3 += 8
+    i += v2
+    if v1 != 0 then
+  again
+  
+  #Title screen texts
+  :unpack INDEX txt1
+  v4 := txt1-length
+  v5 := 4
+  v6 := 18
+  draw-string
+  :unpack INDEX txt2
+  v4 := txt2-length
+  v5 := 28
+  v6 := 24
+  draw-string
+
+  #Wait for first direction
+  vf := key
+  if vf == W_KEY then dir := 4
+  if vf == A_KEY then dir := 3
+  if vf == S_KEY then dir := 2
+  if vf == D_KEY then dir := 1
+
+  v0 := 0
+  clear
+
+  loop
+    #Removing tail, skip when eating
+    if v0 == 2 then jump skip-remove
+      load-tail
+      i := dot
+      sprite v0 v1 1
+    : skip-remove
+
+    #Keys (avoids turning into itself)
+    vf := W_KEY
+      if dir == 2 then jump keys-else-1
+      if vf key then jump set-dir4
+    : keys-else-1
+    vf := A_KEY
+      if dir == 1 then jump keys-else-2
+      if vf key then jump set-dir3
+    : keys-else-2
+    vf := S_KEY
+      if dir == 4 then jump keys-else-3
+      if vf key then jump set-dir2
+    : keys-else-3
+    vf := D_KEY
+      if dir == 3 then jump keys-else-4
+      if vf key then jump set-dir1
+    : keys-else-4
+
+    #Moving head
+    if dir == 1 then hx +=  1
+    if dir == 2 then hy +=  1
+    if dir == 3 then hx += -1
+    if dir == 4 then hy += -1
+
+    #Keep food and head comparable
+    if hx == 64 then hx := 0
+    if hy == 32 then hy := 0
+    if hx == 255 then hx := 63
+    if hy == 255 then hy := 31
+
+    #Save tail coordinates
+    save-tail
+
+    #Draw head and set v1 when collision
+    v1 := 0
+    vf := 0
+    i := dot
+    sprite hx hy 1
+    if vf == 1 then v1 := 1
+    
+    #Food collision check
+    v0 := 0
+    if hx == fx then v0 += 1
+    if hy == fy then v0 += 1
+
+    #Is it food or tail?
+    if v0 == 2 then jump food-routine #else
+      if v1 == 1 then gameover
+    : food-routine-return
+
+    #Draw food
+    i := dot
+    sprite fx fy 1
+
+    #Delay
+    #vf := 2
+    #loop
+    #  vf += -1
+    #  if vf != 0 then
+    #again
+  again
