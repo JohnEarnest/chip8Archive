@@ -1,0 +1,1008 @@
+﻿#
+#  S p a c e J a m !
+#
+# by William Donnelly - http://www.Donnelly-House.net/
+# October 30, 2015
+#
+# SpaceJam! was written for the 2015 OctoJam Octo-ber Jam II contest
+#
+# Use W, A, S, D to move the ship Up, Down, Left, and Right
+# Use R (or anykey) as Ready/Reset (Start Game, Next Turn)
+# To make the game more difficult to play, move the ship closer to the right side
+# to decrease reaction time, or easier move to the left.
+#
+# An extended and enhanced version loosely based on
+##    ShipTunnel from the 2014 OctoJam
+##    "A simple flight-runner, dodge the walls!"
+##    http://johnearnest.github.io/Octo/index.html?gist=380d4a4a3e395759f7a4
+#
+# Added: Better ceiling and floor creation
+#        Score and 3 ships per game play
+#        Intro screen
+#        End-of-Game screens
+#        Obstacle Stars
+#        Other niceties and gameisms
+#        Tweaked the parameters for near-optimum / optimal play (?)
+
+# permanent variables (must protect or not change except as used)
+
+:alias  ship_x       ve
+:alias  ship_y       vd
+:alias  obstacle_x   vc
+:alias  obstacle_y   vb
+:alias  ships_left   va
+:alias  score        v9
+:alias  sixtieths    v8
+:alias  speed        v7
+:alias  biaser       v6
+
+:alias  tempv0       v0    # for noted use as temporary storage
+
+# non permanent variables
+
+:alias new_x v3
+:alias new_y v4
+
+
+: space_jam             # 0 0 8 32 = x, y, width, height
+   0x00 0x00 0x00 0x00 0x40 0x01 0x00 0x00
+   0x00 0x00 0x00 0x00 0x00 0x40 0x00 0x04
+   0x00 0x00 0x00 0x00 0x00 0xE0 0x00 0x00
+   0x00 0x00 0x00 0x00 0x00 0x40 0x49 0x00
+   0x00 0x00 0x00 0x00 0x08 0x00 0x2A 0x00
+   0x00 0x00 0x00 0x00 0x00 0x00 0x14 0x00
+   0x00 0x00 0x00 0x00 0x00 0x00 0x6B 0x10
+   0x00 0x3E 0xFC 0xFB 0xEF 0x80 0x14 0x00
+   0x02 0x3E 0x84 0x8B 0xE8 0x00 0x2A 0x00
+   0x00 0x22 0x84 0x8A 0x68 0x00 0x49 0x00
+   0x00 0x22 0x84 0x8A 0x68 0x00 0x00 0x00
+   0x00 0x20 0x84 0x8A 0x08 0x00 0x00 0x00
+   0x20 0x3E 0xFD 0xFA 0x0F 0x82 0x00 0x00
+   0x70 0x02 0xC1 0x8A 0x0C 0x00 0x00 0x00
+   0x20 0x32 0xC1 0x8A 0x2C 0x00 0x00 0x10
+   0x00 0x32 0xC1 0x8A 0x2C 0x00 0x00 0x38
+   0x00 0x3E 0xC1 0x8B 0xEF 0x80 0x10 0x10
+   0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+   0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+   0x10 0x02 0x00 0x00 0x8F 0xB1 0xBC 0x00
+   0x00 0x00 0x24 0x00 0x88 0xAB 0xBC 0x00
+   0x04 0x90 0x18 0x20 0x88 0xA5 0xBC 0x00
+   0x02 0xA0 0x18 0x00 0x88 0xA5 0xBC 0x00
+   0x01 0x40 0x24 0x00 0x88 0xA1 0xBC 0x12
+   0x06 0xB0 0x00 0x00 0xDF 0xA1 0x98 0x0C
+   0x01 0x40 0x00 0x00 0xD8 0xA1 0x98 0x0C
+   0x02 0xA0 0x01 0x0C 0xD8 0xAD 0x80 0x12
+   0x04 0x90 0x00 0x0C 0xD8 0xAD 0x98 0x00
+   0x00 0x00 0x80 0x0F 0xD8 0xAD 0x98 0x00
+   0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x80
+
+: esabruoylla_text      # 0 8 8 5 = x, y, width, height
+   0x19 0x10 0x22 0x64 0xB8 0x3A 0x5D 0xDC
+   0x25 0x10 0x14 0x94 0xA4 0x22 0x49 0x50
+   0x3D 0x10 0x08 0x94 0xB8 0x13 0xC9 0xC8
+   0x25 0x10 0x08 0x94 0xA8 0x0A 0x49 0x04
+   0x25 0xDC 0x08 0x67 0xA4 0x3A 0x5D 0x1C
+
+: gnolebera_text        # 8 16 6 5 = x, y, width, height
+   0x19 0xCE 0x1C 0xE8 0x64 0x9C
+   0x25 0x28 0x12 0x88 0x96 0xA0
+   0x3D 0xCC 0x1C 0xC8 0x95 0xAC
+   0x25 0x48 0x12 0x88 0x94 0xA4
+   0x25 0x2E 0x1C 0xEE 0x64 0x9C
+
+: suot_text             # 20 24 3 5 = x, y, width, height
+   0x73 0x04 0xBA
+   0x24 0x84 0xA2
+   0x24 0x84 0x92
+   0x24 0x84 0x88
+   0x23 0x07 0xBA
+
+: hyperspace_text       # 8 14 6 5 = x, y, width, height
+   0x4A 0x2E 0xEE 0x77 0x31 0xDD
+   0x49 0x4A 0x89 0x45 0x4A 0x11
+   0x78 0x8E 0xCE 0x27 0x7A 0x19
+   0x48 0x88 0x8A 0x14 0x4A 0x10
+   0x48 0x88 0xE9 0x74 0x49 0xDD
+
+: congrats_text         # 12 14 5 5 = x, y, width, height
+   0x39 0x92 0x77 0x19 0xDD
+   0x42 0x5A 0x84 0xA4 0x91
+   0x42 0x56 0xB7 0x3C 0x89
+   0x42 0x52 0x95 0x24 0x84
+   0x39 0x92 0x74 0xA4 0x9D
+
+: save_var_temp8
+   0x00 0x00 0x00 0x00
+
+: save_var_temp4        # second half of save_var_temp8
+   0x00 0x00 0x00 0x00
+
+: ceiling      # ceiling bar locations
+   0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00   # y positions (0-25)
+
+: floor        # floor bar locations
+   0x1F 0x1F 0x1F 0x1F 0x1F 0x1F 0x1F 0x1F   # y positions (6-31)
+
+: bar_line     # for drawing ceiling and floor bar segments
+   0xFF
+
+: ship_horiz
+   0b11110000
+   0b00011000
+   0b11110000
+
+: ship_vert
+   0b01000000
+   0b11100000
+   0b10100000
+   0b10100000
+   0b10100000
+
+: no_ship
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b11100000
+
+: ships_left_3
+   0b01000100 0b01000000
+   0b11101110 0b11100000
+   0b10101010 0b10100000
+   0b10101010 0b10100000
+   0b10101010 0b10100000
+
+: ships_left_2
+   0b01000100 0b00000000
+   0b11101110 0b00000000
+   0b10101010 0b00000000
+   0b10101010 0b00000000
+   0b10101010 0b11100000
+
+: ships_left_1
+   0b01000000 0b00000000
+   0b11100000 0b00000000
+   0b10100000 0b00000000
+   0b10100000 0b00000000
+   0b10101110 0b11100000
+
+: ships_left_0
+   0b00000000 0b00000000
+   0b00000000 0b00000000
+   0b00000000 0b00000000
+   0b00000000 0b00000000
+   0b11101110 0b11100000
+
+: star7
+   0x92 0x54 0x28 0xD6 0x28 0x54 0x92
+
+: star7inv
+   0x6D 0xAB 0xD7 0x29 0xD7 0xAB 0x6D
+
+: bcd_digits_3
+   0x00 0x00 0x00
+
+: flasher8x15
+   0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff
+
+: flasher8x2
+   0xff 0xff
+
+
+: init
+
+      # initialize / reset
+
+   score := 0
+   ships_left := 3
+
+return # init
+
+
+: new_turn
+
+      # begin new turn for player
+
+   sixtieths := 0             # reset timer counter
+   speed := 10                # seems best to start for 100 cycles/frame
+   ship_x := 10
+   ship_y := 14               # start ship more or less in vertical center of screen
+   biaser := 7                # used to prevent too many/much small pathways by
+                              #  biasing toward growth or shrinkage (3 <--> 7 toggle)
+                              #  '3' removes 4-7 random values and +/-1 bias toward shrinkage
+
+   clear                      # clear screen
+
+   i := save_var_temp8        # save permanent variables
+   save v7
+
+   i := space_jam
+   v0 := 0                    # x start
+   v1 := 1                    # y start
+   v2 := 8                    # width in bytes
+   v3 := 30                   # height in lines
+   draw_bitmap
+
+   i := save_var_temp8        # restore permanent variables
+   load v7
+
+   display_score
+
+   display_ships
+
+   v0 := key                  # wait for keypress to start playing
+
+   acquire_ship               # use up a ship
+
+   clear                      # clear screen
+
+   v1 := 0                    # next bar index (0-7)
+   v2 := 0                    # = 0, 8, 16, ...
+   v0 := 0x00                 # ceiling bar y is 0
+
+   loop                       # display all ceiling bars (across top of screen)
+      i := ceiling
+      i += v1                 # point to next bar y
+      save v0                 # put the next bar y (initialize 'array')
+
+      i := bar_line
+      sprite v2 v0 1
+
+      v1 += 1
+      v2 += 8
+#v0 += 1
+
+      if v1 != 8  then        # 8 times
+   again
+
+   v1 := 0                    # next bar index (0-7)
+   v2 := 0                    # = 0, 8, 16, ...
+   v0 := 0x1f                 # floor bar y is 31
+#v3 := 1
+
+   loop                       # display all floor bars (across bottom of screen)
+      i := floor
+      i += v1                 # point to next bar y
+      save v0                 # put the next bar y (initialize 'array')
+
+      i := bar_line
+      sprite v2 v0 1
+
+      v1 += 1
+      v2 += 8
+#v0 -= v3
+
+      if v1 != 8  then        # 8 times
+   again
+
+   i := ship_horiz
+   sprite ship_x ship_y 3     # display the default ship starting location
+
+   i := star7
+   obstacle_x := 56           # must be a multiple of 4!
+   obstacle_y := random 0b00000111     # get a random # between 0 and 7
+   obstacle_y += 10           # position it somwhere near the middle of the screen
+   sprite obstacle_x obstacle_y 7
+
+   v0 := 20                   # wait a bit to give the player some time to accustomize
+   pause
+
+   score += 1                 # give the player a point just for playing
+
+return # new_turn
+
+
+: flash_screen
+
+      # flash the screen (inverse)
+
+   v0 := 0
+   v1 := 0
+   i := flasher8x15
+
+   loop
+      sprite v0 v1 15
+
+      v0 += 8
+
+      if v0 == 64  then
+         v1 += 15
+      if v0 == 64  then
+         v0 := 0
+
+      if v1 != 30  then
+   again
+
+   i := flasher8x2
+
+   loop
+      sprite v0 v1 2
+
+      v0 += 8
+
+      if v0 != 64  then
+   again
+
+return # flash_screen
+
+
+: acquire_ship
+
+      # ships are at X locations 17, 21, 25
+
+      :alias  next_ship_x     v1
+      :alias  next_ship_y     v2
+      :alias  blinky          v3
+
+   next_ship_x := ships_left     # calculate next ship X
+   next_ship_x += 255            # decrement (1-3 => 0-2)
+   next_ship_x <<= next_ship_x
+   next_ship_x <<= next_ship_x   # multiply by 4
+   next_ship_x += 17             # offset to first ship X
+   next_ship_y := 1
+
+   i := ship_vert
+   blinky := 0
+
+   loop
+      sprite next_ship_x next_ship_y 5    # un/display ship
+
+      v0 := 10
+      pause
+
+      blinky += 1
+      if blinky != 5  then    # blink ship 2 times
+   again
+
+   i := no_ship
+   sprite next_ship_x next_ship_y 5
+
+   ships_left += 255          # decrement ship count
+
+   vf := 0     # just in case
+
+   v0 := 100
+   pause
+
+return # acquire_ship
+
+
+: display_score
+
+      # from Keeping Score at
+      # https://github.com/JohnEarnest/Octo/blob/gh-pages/docs/Chip8%20Programming.md
+
+   v0 := score                # some number 0-255
+   i := bcd_digits_3          # the destination for bcd
+   bcd v0                     # unpack digits in v0
+
+   v3 := 1                    # x position of first digit
+   v4 := 1                    # y position of first digit
+   i := bcd_digits_3
+   load v2                    # load digits into v0-v2
+
+   i := hex v0                # hundreds digit
+   sprite v3 v4 5
+   v3 += 5                    # next digit location
+
+   i := hex v1                # tens digit
+   sprite v3 v4 5
+   v3 += 5                    # next digit location
+
+   i := hex v2                # ones digit
+   sprite v3 v4 5
+
+return # display_score
+
+
+: display_ships
+
+      # display the ships left
+
+   i := save_var_temp8        # save permanent variables
+   save v7
+
+   if ships_left == 0  then
+      i := ships_left_0
+
+   if ships_left == 1  then
+      i := ships_left_1
+
+   if ships_left == 2  then
+      i := ships_left_2
+
+   if ships_left == 3  then
+      i := ships_left_3
+
+   v0 := 17                   # x start
+   v1 := 1                    # y start
+   v2 := 2                    # width in bytes
+   v3 := 5                    # height in lines
+   draw_bitmap
+
+   i := save_var_temp8        # restore permanent variables
+   load v7
+
+return # display_ships
+
+
+: draw_bitmap
+
+      # v0 = start_x = x start            - value preserved
+      # v1 = start_y = y start            - value preserved
+      # v2 = byte_width = width in bytes  - value preserved
+      # v3 = height = in lines            - value decremented to 0
+      # i must be preset to the location of the image data
+      # caller MUST save and restore values of registers if needed up to v7 (used here)
+      #     i := save_var_temp8
+      #     save v7    # save variables
+      #  and
+      #     i := save_var_temp8
+      #     load v7    # restore variables
+      # destroys value of i (points to end of bitmap data + 1)
+
+      :alias  start_x      v0
+      :alias  start_y      v1
+      :alias  byte_width   v2
+      :alias  height       v3
+      :alias  sprite_x     v4
+      :alias  sprite_y     v5
+      :alias  byte_cnt     v6
+      :alias  constant_1   v7
+
+   sprite_x := start_x        # v4
+   sprite_y := start_y        # v5
+   byte_cnt := 0              # v6 byte count width (0-based for comparison below)
+   constant_1 := 1            # v7 constant
+
+   loop
+      sprite sprite_x sprite_y 1    # display the next image data
+      i += constant_1         # next byte in bitmap
+      byte_cnt += 1           # increment byte count (width)
+      sprite_x += 8           # next byte location on screen
+
+      if byte_cnt == byte_width  then
+         sprite_y += 1              # next line (increment y)
+      if byte_cnt == byte_width  then
+         sprite_x := start_x        # back to starting x
+      if byte_cnt == byte_width  then
+         height -= constant_1       # decrement lines displayed
+      if byte_cnt == byte_width  then
+         byte_cnt := 0              # reset byte count width
+
+      if height != 0 then     # continue until all lines displayed
+   again
+
+return # draw_bitmap
+
+
+: scroll_background
+
+      # shift 7 ceiling and 7 floor bars 1 position left
+      # and then make a new position 8 bar for each
+      # RETURN: if a ship collision occurs, vf != 0, else vf == 0
+
+      :alias  this_bar_y      v1
+      :alias  next_bar_y      v2
+      :alias  this_bar_index  v3
+      :alias  next_bar_index  v4
+      :alias  bar_x           v5
+      :alias  randnum         v5
+
+   this_bar_index := 0        # current bar index (0-6)
+   next_bar_index := 1        # next bar index (1-7)
+   bar_x := 0                 # 0, 8, 16, ... 56
+
+   loop                       # 7 times
+      i := ceiling
+      i += next_bar_index     # point to next bar y
+      load v0                 # get the next bar y
+      next_bar_y := v0        # put into v2
+
+      i := ceiling
+      i += this_bar_index     # point to current bar y
+      load v0                 # get the current bar y
+      this_bar_y := v0        # put into v1
+
+      i := bar_line
+      if this_bar_y != next_bar_y then
+         sprite bar_x this_bar_y 1
+            # conditionally erase current bar (if different from next bar -- speed?)
+
+      i := ceiling
+      i += this_bar_index     # current bar
+      v0 := next_bar_y
+      save v0                 # move the next bar y left
+
+      i := bar_line
+      vf := 0                 # clear here because of CONDITIONAL sprite next
+      if this_bar_y != next_bar_y then
+         sprite bar_x next_bar_y 1
+            # conditionally draw new current bar (if different -- speed?)
+
+      while vf == 0           # drop out if collision
+
+      this_bar_index += 1
+      next_bar_index += 1
+      bar_x += 8
+
+      if this_bar_index != 7  then     # shift the first 7 bars
+   again
+
+   if vf != 0  then
+      return                  # exit early due to ship collision
+
+      # now do a new CEILING position for the far right
+
+   this_bar_y := next_bar_y      # current is last (last is 'saved' for restore later if needed)
+   sprite bar_x this_bar_y 1     # always erase last bar
+      # (i == bar_line and bar_x == 56 on loop exit above)
+
+      # 0 = no change
+      # 1-3 = move up
+      # 4-7 = move down (bias +1 toward down)
+   randnum := random 0b00000111     # get a random # between 0 and 7
+   randnum &= biaser                # bias toward growth or shrinkage (3 <--> 7 toggle)
+   if biaser == 3  then
+      randnum += 1            # removes 0 (no change) but adds one 'move up' (better)
+
+   tempv0 := 0b00000100       # binary 4
+   tempv0 &= randnum          # check for 4-7
+   vf := 1                    # 'constant'
+   if tempv0 != 0  then
+      this_bar_y += vf        # increment (down)
+   if tempv0 != 0  then
+      vf := 0                 # prevent mod below (for 5 (b101) and 7 (b111) values)
+
+   tempv0 := 0b00000011       # binary 3
+   tempv0 &= randnum          # check for 1-3
+   if tempv0 != 0  then
+      this_bar_y -= vf        # decrement (up)
+   if this_bar_y == 255  then
+      biaser := 7             # edge collision resets bias toward shrinkage
+   if this_bar_y == 255  then
+      this_bar_y := 0         # prevent screen x underflow
+
+   i := floor
+   vf := 7                    # far right floor bar y
+   i += vf                    # point to last floor bar
+   load v0                    # get the last floor bar y (always > ceiling)
+
+   v0 -= this_bar_y           # how close are they?
+
+   if v0 == 6  then
+      this_bar_y := next_bar_y      # set back to original value if ceiling too close to floor
+   if v0 == 6  then
+      biaser := 3                   # when too close, bias toward expansion
+
+   loop
+      while obstacle_x == 0   # check to see if we can add an obstacle, but not if one in play
+
+      vf := 0x18              # 24
+      vf &= v0                # check for at least 24 lines between ceiling and floor
+
+      while vf == 24          # if not enough space, forget it
+
+      randnum := random 0b00000111     # get a random # between 0 and 7
+
+      while randnum == 0      # 1 out of 8 chance for a new obstacle
+
+      i := star7
+      obstacle_x := 56           # must be a multiple of 4!
+      obstacle_y := random 0b00000111     # get a random # between 0 and 7
+      obstacle_y += 7            # position it somwhere near the middle of the space
+      obstacle_y += this_bar_y   # offset from ceiling
+      sprite obstacle_x obstacle_y 7      # display the obstacle
+
+      if obstacle_x != 56  then  # always exit non-loop
+   again
+
+   v0 := this_bar_y
+   i := ceiling
+   vf := 7                    # far right ceiling bar y
+   i += vf                    # point to last ceiling bar
+   save v0                    # save new last ceiling bar y
+
+   i := bar_line
+   bar_x := 56                # clobbered above by double-use with randnum
+   sprite bar_x this_bar_y 1  # display new last ceiling bar
+
+   if vf != 0  then
+      return                  # exit early due to ship collision
+
+
+   #### now do the same thing for the floor
+
+
+   this_bar_index := 0        # current bar index (0-6)
+   next_bar_index := 1        # next bar index (1-7)
+   bar_x := 0                 # 0, 8, 16, ... 56
+
+   loop                       # 7 times
+      i := floor
+      i += next_bar_index     # point to next bar y
+      load v0                 # get the next bar y
+      next_bar_y := v0        # put into v2
+
+      i := floor
+      i += this_bar_index     # point to current bar y
+      load v0                 # get the current bar y
+      this_bar_y := v0        # put into v1
+
+      i := bar_line
+      if this_bar_y != next_bar_y then
+         sprite bar_x this_bar_y 1
+            # conditionally erase current bar (if different from next bar -- speed?)
+
+      i := floor
+      i += this_bar_index     # current bar
+      v0 := next_bar_y
+      save v0                 # move the next bar y left
+
+      i := bar_line
+      vf := 0                 # clear here because of CONDITIONAL sprite next
+      if this_bar_y != next_bar_y then
+         sprite bar_x next_bar_y 1
+            # conditionally draw new current bar (if different -- speed?)
+
+      while vf == 0           # drop out if collision
+
+      this_bar_index += 1
+      next_bar_index += 1
+      bar_x += 8
+
+      if this_bar_index != 7  then     # shift the first 7 bars
+   again
+
+   if vf != 0  then
+      return                  # exit early due to ship collision
+
+
+      # now do a new FLOOR position for the far right
+
+   this_bar_y := next_bar_y      # current is last (last is 'saved' for restore later if needed)
+   sprite bar_x this_bar_y 1     # always erase last bar
+      # (i == bar_line and bar_x == 56 on loop exit above)
+
+      # 0 = no change
+      # 1-3 = move down
+      # 4-7 = move up (bias +1 toward up)
+   randnum := random 0b00000111     # get a random # between 0 and 7
+   randnum &= biaser                # bias toward growth or shrinkage (3 <--> 7 toggle)
+   if biaser == 3  then
+      randnum += 1            # removes 0 (no change) but adds one 'move up' (better)
+
+   tempv0 := 0b00000100       # binary 4
+   tempv0 &= randnum          # check for 4-7
+   vf := 1                    # 'constant'
+   if tempv0 != 0  then
+      this_bar_y -= vf        # decrement (up)
+   if tempv0 != 0  then
+      vf := 0                 # prevent mod below (for 5 (b101) and 7 (b111) values)
+
+   tempv0 := 0b00000011       # binary 3
+   tempv0 &= randnum          # check for 1-3
+   if tempv0 != 0  then
+      this_bar_y += vf        # increment (down)
+   if this_bar_y == 32  then
+      biaser := 7             # edge collision resets bias toward shrinkage
+   if this_bar_y == 32  then
+      this_bar_y := 31        # prevent screen x overflow
+
+   i := ceiling
+   vf := 7                    # far right ceiling bar y
+   i += vf                    # point to last ceiling bar
+   load v0                    # get the last ceiling bar y (always < floor)
+
+   v0 =- this_bar_y           # how close are they?
+
+   if v0 == 6  then
+      this_bar_y := next_bar_y      # set back to original value if too close
+   if v0 == 6  then
+      biaser := 3                   # when too close, bias toward expansion
+
+   v0 := this_bar_y
+   i := floor
+   vf := 7                    # far right floor bar y
+   i += vf                    # point to last floor bar
+   save v0                    # save new last floor bar y
+
+   i := bar_line
+   bar_x := 56                # clobbered above by double-use with randnum
+   sprite bar_x this_bar_y 1  # display new last floor bar
+
+   if vf != 0  then
+      return                  # exit early due to ship collision
+
+   if obstacle_x == 0  then
+      return                  # exit, no obstacle to deal with
+
+   biaser := 3                # always tend to expand while there's an obstacle
+
+   i := star7
+   sprite obstacle_x obstacle_y 7      # erase obstacle
+   vf := 0
+
+   obstacle_x += 252      # subtract 4 to jump-scroll left
+   if obstacle_x != 0  then
+      sprite obstacle_x obstacle_y 7   # display obstacle in new location
+
+   if obstacle_x == 0  then
+      biaser := 7             # reset biaser to shrinkage when obstacle disappears
+
+   if obstacle_x == 0  then
+      score += 3              # give the player points per obstacle avoided
+
+      # if vf != 0, then ship collision occurred, caller act accordingly
+
+return # scroll_background
+
+
+: update_player
+
+   new_x := ship_x
+   new_y := ship_y
+   v2 := 1                    # constant
+   v1 := 0
+
+   v0 := 5                    # up (W key)
+   if v0 key then
+      new_y -= v2
+
+   v0 := 8                    # down (S key)
+   if v0 key then
+      new_y += v2
+
+   v0 := 7                    # left (A key)
+   if v0 key then
+      new_x -= v2
+
+   v0 := 9                    # right (D key)
+   if v0 key then
+      new_x += v2
+
+      # check ship bounds
+   if new_y == 255 then
+      new_y := 0
+   if new_y == 30 then
+      new_y := 29
+   if new_x == 255 then
+      new_x := 0
+   if new_x == 58 then
+      new_x := 57
+
+      # verify if we changed positions
+   if new_x != ship_x then
+      v1 := v2
+   if new_y != ship_y then
+      v1 := v2
+
+   if v1 != v2 then
+      return                  # if position not changed, just return
+
+      # Otherwise, update
+   i := ship_horiz
+   sprite ship_x ship_y 3     # erase old position
+   ship_x := new_x
+   ship_y := new_y
+   sprite ship_x ship_y 3     # display new position
+
+      # vf will be non-zero if collision
+
+return # update_player
+
+
+: turn_over
+
+      # player's turn is over due to collision
+
+   v1 := 5
+   buzzer := v1               # blink
+
+   i := new_turn              # explode the ship with "random data"
+   sprite ship_x ship_y 3
+
+   v1 := 10
+   buzzer := v1               # blink
+
+   v0 := 10
+   pause
+
+   v1 := 15
+   buzzer := v1               # blink
+
+   v0 := 140
+   pause
+
+   clear                      # clear screen
+
+return # turn_over
+
+
+: sync_timing                 # partly shamelessly stolen from docs!
+
+      # make everything run at an even keel, more or less, and do some scoring and such
+
+   v1 := 0
+
+   loop
+      if v1 == 100  then
+         update_player        # this seems to make the keys more actiony, but not too much so
+      if v1 == 100  then
+         v1 := 0
+      v1 += 1
+      v0 := delay
+      if v0 != 0 then
+   again
+
+      # delay for up to 1/60th of a second
+      # using the fixed-rate delay timer
+   v0 := speed       # start at 10 for 100 cycles/frame (see new_turn)
+   delay := v0
+
+   v3 := 0                       # used to test for score overflow
+
+   v1 := 100                     # increase speed every 100
+   v2 := 50                      # score every 50
+   if sixtieths != 255  then
+      sixtieths += 1             # 255 = not scoring, otherwise...
+   v0 := 1                       # must use register addition for overflow into vf
+   if sixtieths == v2  then
+      score += v0                # increment score
+   v3 |= vf                      # check for score overflow
+   if sixtieths == v1  then
+      speed += 255               # decrement speed wait by 1 to increase speed
+   if speed == 4  then
+      speed := 5                 # cap speed at 5 (?)
+   v0 := 6                       # must use register addition for overflow into vf
+   if sixtieths == v1  then
+      score += v0                # extra score for speed increase
+   v3 |= vf                      # check for score overflow
+   v0 := 2
+   if sixtieths == v1  then
+      buzzer := v0               # visual speed increase notifier
+   if sixtieths == v1  then
+      sixtieths := 0             # and reset counter
+
+   if v3 != 0  then
+      score := 255               # max out score for a super-win
+
+   if v3 != 0  then
+      vf := 1                    # signal faux collision
+
+return # sync_timing
+
+
+: pause
+
+      # v0 has time to pause
+
+   delay := v0
+
+   loop
+      v0 := delay
+      if v0 != 0  then
+   again
+
+return # pause
+
+
+: main                           # main program start
+
+   init
+
+   new_turn
+
+   loop
+      loop
+         update_player
+         while vf == 0           # exit inner loop if collision
+
+         sync_timing
+         while vf == 0           # exit inner loop if collision
+
+         scroll_background
+         while vf == 0           # exit inner loop if collision
+      again
+
+      while score != 255         # exit outer loop if super-win
+
+      turn_over
+
+      while ships_left != 0      # exit outer loop if all ships used
+
+      new_turn
+   again
+
+   clear                         # clear screen
+
+   display_score
+
+   display_ships
+
+   if score != 255  then
+      jump aysabtu               # end of game
+
+      # otherwise super-win 'easter egg'
+
+   i := hyperspace_text          # display HYPERSPACE! text (since when it happened game was in progress)
+   v0 := 8     # x start
+   v1 := 14    # y start
+   v2 := 6     # width in bytes
+   v3 := 5     # height in lines
+   draw_bitmap
+
+   v2 := 0                       # flash_screen uses v0 and v1
+
+   loop
+      flash_screen
+
+      v0 := 5
+      pause
+
+      v2 += 1
+      if v2 != 10  then
+   again
+
+   v0 := 100
+   pause
+
+   i := hyperspace_text          # erase HYPERSPACE! text
+   v0 := 8     # x start
+   v1 := 14    # y start
+   v2 := 6     # width in bytes
+   v3 := 5     # height in lines
+   draw_bitmap
+
+   v0 := 50
+   pause
+
+   i := congrats_text            # display CONGRATS! text
+   v0 := 12    # x start
+   v1 := 14    # y start
+   v2 := 5     # width in bytes
+   v3 := 5     # height in lines
+   draw_bitmap
+
+   v2 := 0                       # flash_screen uses v0 and v1
+
+   loop
+      flash_screen
+
+      v0 := 30
+      pause
+
+      v2 += 1
+      if v2 != 10  then
+   again
+
+   v0 := key                  # wait for a keypress
+
+   jump main                  # start game anew
+
+: aysabtu                     # display end of game text
+
+   i := esabruoylla_text
+   v0 := 0     # x start
+   v1 := 8     # y start
+   v2 := 8     # width in bytes
+   v3 := 5     # height in lines
+   draw_bitmap
+
+   i := gnolebera_text
+   v0 := 8     # x start
+   v1 := 16    # y start
+   v2 := 6     # width in bytes
+   v3 := 5     # height in lines
+   draw_bitmap
+
+   i := suot_text
+   v0 := 20    # x start
+   v1 := 24    # y start
+   v2 := 3     # width in bytes
+   v3 := 5     # height in lines
+   draw_bitmap
+
+   v0 := key                  # wait for a keypress
+
+   jump main                  # start game anew

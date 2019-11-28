@@ -1380,5 +1380,74 @@
 			"shiftQuirks":false,
 			"loadStoreQuirks":false
 		}
+	},
+	"spacejam": {
+		"title":    "Spacejam!",
+		"authors":  ["WilliamDonnelly"],
+		"images":   ["title.gif"],
+		"desc":     "An extended and enhanced version loosely based on ShipTunnel from the 2014 OctoJam.",
+		"event":    "Octojam2",
+		"release":  "2015-10-30",
+		"platform": "chip8",
+		"options": {
+			"tickrate":100,
+			"fillColor":"#fcfcfc",
+			"fillColor2":"#FF6600",
+			"blendColor":"#662200",
+			"backgroundColor":"#111111",
+			"buzzColor":"#FFAA00",
+			"quietColor":"#000000",
+			"shiftQuirks":false,
+			"loadStoreQuirks":false,
+			"vfOrderQuirks":false,
+			"enableXO":false
+		}
+	},
+	"mastermind": {
+		"title":    "Mastermind",
+		"authors":  ["WilliamDonnelly"],
+		"images":   ["title.gif"],
+		"desc":     "The classic puzzle game of deduction.",
+		"event":    "Octojam3",
+		"release":  "2015-11-8",
+		"platform": "chip8",
+		"options":  {
+			"tickrate":20,
+			"fillColor":"#FCFCFC",
+			"fillColor2":"#FF6600",
+			"blendColor":"#662200",
+			"backgroundColor":"#005E20",
+			"buzzColor":"#FFAA00",
+			"quietColor":"#000000",
+			"shiftQuirks":false,
+			"loadStoreQuirks":false,
+			"vfOrderQuirks":false,
+			"enableXO":false
+		}
+	},
+	"spaceracer": {
+		"title":    "Space Racer",
+		"authors":  ["WilliamDonnelly"],
+		"images":   ["title.gif"],
+		"desc":     "Based on the classic 2-player 'Space Race' video game.",
+		"event":    "Octojam4",
+		"release":  "2017-10-30",
+		"platform": "chip8",
+		"options": {
+			"tickrate":20,
+			"fillColor":"#FCFCFC",
+			"fillColor2":"#FF6600",
+			"blendColor":"#662200",
+			"backgroundColor":"#111111",
+			"buzzColor":"#FFAA00",
+			"quietColor":"#000000",
+			"shiftQuirks":false,
+			"loadStoreQuirks":false,
+			"vfOrderQuirks":false,
+			"clipQuirks":false,
+			"jumpQuirks":false,
+			"enableXO":false,
+			"screenRotation":0
+		}
 	}
 }

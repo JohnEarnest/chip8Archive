@@ -1,0 +1,1526 @@
+﻿#
+#  M a s t e r M i n d
+#
+# by William Donnelly - http://www.Donnelly-House.net/
+# November 8, 2015
+#
+# This version shared at: TBD
+#
+# Background color = #005E20
+# Foreground color = #FCFCFC
+#
+# MasterMind was originally intended to be written for the 2015 OctoJam Octo-ber Jam II contest.
+# But there wasn't enough time to finish it.
+#
+# Instructions and rules for playing the game are included in the game play.
+
+# permanent variables (must protect or not change except as used)
+
+:alias  play_column  vd       # current column in play
+:alias  peg_y        vc
+:alias  peg_idx      vb
+:alias  current_row  va
+:alias  peg_n        v9
+
+:alias  tempv0       v0    # for noted use as temporary storage
+
+# non permanent variables
+
+   # used in init and elsewhere
+
+:alias  row          v1
+:alias  column       v2
+:alias  keypress     v3
+:alias  xx           v4
+:alias  yy           v5
+:alias  col_offset   v6
+:alias  column_x     v7       # current column x location (arrow x and selector x is this location - 1)
+:alias  arrow_x      v8       # current arrow x location (arrow x and selector x are this column_x - 1)
+
+   # used in display_text
+
+:alias  char_x       v1
+:alias  char_y       v2
+:alias  char_idx     v3
+:alias  char_xx      v4
+:alias  seti         v5
+
+:alias  black_count  v8       # count of black clue pegs (right row, right symbol) -- (use v8 for persistence)
+:alias  white_count  v7       # count of white clue pegs (right symbol, wrong row)
+
+:alias  dup_flag     ve       # duplicate symbol in guess code flag (0 = okay, 1 = dup)
+
+
+:const  FIRST_ROW_Y  16
+:const  ARROW_Y      9
+:const  SELECTOR_Y   15
+:const  BLACK_CLUE_Y 8
+:const  WHITE_CLUE_Y 13
+
+
+   # Chip8 Key   Keyboard
+   # ---------   --------
+   #  1 2 3 C    1 2 3 4
+   #  4 5 6 D    q w e r
+   #  7 8 9 E    a s d f
+   #  A 0 B F    z x c v
+
+:const  Key_1        0x1
+:const  Key_2        0x2
+:const  Key_3        0x3
+:const  Key_4        0xC
+:const  Key_Q        0x4
+:const  Key_W        0x5      # often "Up" (see below)
+:const  Key_E        0x6
+:const  Key_R        0xD
+:const  Key_A        0x7      # often "Left" (see below)
+:const  Key_S        0x8      # often "Down" (see below)
+:const  Key_D        0x9      # often "Right" (see below)
+:const  Key_F        0xE
+:const  Key_Z        0xA
+:const  Key_X        0x0
+:const  Key_C        0xB
+:const  Key_V        0xF
+
+:const  Key_Up       0x5      # Key_W
+:const  Key_Down     0x8      # Key_S
+:const  Key_Left     0x7      # Key_A
+:const  Key_Right    0x9      # Key_D
+
+
+: answer_code
+
+   0x00 0x00 0x00 0x00
+
+: guesses                     # must remember them all for screen refresh (11 columns)
+
+   0x00 0x00 0x00 0x00
+   0x00 0x00 0x00 0x00
+   0x00 0x00 0x00 0x00
+   0x00 0x00 0x00 0x00
+   0x00 0x00 0x00 0x00
+   0x00 0x00 0x00 0x00
+   0x00 0x00 0x00 0x00
+   0x00 0x00 0x00 0x00
+   0x00 0x00 0x00 0x00
+   0x00 0x00 0x00 0x00
+   0x00 0x00 0x00 0x00
+
+: black_clues                 # must remember them all for screen refresh (11 columns)
+
+   0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+
+: white_clues                 # must remember them all for screen refresh (11 columns)
+
+   0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+
+
+: master_mind                 # title header
+
+   0xD9 0x9D 0xDD 0xC6 0xDD 0x2E
+   0xAA 0x50 0x91 0x25 0x49 0xA9
+   0xAB 0xC8 0x99 0xC5 0x49 0x69
+   0x8A 0x44 0x91 0x24 0x49 0x29
+   0x8A 0x5C 0x9D 0x24 0x5D 0x2E
+
+: dashed_lines_3              # sprite for erasing title header ending lines
+
+   0xFC 0x00 0xFC 0x00 0xFC
+
+: black_clue_sprites          # right row, right symbol (color) --> 0 -- 4
+
+   0b11110000                 # these are 4 x 4 to show black on white
+   0b11110000
+   0b11110000
+   0b11110000
+
+   0b11110000
+   0b10110000
+   0b11110000
+   0b11110000
+
+   0b11110000
+   0b10010000
+   0b11110000
+   0b11110000
+
+   0b11110000
+   0b10010000
+   0b10110000
+   0b11110000
+
+   0b11110000
+   0b10010000
+   0b10010000
+   0b11110000
+
+: white_clue_sprites          # right symbol (color), wrong row --> 0 -- 4
+
+   0b00000000                 # these are 2 x 2 to show white on black
+   0b00000000
+
+   0b10000000
+   0b00000000
+
+   0b11000000
+   0b00000000
+
+   0b11000000
+   0b10000000
+
+   0b11000000
+   0b11000000
+
+: peg_sprites                 # symbols instead of 8 colors
+
+   0b11100000
+   0b10100000
+   0b11100000
+
+   0b10100000
+   0b01000000
+   0b10100000
+
+   0b11000000
+   0b11100000
+   0b01100000
+
+   0b01000000
+   0b01000000
+   0b11100000
+
+   0b10100000
+   0b11100000
+   0b10100000
+
+   0b11100000
+   0b01000000
+   0b11100000
+
+   0b11100000
+   0b11100000
+   0b11100000
+
+   0b01000000
+   0b11100000
+   0b01000000
+
+: peg_hood
+
+   0b01110000
+   0b10001000
+   0b01110000
+
+: vertical_line
+
+   0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80
+
+: selector
+
+   0b11111000
+   0b10001000
+   0b10001000
+   0b10001000
+   0b11111000
+
+: arrow
+
+   0b00100000
+   0b00100000
+   0b00100000
+   0b10101000
+   0b01110000
+   0b00100000
+
+: happy_face                  # for win @ 57, 7
+
+   0b01111100
+   0b10000010
+   0b10101010
+   0b10000010
+   0b10101010
+   0b10111010
+   0b10000010
+   0b01111100
+
+: sad_face                    # for lose
+
+   0b01111100
+   0b10000010
+   0b10101010
+   0b10000010
+   0b10010010
+   0b10101010
+   0b10000010
+   0b01111100
+
+
+      # Demian's Bitmap Font 4x5 Round (with a few slight modifications)
+      # Demian's Bitmap Fonts by Demian Wright is licensed under
+      #  a Creative Commons Attribution 3.0 Unported License.
+      # http://creativecommons.org/licenses/by/3.0/
+      #
+      # ASCII Character Set Table
+      #     (NOTE: 13 is the only true and used control char that signifies End-of-Line / CR w/implied LF)
+      #  # # # # # # # # # # # # # ! # #     User-Definable (displayed / unused "control characters")
+      #  # # # # # # # # # # # # # # # #     User-Definable (0 -- 31 decimal, except 13 / 0x0D CR)
+      #    ! " # $ % & ' ( ) * + , - . /     Starts with SPACE = 32  (0x20)
+      #  0 1 2 3 4 5 6 7 8 9 : ; < > = ?     Starts with 0 = 48, 9 = 57  (0x30, 0x39)
+      #  @ A B C D E F G H I J K L M N O     Starts with @ = 64, A = 65  (0x40, 0x41)
+      #  P Q R S T U V W X Y Z [ \ ] ^ _     Starts with P = 80, Z = 90  (0x50, 0x5A)
+      #
+      #     (could extend for lowercase and related area characters, too)
+      #
+      #  ` a b c d e f g h i j k l m n o
+      #  p q r s t u v w x y z { | } ~ DEL
+      #
+      # 64 pixel wide by 32 pixel high screen can display 5 Rows of 12 Characters
+      #  (13 if last is sentence punctuation;  assumes start in column 1, zero-based)
+
+: font      # full ASCII font set of 64 characters + 31 User-Definable / Unused "Control Characters"
+
+   0xFF 0xFF 0xFF 0xFF 0xFF  0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00
+   0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00
+   0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00
+   0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00
+
+   0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00
+   0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00
+   0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00
+   0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00
+
+   0x00 0x00 0x00 0x00 0x00  0x40 0x40 0x40 0x00 0x40  0xA0 0xA0 0x00 0x00 0x00  0x50 0xF0 0x50 0xF0 0x50
+   0x50 0xE0 0x90 0x70 0xA0  0x20 0xA0 0x40 0xA0 0x80  0x60 0xB0 0xD0 0xB0 0x70  0x40 0x40 0x00 0x00 0x00
+   0x20 0x40 0x40 0x40 0x20  0x80 0x40 0x40 0x40 0x80  0xA0 0x40 0xA0 0x00 0x00  0x00 0x40 0xE0 0x40 0x00
+   0x00 0x00 0x00 0x40 0x80  0x00 0x00 0xE0 0x00 0x00  0x00 0x00 0x00 0x00 0x40  0x20 0x20 0x40 0x80 0x80
+
+   0x60 0xB0 0x90 0xD0 0x60  0x20 0x60 0x20 0x20 0x20  0xE0 0x10 0x60 0x80 0xF0  0xE0 0x10 0x60 0x10 0xE0
+   0x90 0x90 0xF0 0x10 0x10  0xF0 0x80 0xE0 0x10 0xE0  0x60 0x80 0xE0 0x90 0x60  0xF0 0x10 0x10 0x10 0x10
+   0x60 0x90 0x60 0x90 0x60  0x60 0x90 0x70 0x10 0x60  0x00 0x40 0x00 0x40 0x00  0x00 0x40 0x00 0x40 0x40
+   0x10 0x20 0x40 0x20 0x10  0x80 0x40 0x20 0x40 0x80  0x00 0xF0 0x00 0xF0 0x00  0xE0 0x10 0x60 0x00 0x40
+
+   0x60 0x90 0xB0 0x80 0x70  0x60 0x90 0xF0 0x90 0x90  0xE0 0x90 0xE0 0x90 0xE0  0x70 0x80 0x80 0x80 0x70
+   0xE0 0x90 0x90 0x90 0xE0  0x70 0x80 0xE0 0x80 0x70  0xF0 0x80 0xF0 0x80 0x80  0x70 0x80 0xB0 0x90 0x60
+   0x90 0x90 0xF0 0x90 0x90  0xE0 0x40 0x40 0x40 0xE0  0x10 0x10 0x10 0x90 0x60  0x90 0xA0 0xC0 0xA0 0x90
+   0x80 0x80 0x80 0x80 0xF0  0x90 0xF0 0x90 0x90 0x90  0x90 0xD0 0xB0 0x90 0x90  0x60 0x90 0x90 0x90 0x60
+
+   0xE0 0x90 0xE0 0x80 0x80  0x60 0x90 0xB0 0x60 0x20  0xE0 0x90 0xF0 0xA0 0x90  0x70 0x80 0x60 0x10 0xe0
+   0xE0 0x40 0x40 0x40 0x40  0x90 0x90 0x90 0x90 0x60  0xA0 0xA0 0xA0 0xA0 0x40  0x90 0x90 0x90 0xF0 0x90
+   0x90 0x90 0x60 0x90 0x90  0xA0 0xA0 0x40 0x40 0x40  0xF0 0x20 0x40 0x80 0xF0  0x60 0x40 0x40 0x40 0x60
+   0x40 0x40 0x20 0x10 0x10  0xC0 0x40 0x40 0x40 0xC0  0x40 0xA0 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0xF0
+
+
+# text tables -- use http://www.asciitohex.com/ to convert ASCII text to Hex
+
+: to_begin_text               # 0:     PRESS |    ANY KEY |   TO BEGIN
+
+   0x20 0x50 0x52 0x45 0x53 0x53 0x0D
+   0x20 0x20 0x41 0x4E 0x59 0x20 0x4B 0x45 0x59 0x0D
+   0x20 0x20 0x20 0x54 0x4F 0x20 0x42 0x45 0x47 0x49 0x4E 0xFF
+
+: advance_text                # 1: >>>
+
+   0x3D 0x3D 0x3d 0xFF
+
+: press_a_key_text            # 2: PRESS ANY |  KEY TO | ADVANCE TO | NEXT SCREEN
+
+   0x50 0x52 0x45 0x53 0x53 0x20 0x41 0x4E 0x59 0x0D
+   0x20 0x4B 0x45 0x59 0x20 0x54 0x4F 0x0D
+   0x41 0x44 0x56 0x41 0x4E 0x43 0x45 0x20 0x54 0x4F 0x0D
+   0x4E 0x45 0x58 0x54 0x20 0x53 0x43 0x52 0x45 0x45 0x4E 0xFF
+
+: description_text            # 3:  MASTERMIND | IS A GAME OF | SKILL, LOGIC, | AND LUCK
+
+   0x20 0x4D 0x41 0x53 0x54 0x45 0x52 0x4D 0x49 0x4E 0x44 0x0D
+   0x49 0x53 0x20 0x41 0x20 0x47 0x41 0x4D 0x45 0x20 0x4F 0x46 0x0D
+   0x53 0x4B 0x49 0x4C 0x4C 0x2C 0x20 0x4C 0x4F 0x47 0x49 0x43 0x2C 0x0D
+   0x41 0x4E 0x44 0x20 0x4C 0x55 0x43 0x4B 0xFF
+
+: credits_text                # 4: DESIGNED AND | PROGRAMMED | BY  WILLIAM |     DONNELLY
+
+   0x44 0x45 0x53 0x49 0x47 0x4E 0x45 0x44 0x20 0x41 0x4E 0x44 0x0D
+   0x50 0x52 0x4F 0x47 0x52 0x41 0x4D 0x4D 0x45 0x44 0x0D
+   0x42 0x59 0x20 0x20 0x57 0x49 0x4C 0x4C 0x49 0x41 0x4D 0x0D
+   0x20 0x20 0x20 0x20 0x44 0x4F 0x4E 0x4E 0x45 0x4C 0x4C 0x59 0xFF
+
+: help_start_text             # 5: HELP: |   PRESS '4' | FOR RULES OR | 'S' TO START
+
+   0x48 0x45 0x4C 0x50 0x3A 0x0D
+   0x20 0x20 0x50 0x52 0x45 0x53 0x53 0x20 0x27 0x34 0x27 0x0D
+   0x46 0x4F 0x52 0x20 0x52 0x55 0x4C 0x45 0x53 0x20 0x4F 0x52 0x0D
+   0x27 0x53 0x27 0x20 0x54 0x4F 0x20 0x53 0x54 0x41 0x52 0x54 0xFF
+
+: explanation_text            # 6: THIS VERSION | USES SYMBOLS | INSTEAD OF | COLORED PEGS
+
+   0x54 0x48 0x49 0x53 0x20 0x56 0x45 0x52 0x53 0x49 0x4F 0x4E 0x0D
+   0x55 0x53 0x45 0x53 0x20 0x53 0x59 0x4D 0x42 0x4F 0x4C 0x53 0x0D
+   0x49 0x4E 0x53 0x54 0x45 0x41 0x44 0x20 0x4F 0x46 0x0D
+   0x43 0x4F 0x4C 0x4F 0x52 0x45 0x44 0x20 0x50 0x45 0x47 0x53 0xFF
+
+: guess_it_text               # 7: YOU HAVE 11 | CHANCES TO | GUESS THE | HIDDEN CODE
+
+   0x59 0x4F 0x55 0x20 0x48 0x41 0x56 0x45 0x20 0x31 0x31 0x0D
+   0x43 0x48 0x41 0x4E 0x43 0x45 0x53 0x20 0x54 0x4F 0x0D
+   0x47 0x55 0x45 0x53 0x53 0x20 0x54 0x48 0x45 0x0D
+   0x48 0x49 0x44 0x44 0x45 0x4E 0x20 0x43 0x4F 0x44 0x45 0xFF
+
+: movement_text               # 8: USE UP, DOWN, | LEFT, RIGHT | (W, S, A, D) | TO PLAY
+
+   0x55 0x53 0x45 0x20 0x55 0x50 0x2C 0x20 0x44 0x4F 0x57 0x4E 0x2C 0x0D
+   0x4C 0x45 0x46 0x54 0x2C 0x20 0x52 0x49 0x47 0x48 0x54 0x0D
+   0x28 0x57 0x2C 0x20 0x53 0x2C 0x20 0x41 0x2C 0x20 0x44 0x29 0x0D
+   0x54 0x4F 0x20 0x50 0x4C 0x41 0x59 0xFF
+
+: choose_row_text             # 9: UP AND DOWN | CHOOSE THE | CODE ROW
+
+   0x55 0x50 0x20 0x41 0x4E 0x44 0x20 0x44 0x4F 0x57 0x4E 0x0D
+   0x43 0x48 0x4F 0x4F 0x53 0x45 0x20 0x54 0x48 0x45 0x0D
+   0x43 0x4F 0x44 0x45 0x20 0x52 0x4F 0x57 0xFF
+
+: choose_symbol_text          # 10: LEFT / RIGHT | CHOOSE THE 8 |  CODE SYMBOLS | (COLOR PEGS)
+
+   0x4C 0x45 0x46 0x54 0x20 0x2F 0x20 0x52 0x49 0x47 0x48 0x54 0x0D
+   0x43 0x48 0x4F 0x4F 0x53 0x45 0x20 0x54 0x48 0x45 0x20 0x38 0x0D
+   0x43 0x4F 0x44 0x45 0x20 0x53 0x59 0x4D 0x42 0x4F 0x4C 0x53 0x0D
+   0x28 0x43 0x4F 0x4C 0x4F 0x52 0x20 0x50 0x45 0x47 0x53 0x29 0xFF
+
+: random_text                 # 11: USE 'R' KEY | TO SET FIRST | COLUMN TO | RANDOM CODE
+
+   0x55 0x53 0x45 0x20 0x27 0x52 0x27 0x20 0x4B 0x45 0x59 0x0D
+   0x54 0x4F 0x20 0x53 0x45 0x54 0x20 0x46 0x49 0x52 0x53 0x54 0x0D
+   0x43 0x4F 0x4C 0x55 0x4D 0x4E 0x20 0x54 0x4F 0x0D
+   0x52 0x41 0x4E 0x44 0x4F 0x4D 0x20 0x43 0x4F 0x44 0x45 0xFF
+
+: submit_text                 # 12: PRESS THE | 'V' KEY TO | SUBMIT YOUR | CODE GUESS
+
+   0x50 0x52 0x45 0x53 0x53 0x20 0x54 0x48 0x45 0x0D
+   0x27 0x56 0x27 0x20 0x4B 0x45 0x59 0x20 0x54 0x4F 0x0D
+   0x53 0x55 0x42 0x4D 0x49 0x54 0x20 0x59 0x4F 0x55 0x52 0x0D
+   0x43 0x4F 0x44 0x45 0x20 0x47 0x55 0x45 0x53 0x53 0xFF
+
+: clues_text                  # 13: CLUES WILL | SHOW BASED | ON YOUR | CODE GUESS
+
+   0x43 0x4C 0x55 0x45 0x53 0x20 0x57 0x49 0x4C 0x4C 0x0D
+   0x53 0x48 0x4F 0x57 0x20 0x42 0x41 0x53 0x45 0x44 0x0D
+   0x4F 0x4E 0x20 0x59 0x4F 0x55 0x52 0x0D
+   0x43 0x4F 0x44 0x45 0x20 0x47 0x55 0x45 0x53 0x53 0xFF
+
+: black_clues_text            # 14: 'BLACK' CLUE |   PEGS MEAN | RIGHT ROW, | RIGHT SYMBOL
+
+   0x27 0x42 0x4C 0x41 0x43 0x4B 0x27 0x20 0x43 0x4C 0x55 0x45 0x0D
+   0x20 0x20 0x50 0x45 0x47 0x53 0x20 0x4D 0x45 0x41 0x4E 0x0D
+   0x52 0x49 0x47 0x48 0x54 0x20 0x52 0x4F 0x57 0x2C 0x0D
+   0x52 0x49 0x47 0x48 0x54 0x20 0x53 0x59 0x4D 0x42 0x4F 0x4C 0xFF
+
+: white_clues_text            # 15: 'WHITE' CLUE |   PEGS MEAN | RIGHT SYMBOL, | WRONG ROW
+
+   0x27 0x57 0x48 0x49 0x54 0x45 0x27 0x20 0x43 0x4C 0x55 0x45 0x0D
+   0x20 0x20 0x50 0x45 0x47 0x53 0x20 0x4D 0x45 0x41 0x4E 0x0D
+   0x52 0x49 0x47 0x48 0x54 0x20 0x53 0x59 0x4D 0x42 0x4F 0x4C 0x2C 0x0D
+   0x57 0x52 0x4F 0x4E 0x47 0x20 0x52 0x4F 0x57 0xFF
+
+: win_lose_text               # 16: CONTINUE | UNTIL CODE | GUESSED OR | FINAL MOVE
+
+   0x43 0x4F 0x4E 0x54 0x49 0x4E 0x55 0x45 0x0D
+   0x55 0x4E 0x54 0x49 0x4C 0x20 0x43 0x4F 0x44 0x45 0x0D
+   0x47 0x55 0x45 0x53 0x53 0x45 0x44 0x20 0x4F 0x52 0x0D
+   0x46 0x49 0x4E 0x41 0x4C 0x20 0x4D 0x4F 0x56 0x45  0xFF
+
+: dup_symbols_text            # 17:  ALL GUESS | SYMBOLS MUST |  BE UNIQUE | PER COLUMN!
+
+   0x20 0x41 0x4C 0x4C 0x20 0x47 0x55 0x45 0x53 0x53 0x0D
+   0x53 0x59 0x4D 0x42 0x4F 0x4C 0x53 0x20 0x4D 0x55 0x53 0x54 0x0D
+   0x20 0x42 0x45 0x20 0x55 0x4E 0x49 0x51 0x55 0x45 0x0D
+   0x50 0x45 0x52 0x20 0x43 0x4F 0x4C 0x55 0x4D 0x4E 0x21 0xFF
+
+
+: set_text                    # jump table used to set i value for texts
+
+   i := to_begin_text ;       # 0   set i and return
+   i := advance_text ;        # 1
+   i := press_a_key_text ;    # 2
+   i := description_text ;    # 3
+   i := credits_text ;        # 4
+   i := help_start_text ;     # 5
+   i := explanation_text ;    # 6
+   i := guess_it_text ;       # 7
+   i := movement_text ;       # 8
+   i := choose_row_text ;     # 9
+   i := choose_symbol_text ;  # 10
+   i := random_text ;         # 11
+   i := submit_text ;         # 12
+   i := clues_text ;          # 13
+   i := black_clues_text ;    # 14
+   i := white_clues_text ;    # 15
+   i := win_lose_text ;       # 16
+   i := dup_symbols_text ;    # 17
+
+:const  TEXT_TABLES  18       # set this value to the COUNT of text tables above (INCLUDES ZERO!)
+
+
+: save_var_temp8              # for saving up to 8 variables, v0 - v7
+
+   0x00 0x00 0x00 0x00
+
+: save_var_temp4              # second half of save_var_temp8 (for 2 save v4's)
+
+   0x00 0x00 0x00 0x00
+
+: flasher8x15                 # screen flasher sprite
+
+   0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff
+
+: flasher8x2                  # for flashing last two rows
+
+   0xff 0xff
+
+
+: init
+
+      # initialize / reset / new game
+
+   play_column := 0
+   pick_random_answer
+
+   i := guesses
+   v0 := 0
+   save v0                    # 'i' auto-increments
+   save v0
+   save v0
+   save v0                    # zero the first column guesses
+
+   clear
+
+   i := dashed_lines_3
+   v0 := 1
+   v1 := 1
+   sprite v0 v1 5             # title header starting lines
+
+   i := master_mind
+   v0 := 8                    # x start
+   v1 := 1                    # y start
+   v2 := 6                    # width in bytes
+   v3 := 5                    # height in lines
+   draw_bitmap
+
+   i := dashed_lines_3
+   v0 := 57
+   v1 := 1
+   sprite v0 v1 5             # title header ending lines
+
+   v0 := 0
+   char_x := 1
+   char_y := 10
+
+   display_text               # display startup text
+
+   v0 := key
+
+   if v0 == Key_S  then       # preemptive start if desired
+      return
+
+   display_rules
+
+return # init
+
+
+: display_rules
+
+   v3 := 2
+
+   loop                       # display intro and rules
+      clear
+
+      v0 := v3
+      char_x := 1
+      char_y := 1
+
+      display_text
+
+      v0 := 1                 # next screen arrows text
+      char_x := 50
+      char_y := 26
+
+      display_text
+
+      v0 := key
+
+      while v0 != Key_S       # 'S' = start (at any time)
+
+      v3 += 1
+
+      if v3 != TEXT_TABLES  then    # display all
+   again
+
+return # display_rules
+
+
+: master_redraw
+
+      # redraw complete screen after a clear or use by something else
+      # doesn't display the arrow for current row play
+      # ve is a flag -- 0 = not end of game, 1 = end of game
+
+   clear
+
+   i := dashed_lines_3
+   v0 := 1
+   v1 := 1
+   if ve != 1  then
+      sprite v0 v1 5          # title header starting lines (if not end of game)
+
+   i := master_mind
+   v0 := 8                    # x start
+   if ve == 1  then
+      v0 := 4                 # pull back to the left if end of game
+   v1 := 1                    # y start
+   v2 := 6                    # width in bytes
+   v3 := 5                    # height in lines
+   draw_bitmap
+
+   i := dashed_lines_3
+   v0 := 57
+   v1 := 1
+   if ve != 1  then
+      sprite v0 v1 5          # title header ending lines (if not end of game)
+
+   column := 0
+   col_offset := 0
+   column_x := 2
+
+   play_column += 1              # increment temporarily for loop comparison below
+
+   loop
+      row := 0
+      yy := FIRST_ROW_Y
+
+      loop                    # display all guess columns played and being played
+         i := guesses
+         i += col_offset
+         i += row
+         load v0
+         peg_idx <<= v0
+         if peg_idx != 0  then
+            peg_idx += v0        # times 3
+
+         i := peg_sprites
+         i += peg_idx
+         sprite column_x yy 3
+
+         yy += 4
+         row += 1
+
+         if row != 4  then
+      again
+
+      col_offset += 4
+      column_x += 5
+      column += 1
+
+      if column != play_column  then      # temp inc allows != comparison here
+   again
+
+   play_column += 255         # correct temporary increment for loop comparison above
+
+   yy := BLACK_CLUE_Y
+   column := 0
+   column_x := 2              # same as pegs (2, 7, 12...)
+
+   if ve == 1  then
+      play_column += 1        # do all of them for end of game
+
+   loop                       # display all black (on white) clue columns PLAYED
+      while play_column != 0  # don't display any if we are on the first column -- exit loop
+
+      i := black_clues
+      i += column
+      load v0
+      peg_idx <<= v0          # times 2
+      peg_idx <<= peg_idx     # times 4
+
+      i := black_clue_sprites
+      i += peg_idx
+      sprite column_x yy 4
+
+      column_x += 5
+      column += 1
+
+      if column != play_column  then      # we don't do current column (unless end of game)
+   again
+
+   yy := WHITE_CLUE_Y
+   column := 0
+   column_x := 3              # same as pegs (3, 8, 13...)
+
+   loop                       # display all black (on white) clue columns PLAYED
+      while play_column != 0  # don't display any if we are on the first column -- exit loop
+
+      i := white_clues
+      i += column
+      load v0
+      peg_idx <<= v0          # times 2
+
+      i := white_clue_sprites
+      i += peg_idx
+      sprite column_x yy 2
+
+      column_x += 5
+      column += 1
+
+      if column != play_column  then      # we don't do current column (unless end of game)
+   again
+
+   if ve == 1  then
+      play_column += 255      # subtract 1 from above
+
+   column_x := 58
+   yy := 16
+   row := 0
+   i := peg_hood
+
+   loop                       # display the answer peg hoods
+      sprite column_x yy 3
+      yy += 4
+      row += 1
+      if row != 4  then
+   again
+
+   if play_column == 0  then
+      pegs_clues_help
+
+return # master_redraw
+
+
+: choose_pegs
+
+   column_x <<= play_column   # * 2
+   column_x <<= column_x      # now * 4
+
+   col_offset := column_x     # this works as the calculation into the guesses table (at this point)
+
+   if column_x != 0  then
+      column_x += play_column # multiplied by 5 (taking into account zero)
+
+   current_row := 0
+
+   column_x += 2              # column x = column * 2 + 2 (2, 7, 12...)
+
+   arrow_x := column_x
+   arrow_x += 255             # arrow x is always column x - 1
+
+   yy := SELECTOR_Y           # selector x is the same as arrow x
+   i := selector
+   sprite arrow_x yy 5        # display selector cursor (same x as arrow)
+
+   row := 0
+   peg_y := 16
+
+   i := guesses               # start with the first peg row data
+   i += col_offset
+   load v0
+   peg_n := v0                # the peg currently at this row
+   peg_idx <<= v0             # calculate the index into the peg sprites (* 3)
+   if peg_idx != 0  then
+      peg_idx += v0           # have to take into account zero
+
+   xx := arrow_x              # for use in get_keypress
+   yy := SELECTOR_Y           # y location of first peg row
+
+#show_pegs_debug # first time
+
+   loop
+
+      i := selector
+      get_keypress
+
+      if keypress == Key_Left  begin
+         i := peg_sprites
+         i += peg_idx
+         sprite column_x peg_y 3    # erase peg
+
+         peg_idx += 253             # subtract 3 to get previous peg index
+         if peg_idx == 253  then
+            peg_idx := 21           # wrap-around to last peg
+         i := peg_sprites
+         i += peg_idx
+         sprite column_x peg_y 3    # display previous peg (with wrap-around)
+
+         peg_n += 255               # subtract 1, get previous peg
+         if peg_n == 255  then
+            peg_n := 7              # wrap-around to last peg
+
+         i := guesses
+         i += col_offset
+         i += current_row
+         v0 := peg_n
+         save v0                    # save new peg value
+      end
+
+      if keypress == Key_Right  begin
+         i := peg_sprites
+         i += peg_idx
+         sprite column_x peg_y 3    # erase peg
+
+         peg_idx += 3               # get next peg index
+         if peg_idx == 24  then
+            peg_idx := 0            # wrap-around to first peg
+         i := peg_sprites
+         i += peg_idx
+         sprite column_x peg_y 3    # display next peg (with wrap-around)
+
+         peg_n += 1                 # get next peg
+         if peg_n == 8  then
+            peg_n := 0              # wrap-around to first peg
+
+         i := guesses
+         i += col_offset
+         i += current_row
+         v0 := peg_n
+         save v0                    # save new peg value
+      end
+
+      if keypress == Key_Up  begin
+         sprite xx yy 5             # erase selector
+
+         current_row += 255         # subtract 1, move a row up
+         if current_row == 255  then
+            current_row := 3        # wrap-arond to bottom last row
+
+         i := guesses                 # get the new peg row data
+         i += col_offset
+         i += current_row
+         load v0
+         peg_n := v0                # the peg currently at this row
+         peg_idx <<= v0             # calculate the index into the peg sprites
+         if peg_idx != 0  then
+            peg_idx += v0           # times 3
+
+         peg_y += 252               # subtract 4 to get location of previous peg row
+         if peg_y == 12  then
+            peg_y := 28             # wrap-around to last row
+
+         yy := peg_y                # get new location of selector
+         yy += 255                  # subtract 1
+
+         i := selector
+         sprite xx yy 5             # display new selector
+      end
+
+      if keypress == Key_Down  begin
+         sprite xx yy 5             # erase selector
+
+         current_row += 1           # move a row down
+         if current_row == 4  then
+            current_row := 0        # wrap-around to top first row
+
+         i := guesses                 # get the new peg row data
+         i += col_offset
+         i += current_row
+         load v0
+         peg_n := v0                # the peg currently at this row
+         peg_idx <<= v0             # calculate the index into the peg sprites
+         if peg_idx != 0  then
+            peg_idx += v0           # times 3
+
+         peg_y += 4                 # get location of next peg row
+         if peg_y == 32  then
+            peg_y := 16             # wrap-around to first row
+
+         yy := peg_y                # get new location of selector
+         yy += 255                  # subtract 1
+
+         i := selector
+         sprite xx yy 5             # display new selector
+      end
+
+      while keypress != Key_4       # exit return if '4' pressed (Help/Rules)
+      while keypress != Key_R       # exit return if 'R' pressed (random symbols)
+
+      if keypress != Key_V  then    # if submit requested, exit return
+   again
+
+return # choose_pegs
+
+
+: get_keypress
+
+      # set selector i, xx and yy before entry
+
+   keypress := 255
+   v1 := 0
+   v2 := 1                    # selector is 'on'
+   ve := 6                    # blink rate ('externalized' here to set its value once)
+
+   loop
+      if v1 == ve  then
+         sprite xx yy 5       # blink selector
+      if v1 == ve  then
+         v2 += 1              # toggle blinker on/off
+      if v1 == ve  then
+         v1 := 0
+      v1 += 1
+
+      v0 := 6
+      pause
+
+      v0 := Key_W             # up
+      if v0 key then
+         keypress := v0
+
+      v0 := Key_S             # down
+      if v0 key then
+         keypress := v0
+
+      v0 := Key_A             # left
+      if v0 key then
+         keypress := v0
+
+      v0 := Key_D             # right
+      if v0 key then
+         keypress := v0
+
+      v0 := Key_R             # randomize (1st column only)
+      if v0 key then
+         keypress := v0
+
+      v0 := Key_V             # V = submit guess
+      if v0 key then
+         keypress := v0
+
+      v0 := Key_4             # 4 = Help/Rules (at any time)
+      if v0 key then
+         keypress := v0
+
+      if keypress == 255  then
+   again
+
+   v1 := 1
+   v2 &= v1
+   if v2 == 0  then
+      sprite xx yy 5       # redisplay selector (always showing on exit)
+
+return # get_keypress
+
+
+: check_4_win
+
+      # compare player guess code to answer code
+      # also calculates and sets 'black' and 'white' clue counts in black_clues and white_clues tables
+      # a 4-count of black means the game is won
+
+   current_row := 0
+
+   col_offset <<= play_column # * 2
+   col_offset <<= col_offset  # now * 4 = calculation into the guesses table
+
+   current_row := 0
+   black_count := 0
+   white_count := 0
+
+   loop                       # check each guess code symbol against all the answer code symbols
+
+      i := guesses
+      i += col_offset
+      i += current_row
+      load v0
+      peg_n := v0             # get next peg to check
+
+      i := answer_code
+      row := 0
+
+      loop                    # check to make sure no pegs duplicated
+         load v0              # i auto-increments after load
+
+         if v0 == peg_n  begin
+            if row == current_row  then
+               black_count += 1           # correct symbol, correct row
+            if row != current_row  then
+               white_count += 1           # correct symbol, wrong row
+         end
+
+         row += 1
+
+         if row != 4  then
+      again
+
+      current_row += 1
+
+      if current_row != 4  then     # compare each to all
+   again
+
+   i := black_clues
+   i += play_column
+   v0 := black_count
+   save v0
+
+   i := white_clues
+   i += play_column
+   v0 := white_count
+   save v0
+
+return # check_guess_code
+
+
+: check_guess_code
+
+      # check for a valud guess code (all symbols must be unique)
+      # return value in dup_flag / ve (0 = okay, 1 = dup)
+
+   current_row := 0
+
+   col_offset <<= play_column # * 2
+   col_offset <<= col_offset  # now * 4 = calculation into the guesses table
+
+   current_row := 0
+   dup_flag := 0              # duplicate symbol in guess code flag (0 = okay, 1 = dup)
+
+   loop                       # check the guess codes against each other
+
+      i := guesses
+      i += col_offset
+      i += current_row
+      load v0
+      peg_n := v0             # get next peg to check
+
+      row := current_row
+      row += 1                # set row to current row + 1
+
+      loop                    # check to make sure no pegs duplicated
+         load v0              # i auto-increments after load
+
+         if v0 == peg_n  then
+            dup_flag := 1     # bad code
+
+         row += 1
+
+         if row != 4  then
+      again
+
+      current_row += 1
+
+      if current_row != 3  then     # compare 0 -- 2 to 1 -- 3 (0,1; 0,2; 0,3; 1,2; 1,3; 2,3)
+   again
+
+return # check_guess_code
+
+
+: pick_random_answer
+
+      # can't generalize because only 1 'i' is allowed
+
+   current_row := 0
+
+   loop                       # choose the answer code
+
+: new_peg_1
+
+      peg_n := random 0b00000111      # get a random # between 0 and 7
+      row := 0
+
+      loop                          # check to make sure no pegs duplicated
+         while row != current_row   # exit loop when all previously chosen pegs checked
+
+         i := answer_code
+         i += row
+         load v0
+         row += 1
+
+         if v0 == peg_n  then
+            jump new_peg_1
+      again
+
+      i := answer_code
+      i += current_row
+      v0 := peg_n
+      save v0
+
+      current_row += 1
+
+      if current_row != 4  then
+   again
+
+return # pick_random_answer
+
+
+: pick_random_guess
+
+      # can't generalize because only 1 'i' is allowed
+
+   current_row := 0
+
+   loop                       # choose the guess code
+
+: new_peg_2
+
+      peg_n := random 0b00000111      # get a random # between 0 and 7
+      row := 0
+
+      loop                          # check to make sure no pegs duplicated
+         while row != current_row   # exit loop when all previously chosen pegs checked
+
+         i := guesses
+         i += row
+         load v0
+         row += 1
+
+         if v0 == peg_n  then
+            jump new_peg_2
+      again
+
+      i := guesses
+      i += current_row
+      v0 := peg_n
+      save v0
+
+      current_row += 1
+
+      if current_row != 4  then
+   again
+
+return # pick_random_guess
+
+
+: show_pegs_debug
+
+i := save_var_temp8
+save v5
+
+row := 0
+v3 := 20
+v4 := 28
+
+   loop                       # show last guess symbols as defaults
+      i := guesses
+      i += col_offset
+      i += row
+      load v0
+      v2 <<= v0
+      if v2 != 0  then
+         v2 += v0        # times 3
+
+      i := peg_sprites
+      i += v2
+      sprite v3 v4 3
+
+      v3 += 4
+      row += 1
+
+      if row != 4  then
+   again
+
+i := save_var_temp8
+load v5
+
+return # show_pegs_debug
+
+
+: pegs_clues_help
+
+      # display / undisplay the pegs and black and white clues
+      # used at the beginning of the game
+
+   xx := 10
+   yy := 8
+   v2 := 0
+
+   loop
+      i := black_clue_sprites
+      i += v2
+      sprite xx yy 4
+      xx += 5
+      v2 += 4
+      if v2 != 20  then
+   again
+
+   xx := 11
+   yy := 13
+   v2 := 0
+
+   loop
+      i := white_clue_sprites
+      i += v2
+      sprite xx yy 2
+      xx += 5
+      v2 += 2
+      if v2 != 10  then
+   again
+
+   xx := 10
+   yy := 18
+   peg_idx := 0
+
+   loop
+      i := peg_sprites
+      i += peg_idx
+      sprite xx yy 3
+      xx += 5
+      peg_idx += 3
+      if peg_idx != 12  then
+   again
+
+   xx := 10
+   yy := 22
+
+   loop
+      i := peg_sprites
+      i += peg_idx
+      sprite xx yy 3
+      xx += 5
+      peg_idx += 3
+      if peg_idx != 24  then
+   again
+
+return # pegs_clues_help
+
+
+: display_character
+
+      # v0 = character to display (offset index into font table)
+      # v1 = char_x = x loxation to display character
+      # v2 = char_y = y location to display character
+      # destroys value of v0
+      # 64 pixel wide by 32 pixel high screen can display 5 Rows of 12 Characters
+      #  (13 if last is sentence punctuation;  assumes start in column 1, zero-based)
+
+   i := font
+   i += v0
+   i += v0
+   i += v0
+   i += v0
+   i += v0
+   sprite char_x char_y 5
+
+return # display_character
+
+
+: set_i
+
+      # set value of i based on v0 and return to caller (4 bytes / entry)
+
+    jump0 set_text            # set i to text to display based on v0 offset
+
+
+: display_text
+
+      # v0 = index into jump table 'set_text' to get location of text to display
+      # v1 = char_x = x location to start displaying text
+      # v2 = char_y = y location to start displaying text
+      # 64 pixel wide by 32 pixel high screen can display 5 Rows of 12 Characters
+      #  (13 if last is sentence punctuation;  assumes start in column 1, zero-based)
+      # NOTE: 13 is the only true and used control char that signifies End-of-Line / CR w/implied LF
+      # 0xFF signifies end of text (stop)
+
+   i := save_var_temp8
+   save v5                    # save variables used here
+
+   char_idx := 0
+   char_xx := char_x          # remember x for next line
+   char_xx += 251             # subtract 5 for increment below
+
+   v0 <<= v0                  # multiply by 4, the table entry size
+   v0 <<= v0
+   seti := v0                 # save for re-use
+
+   loop
+      v0 := seti              # get text to display index
+      set_i                   # set value of i in/from jump table
+
+      i += char_idx           # get the next character
+      load v0
+      while v0 != 0xFF        # FF signals end of text
+
+      if v0 == 0x0D  then
+         char_x := char_xx    # 13 = End-of-Line / CR (w/implied LF)
+      if v0 == 0x0D  then
+          char_y += 6         # next line
+
+      if v0 != 0x0D  then
+         display_character
+
+      char_idx += 1
+      char_x += 5
+   again
+
+   i := save_var_temp8
+   load v5                    # restore variables
+
+return # display_text
+
+
+: new_turn
+
+      # begin new turn for player
+
+
+return # new_turn
+
+
+: flash_screen
+
+      # flash the screen (inverse)
+
+   v0 := 0
+   v1 := 0
+   i := flasher8x15
+
+   loop
+      sprite v0 v1 15
+
+      v0 += 8
+
+      if v0 == 64  then
+         v1 += 15
+      if v0 == 64  then
+         v0 := 0
+
+      if v1 != 30  then
+   again
+
+   i := flasher8x2
+
+   loop
+      sprite v0 v1 2
+
+      v0 += 8
+
+      if v0 != 64  then
+   again
+
+return # flash_screen
+
+
+: draw_bitmap
+
+      # v0 = start_x = x start            - value preserved
+      # v1 = start_y = y start            - value preserved
+      # v2 = byte_width = width in bytes  - value preserved
+      # v3 = height = in lines            - value decremented to 0
+      # i must be preset to the location of the image data
+      # caller MUST save and restore values of registers if needed up to v7 (used here)
+      #     i := save_var_temp8
+      #     save v7    # save variables
+      #  and
+      #     i := save_var_temp8
+      #     load v7    # restore variables
+      # destroys value of i (points to end of bitmap data + 1)
+
+      :alias  start_x      v0
+      :alias  start_y      v1
+      :alias  byte_width   v2
+      :alias  height       v3
+      :alias  sprite_x     v4
+      :alias  sprite_y     v5
+      :alias  byte_cnt     v6
+      :alias  constant_1   v7
+
+   sprite_x := start_x        # v4
+   sprite_y := start_y        # v5
+   byte_cnt := 0              # v6 byte count width (0-based for comparison below)
+   constant_1 := 1            # v7 constant
+
+   loop
+      sprite sprite_x sprite_y 1    # display the next image data
+      i += constant_1         # next byte in bitmap
+      byte_cnt += 1           # increment byte count (width)
+      sprite_x += 8           # next byte location on screen
+
+      if byte_cnt == byte_width  then
+         sprite_y += 1              # next line (increment y)
+      if byte_cnt == byte_width  then
+         sprite_x := start_x        # back to starting x
+      if byte_cnt == byte_width  then
+         height -= constant_1       # decrement lines displayed
+      if byte_cnt == byte_width  then
+         byte_cnt := 0              # reset byte count width
+
+      if height != 0 then     # continue until all lines displayed
+   again
+
+return # draw_bitmap
+
+
+: pause
+
+      # v0 has time to pause
+
+   delay := v0
+
+   loop
+      v0 := delay
+      if v0 != 0  then
+   again
+
+return # pause
+
+
+: main                        # main program start
+
+   init
+
+   # new_turn
+
+   loop
+      ve := 0                    # not end of game
+      master_redraw
+
+      column_x <<= play_column   # * 2
+      column_x <<= column_x      # now * 4
+      if column_x != 0  then
+         column_x += play_column # multiplied by 5 (taking into account zero)
+      column_x += 1              # (1, 6, 11...)
+
+      yy := ARROW_Y
+      i := arrow
+      sprite column_x yy 6       # display column arrow
+
+      choose_pegs                # player chooses their code
+
+      black_count := 0
+
+      if keypress == Key_V  begin   # submit guess and give clues, then next column
+         check_guess_code
+
+         if dup_flag == 1  begin
+            clear
+
+            v0 := 17          # dup_symbols_text
+            char_x := 1
+            char_y := 1
+
+            display_text
+
+            v0 := 1           # next screen arrows text
+            char_x := 50
+            char_y := 26
+
+            display_text
+
+            v0 := key
+            keypress := 240   # just to make sure for below Key_R check
+
+         else
+            check_4_win
+
+            keypress := 240   # just to make sure for below Key_R check
+
+            if play_column != 10  begin
+               col_offset <<= play_column    # * 2
+               col_offset <<= col_offset     # now * 4 = calculation into the guesses table
+
+               i := guesses
+               i += col_offset
+               load v3           # get the current guesses
+               save v3           # store as starting for next play
+            end
+
+            play_column += 1
+         end
+      end
+
+      if keypress == Key_4  then
+         display_rules           # display Help/Rules
+
+      keypress += play_column    # check for column zero (destroys original value of keypress)
+
+      if keypress == Key_R  then    # pick random symbols for code IF first column, otherwise ignore
+            pick_random_guess    # pick random code and allow player to modify
+
+      while play_column != 11    # only 11 attempts, then lose
+
+      if black_count != 4  then     # check for win
+   again
+
+   play_column += 255         # fix by subtracting 1
+   ve := 1                    # end of game flag for master_redraw
+
+   master_redraw              # redraw all played guesses and clues
+
+   xx := 58
+   yy := 16
+   row := 0
+   i := peg_hood
+
+   loop                       # erase the answer peg hoods
+      sprite xx yy 3
+      yy += 4
+      row += 1
+      if row != 4  then
+   again
+
+   v1 := 60
+   v2 := 16
+   v3 := 0
+   v4 := 0
+
+   loop                       # display answer code
+      i := answer_code
+      i += v4
+      v4 += 1
+      load v0
+      v3 <<= v0
+      v3 += v0       # times 3
+
+      i := peg_sprites
+      i += v3
+      sprite v1 v2 3
+      v2 += 4
+      if v4 != 4  then
+   again
+
+   v1 := 58
+   v2 := 16
+   i := vertical_line
+   sprite v1 v2 15
+
+   if black_count == 4  then  # if win
+      i := happy_face
+
+   if black_count != 4  then  # if lose
+      i := sad_face
+
+   v0 := 57
+   v1 := 7
+   sprite v0 v1 8             # display happy or sad face
+
+   if black_count == 4  begin # if win
+      play_column += 1           # zero-based to one-based
+
+      v1 := 0
+      if play_column > 9  then
+         v1 := 1
+      if play_column > 9  then
+         play_column += 246      # subtract 10
+
+      v0 := play_column
+      i := hex v0                # ones digit
+      v2 := 59
+      v3 := 1
+      sprite v2 v3 5
+
+      v0 := v1
+      i := hex v0                # ones digit
+      v2 := 54
+      v3 := 1
+      if v1 == 1  then
+         sprite v2 v3 5          # display '1' if > 9
+   end
+
+   v0 := 2
+   buzzer := v0                  # blink buzzer
+
+   v2 := 0                       # flash_screen uses v0 and v1
+
+   loop
+      flash_screen
+
+      v0 := 5
+      pause
+
+      v2 += 1
+
+      if v2 != 10  then
+   again
+
+v0 := key
+
+   jump main                  # start game anew

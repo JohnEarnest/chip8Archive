@@ -1,0 +1,1339 @@
+﻿#
+#  S p a c e   R a c e r
+#
+# by William Donnelly - http://www.Donnelly-House.net/
+# October 31, 2017
+#
+# This version shared at:  GIST ID TBD ()
+#
+# Language: Standard CHIP-8 (Octo)
+# Background color = #111111
+# Foreground color = #FCFCFC
+# Cycles/Frame = 20
+#
+# Space Racer was written for the 2017 OctoJam IV contest by the Napoleon Solo III 'Team'
+#
+# Status: Completed
+#
+# For this game to work well, it needs a machine language call subroutine to scroll the screen.
+# This is not (yet) implemented in Octo at this time.
+# It would be required for this program to work on COSMAC Elf and VIP machines.
+#
+# If other programmers use any of my subroutines and/or features, in part, in whole, or modified,
+# attribution would be nice. I suppose that is my 'license'.
+
+# permanent variables (must protect or not change except as used)
+
+:alias timer_line          v6
+:alias ship1x              v7
+:alias ship1y              v8
+:alias score1              v9
+:alias ship2x              va
+:alias ship2y              vb
+:alias score2              vc
+:alias starfield_offset    vd
+
+# non permanent variables (used in routines and/or globally)
+
+   # used in display_text routine and calls to it
+
+:alias  char_x       v1
+:alias  char_y       v2
+:alias  char_idx     v3
+:alias  char_xx      v4
+:alias  seti         v5
+
+# Global constants
+
+:const   SCORE1X     13
+:const   SCORE2X     44
+:const   SCOREY      28
+
+
+   # Chip8 Key   Keyboard
+   # ---------   --------
+   #  1 2 3 C    1 2 3 4
+   #  4 5 6 D    q w e r
+   #  7 8 9 E    a s d f
+   #  A 0 B F    z x c v
+
+:const  Key_1        0x1
+:const  Key_2        0x2
+:const  Key_3        0x3
+:const  Key_4        0xC
+:const  Key_Q        0x4
+:const  Key_W        0x5      # often "Up" (see below)
+:const  Key_E        0x6
+:const  Key_R        0xD
+:const  Key_A        0x7      # often "Left" (see below)
+:const  Key_S        0x8      # often "Down" (see below)
+:const  Key_D        0x9      # often "Right" (see below)
+:const  Key_F        0xE
+:const  Key_Z        0xA
+:const  Key_X        0x0
+:const  Key_C        0xB
+:const  Key_V        0xF
+
+:const  Key_Up       0x5      # Key_W
+:const  Key_Down     0x8      # Key_S
+:const  Key_Left     0x7      # Key_A
+:const  Key_Right    0x9      # Key_D
+
+
+# Sprite graphics
+
+: space_racer             # 0 0 8 32 = x, y, width, height
+
+   0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+   0x7D 0xF9 0xF7 0xDF 0x00 0x02 0x00 0x1C
+   0x7D 0x09 0x17 0xD0 0x0F 0x00 0x04 0x00
+   0x45 0x09 0x14 0xD0 0x00 0x00 0x0A 0x00
+   0x45 0x09 0x14 0xD0 0x00 0x00 0x11 0x00
+   0x41 0x09 0x14 0x10 0x01 0x20 0x20 0x86
+   0x7D 0xFB 0xF4 0x1F 0x00 0xC0 0x7F 0xC0
+   0x05 0x83 0x14 0x18 0x00 0xC0 0xA0 0xA0
+   0x65 0x83 0x14 0x58 0x01 0x20 0x2A 0x80
+   0x65 0x83 0x14 0x58 0x10 0x00 0x2A 0x80
+   0x7D 0x83 0x17 0xDF 0x00 0x00 0x2A 0x80
+   0x00 0x00 0x00 0x00 0x00 0x38 0x2E 0x84
+   0x01 0xF1 0xF7 0xDF 0x7C 0x00 0x20 0x80
+   0x21 0x11 0x17 0xD0 0x44 0x00 0x26 0x80
+   0x71 0x11 0x14 0xD0 0x44 0x00 0x28 0x80
+   0x21 0x11 0x14 0xD0 0x44 0x44 0x24 0x8C
+   0x01 0x11 0x14 0x10 0x44 0x0E 0x22 0x80
+   0x01 0xFB 0xF4 0x1F 0x7E 0x04 0x2C 0x80
+   0x01 0x9B 0x14 0x18 0x66 0x00 0x20 0x80
+   0x1D 0x9B 0x14 0x58 0x66 0x00 0x24 0x80
+   0x01 0x9B 0x14 0x58 0x66 0x30 0x2A 0x84
+   0x01 0x9B 0x17 0xDF 0x66 0x00 0x2E 0x8E
+   0x40 0x00 0x00 0x00 0x00 0x00 0x2A 0x84
+   0x00 0x00 0x00 0x00 0x00 0x08 0x6A 0xC0
+   0x04 0x90 0xE0 0x10 0x12 0x00 0xE0 0xE0
+   0x02 0xA0 0x00 0x03 0x0C 0x00 0xFF 0xE0
+   0x01 0x40 0x00 0x00 0x0C 0x61 0x8E 0x30
+   0x06 0xB0 0x18 0x00 0x12 0x01 0x04 0x10
+   0x01 0x40 0x00 0x20 0x00 0x02 0x00 0x08
+   0x22 0xA0 0x80 0x70 0x00 0x00 0x00 0x40
+   0x04 0x90 0x00 0x21 0xC0 0x78 0x30 0x00
+   0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+
+: starfield_top
+
+ #1
+   0b00000000
+   0b00000000
+   0b00011000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+
+   0b00000000
+   0b00000000
+   0b00110000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+
+ #2
+   0b00000000
+   0b00110000
+   0b00000000
+   0b00000011
+   0b00011000
+   0b00000000
+   0b00000000
+
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00011000
+   0b00000000
+
+ #3
+   0b00000000
+   0b00000000
+   0b00110000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+
+   0b00000000
+   0b00000011
+   0b00110000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+
+ #4
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+
+   0b01100000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+
+ #5
+   0b00000001
+   0b00000000
+   0b00000000
+   0b01100000
+   0b00000000
+   0b00000000
+   0b00000000
+
+   0b00000000
+   0b00000000
+   0b00000000
+   0b01100000
+   0b00000000
+   0b00000000
+   0b00011000
+
+ #6
+   0b10000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00001100
+   0b01100000
+   0b00000000
+
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+
+ #7
+   0b00000011
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+
+ #8
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00011000
+   0b00000011
+   0b00000000
+   0b00000000
+
+: starfield_bottom
+
+ #1
+   0b00000001
+   0b00001100
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+
+   0b00000000
+   0b11000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+
+ #2
+   0b10000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+
+   0b00000000
+   0b00000011
+   0b00000000
+   0b00000001
+   0b00000000
+   0b00000000
+   0b00000000
+
+ #3
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+
+   0b00000000
+   0b00000000
+   0b00110000
+   0b10000000
+   0b00000000
+   0b00000110
+   0b00000000
+
+ #4
+   0b00000000
+   0b00011000
+   0b00000000
+   0b11000000
+   0b00000000
+   0b01100000
+   0b00000000
+
+   0b00000000
+   0b00000000
+   0b00000110
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+
+ #5
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+
+ #6
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b11000000
+
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000001
+   0b00001100
+   0b00000000
+
+ #7
+   0b00000011
+   0b00011000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000001
+
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b10000000
+   0b00000000
+   0b00000000
+
+ #8
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b10000000
+
+   0b00110000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+   0b00000000
+
+: ship
+
+   0b01000000
+   0b10100000
+   0b10100000
+
+: center_line
+
+   0b00110000
+   0b00110000
+   0b00110000
+   0b11111100
+
+
+# 3x4 Numeric Digits
+
+: digit0
+
+   0b01000000
+   0b10100000
+   0b10100000
+   0b01000000
+
+: digit1
+
+   0b01000000
+   0b01000000
+   0b01000000
+   0b01000000
+
+: digit2
+
+   0b11100000
+   0b00100000
+   0b11000000
+   0b11100000
+
+: digit3
+
+   0b11100000
+   0b00100000
+   0b01100000
+   0b11100000
+
+: digit4
+
+   0b10100000
+   0b10100000
+   0b11100000
+   0b00100000
+
+: digit5
+
+   0b11100000
+   0b10000000
+   0b01100000
+   0b11100000
+
+: digit6
+
+   0b10000000
+   0b11100000
+   0b10100000
+   0b11100000
+
+: digit7
+
+   0b11100000
+   0b00100000
+   0b00100000
+   0b00100000
+
+: digit8
+
+   0b11100000
+   0b10100000
+   0b11100000
+   0b11100000
+
+: digit9
+
+   0b11100000
+   0b10100000
+   0b11100000
+   0b00100000
+
+: one_pixel
+
+   0b10000000
+
+: bcd_digits_3
+
+   0x00 0x00 0x00
+
+: save_var_temp8
+
+   0x00 0x00 0x00 0x00
+
+: save_var_temp4        # second half of save_var_temp8
+
+   0x00 0x00 0x00 0x00
+
+: flasher8x15
+
+   0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF
+
+: flasher8x2
+
+   0xFF 0xFF
+
+
+      # Demian's Bitmap Font 4x5 Round (with a few slight modifications)
+      # Demian's Bitmap Fonts by Demian Wright is licensed under
+      #  a Creative Commons Attribution 3.0 Unported License.
+      # http://creativecommons.org/licenses/by/3.0/
+      #
+      # ASCII Character Set Table
+      #     (NOTE: 13 is the only true and used control char that signifies End-of-Line / CR w/implied LF)
+      #  # # # # # # # # # # # # # ! # #     User-Definable (displayed / unused "control characters")
+      #  # # # # # # # # # # # # # # # #     User-Definable (0 -- 31 decimal, except 13 / 0x0D CR)
+      #    ! " # $ % & ' ( ) * + , - . /     Starts with SPACE = 32  (0x20)
+      #  0 1 2 3 4 5 6 7 8 9 : ; < > = ?     Starts with 0 = 48, 9 = 57  (0x30, 0x39)
+      #  @ A B C D E F G H I J K L M N O     Starts with @ = 64, A = 65  (0x40, 0x41)
+      #  P Q R S T U V W X Y Z [ \ ] ^ _     Starts with P = 80, Z = 90  (0x50, 0x5A)
+      #
+      #     (could extend for lowercase and related area characters, too)
+      #
+      #  ` a b c d e f g h i j k l m n o
+      #  p q r s t u v w x y z { | } ~ DEL
+      #
+      # 64 pixel wide by 32 pixel high screen can display 5 Rows of 12 Characters
+      #  (13 if last is sentence punctuation;  assumes start in column 1, zero-based)
+
+: font      # full ASCII font set of 64 characters + 31 User-Definable / Unused "Control Characters"
+
+   0xFF 0xFF 0xFF 0xFF 0xFF  0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00
+   0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00
+   0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00
+   0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00
+
+   0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00
+   0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00
+   0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00
+   0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0x00
+
+   0x00 0x00 0x00 0x00 0x00  0x40 0x40 0x40 0x00 0x40  0xA0 0xA0 0x00 0x00 0x00  0x50 0xF0 0x50 0xF0 0x50
+   0x50 0xE0 0x90 0x70 0xA0  0x20 0xA0 0x40 0xA0 0x80  0x60 0xB0 0xD0 0xB0 0x70  0x40 0x40 0x00 0x00 0x00
+   0x20 0x40 0x40 0x40 0x20  0x80 0x40 0x40 0x40 0x80  0xA0 0x40 0xA0 0x00 0x00  0x00 0x40 0xE0 0x40 0x00
+   0x00 0x00 0x00 0x40 0x80  0x00 0x00 0xE0 0x00 0x00  0x00 0x00 0x00 0x00 0x40  0x20 0x20 0x40 0x80 0x80
+
+   0x60 0xB0 0x90 0xD0 0x60  0x20 0x60 0x20 0x20 0x20  0xE0 0x10 0x60 0x80 0xF0  0xE0 0x10 0x60 0x10 0xE0
+   0x90 0x90 0xF0 0x10 0x10  0xF0 0x80 0xE0 0x10 0xE0  0x60 0x80 0xE0 0x90 0x60  0xF0 0x10 0x10 0x10 0x10
+   0x60 0x90 0x60 0x90 0x60  0x60 0x90 0x70 0x10 0x60  0x00 0x40 0x00 0x40 0x00  0x00 0x40 0x00 0x40 0x40
+   0x10 0x20 0x40 0x20 0x10  0x80 0x40 0x20 0x40 0x80  0x00 0xF0 0x00 0xF0 0x00  0xE0 0x10 0x60 0x00 0x40
+
+   0x60 0x90 0xB0 0x80 0x70  0x60 0x90 0xF0 0x90 0x90  0xE0 0x90 0xE0 0x90 0xE0  0x70 0x80 0x80 0x80 0x70
+   0xE0 0x90 0x90 0x90 0xE0  0x70 0x80 0xE0 0x80 0x70  0xF0 0x80 0xF0 0x80 0x80  0x70 0x80 0xB0 0x90 0x60
+   0x90 0x90 0xF0 0x90 0x90  0xE0 0x40 0x40 0x40 0xE0  0x10 0x10 0x10 0x90 0x60  0x90 0xA0 0xC0 0xA0 0x90
+   0x80 0x80 0x80 0x80 0xF0  0x90 0xF0 0x90 0x90 0x90  0x90 0xD0 0xB0 0x90 0x90  0x60 0x90 0x90 0x90 0x60
+
+   0xE0 0x90 0xE0 0x80 0x80  0x60 0x90 0xB0 0x60 0x20  0xE0 0x90 0xF0 0xA0 0x90  0x70 0x80 0x60 0x10 0xe0
+   0xE0 0x40 0x40 0x40 0x40  0x90 0x90 0x90 0x90 0x60  0xA0 0xA0 0xA0 0xA0 0x40  0x90 0x90 0x90 0xF0 0x90
+   0x90 0x90 0x60 0x90 0x90  0xA0 0xA0 0x40 0x40 0x40  0xF0 0x20 0x40 0x80 0xF0  0x60 0x40 0x40 0x40 0x60
+   0x40 0x40 0x20 0x10 0x10  0xC0 0x40 0x40 0x40 0xC0  0x40 0xA0 0x00 0x00 0x00  0x00 0x00 0x00 0x00 0xF0
+
+
+# text tables -- use http://www.asciitohex.com/ to convert ASCII text to Hex
+
+: advance_text                # 0: >>>
+
+   0x3D 0x3D 0x3d 0xFF
+
+: press_a_key_text            # 1: PRESS ANY |  KEY TO | ADVANCE TO | NEXT SCREEN
+
+   0x50 0x52 0x45 0x53 0x53 0x20 0x41 0x4E 0x59 0x0D
+   0x20 0x4B 0x45 0x59 0x20 0x54 0x4F 0x0D
+   0x41 0x44 0x56 0x41 0x4E 0x43 0x45 0x20 0x54 0x4F 0x0D
+   0x4E 0x45 0x58 0x54 0x20 0x53 0x43 0x52 0x45 0x45 0x4E 0xFF
+
+: press_q_to_quit             # 2: OR PRESS 'Q' |   TO SKIP | INSTRUCTIONS.
+
+   0x4F 0x52 0x20 0x50 0x52 0x45 0x53 0x53 0x20 0x27 0x51 0x27 0x0D
+   0x20 0x20 0x54 0x4F 0x20 0x53 0x4B 0x49 0x50 0x0D
+   0x49 0x4E 0x53 0x54 0x52 0x55 0x43 0x54 0x49 0x4F 0x4E 0x53 0x2E 0xFF
+
+: credits_text                # 3: DESIGNED AND | PROGRAMMED | BY  WILLIAM |     DONNELLY
+
+   0x44 0x45 0x53 0x49 0x47 0x4E 0x45 0x44 0x20 0x41 0x4E 0x44 0x0D
+   0x50 0x52 0x4F 0x47 0x52 0x41 0x4D 0x4D 0x45 0x44 0x0D
+   0x42 0x59 0x20 0x20 0x57 0x49 0x4C 0x4C 0x49 0x41 0x4D 0x0D
+   0x20 0x20 0x20 0x20 0x44 0x4F 0x4E 0x4E 0x45 0x4C 0x4C 0x59 0xFF
+
+: object_text                 # 4:   OBJECT OF |  GAME IS TO | MOVE SHIP UP | THROUGH THE
+
+   0x20 0x20 0x4F 0x42 0x4A 0x45 0x43 0x54 0x20 0x4F 0x46 0x0D
+   0x20 0x47 0x41 0x4D 0x45 0x20 0x49 0x53 0x20 0x54 0x4F 0x0D
+   0x4D 0x4F 0x56 0x45 0x20 0x53 0x48 0x49 0x50 0x20 0x55 0x50 0x0D
+   0x54 0x48 0x52 0x4F 0x55 0x47 0x48 0x20 0x54 0x48 0x45 0xFF
+
+: starfield_text              # 5:  STARFIELD |   WITHOUT |  COLLIDING |   WITH THE
+
+   0x20 0x53 0x54 0x41 0x52 0x46 0x49 0x45 0x4C 0x44 0x0D
+   0x20 0x20 0x57 0x49 0x54 0x48 0x4F 0x55 0x54 0x0D
+   0x20 0x43 0x4F 0x4C 0x4C 0x49 0x44 0x49 0x4E 0x47 0x0D
+   0x20 0x20 0x57 0x49 0x54 0x48 0x20 0x54 0x48 0x45 0xFF
+
+: points_text                 # 6:    STARS. |  ONE POINT | PER TRANSIT |   SUCCESS.
+
+   0x20 0x20 0x20 0x53 0x54 0x41 0x52 0x53 0x2E 0x0D
+   0x20 0x4F 0x4E 0x45 0x20 0x50 0x4F 0x49 0x4E 0x54 0x0D
+   0x50 0x45 0x52 0x20 0x54 0x52 0x41 0x4E 0x53 0x49 0x54 0x0D
+   0x20 0x20 0x53 0x55 0x43 0x43 0x45 0x53 0x53 0x2E 0xFF
+
+: play_text                   # 7:  PLAY UNTIL |  THE BOTTOM | LEFT & RIGHT | TIMER LINES
+
+   0x20 0x50 0x4C 0x41 0x59 0x20 0x55 0x4E 0x54 0x49 0x4C 0x0D
+   0x20 0x54 0x48 0x45 0x20 0x42 0x4F 0x54 0x54 0x4F 0x4D 0x0D
+   0x4C 0x45 0x46 0x54 0x20 0x26 0x20 0x52 0x49 0x47 0x48 0x54 0x0D
+   0x54 0x49 0x4D 0x45 0x52 0x20 0x4C 0x49 0x4E 0x45 0x53 0xFF
+
+: disappear_text              # 8:  DISAPPEAR. |  HIGH SCORE |    WINS.
+
+   0x20 0x44 0x49 0x53 0x41 0x50 0x50 0x45 0x41 0x52 0x2E 0x0D
+   0x20 0x48 0x49 0x47 0x48 0x20 0x53 0x43 0x4F 0x52 0x45 0x0D
+   0x20 0x20 0x20 0x57 0x49 0x4E 0x53 0x2E 0xFF
+
+: keys_text                   # 9: PLAYER UP DN | ------ -- -- | 1 LEFT  Q  A | 2 RIGHT R  F |  READY...
+
+   0x50 0x4C 0x41 0x59 0x45 0x52 0x20 0x55 0x50 0x20 0x44 0x4E 0x0D
+   0x2D 0x2D 0x2D 0x2D 0x2D 0x2D 0x20 0x2D 0x2D 0x20 0x2D 0x2D 0x0D
+   0x31 0x20 0x4C 0x45 0x46 0x54 0x20 0x20 0x51 0x20 0x20 0x41 0x0D
+   0x32 0x20 0x52 0x49 0x47 0x48 0x54 0x20 0x52 0x20 0x20 0x46 0x0D
+   0X20 0X52 0X45 0X41 0X44 0X59 0X2E 0X2E 0X2E 0xFF
+
+: winner_text                 # 10: WINNER!
+
+   0x57 0x49 0x4E 0x4E 0x45 0x52 0x21 0xFF
+
+: tie_text                    # 11: TIE!
+
+   0x54 0x49 0x45 0x21 0xFF
+
+
+: set_text                    # jump table used to set i value for texts
+
+   i := advance_text ;        # 0   set i and return
+
+   i := press_a_key_text ;    # 1
+   i := press_q_to_quit ;     # 2
+   i := credits_text ;        # 3
+   i := object_text ;         # 4
+   i := starfield_text ;      # 5
+   i := points_text ;         # 6
+   i := play_text ;           # 7
+   i := disappear_text ;      # 8
+   i := keys_text ;           # 9
+
+   i := winner_text ;         # 10 -- not part of the rules
+   i := tie_text ;            # 11 -- not part of the rules
+
+:const  TEXT_TABLES  10       # set this value to the COUNT of the number of text tables above + 1
+                              #  that you want to display for "rules"
+
+
+: draw_bitmap
+
+      # v0 = start_x = x start            - value preserved
+      # v1 = start_y = y start            - value preserved
+      # v2 = byte_width = width in bytes  - value preserved
+      # v3 = height = in lines            - value decremented to 0
+      # i must be preset to the location of the image data
+      # caller MUST save and restore values of registers if needed up to v7 (used here)
+      #     i := save_var_temp8
+      #     save v7    # save variables
+      #  and
+      #     i := save_var_temp8
+      #     load v7    # restore variables
+      # destroys value of i (points to end of bitmap data + 1)
+
+      :alias  start_x      v0
+      :alias  start_y      v1
+      :alias  byte_width   v2
+      :alias  height       v3
+      :alias  sprite_x     v4
+      :alias  sprite_y     v5
+      :alias  byte_cnt     v6
+      :alias  constant_1   v7
+
+   sprite_x := start_x        # v4
+   sprite_y := start_y        # v5
+   byte_cnt := 0              # v6 byte count width (0-based for comparison below)
+   constant_1 := 1            # v7 constant
+
+   loop
+      sprite sprite_x sprite_y 1    # display the next image data
+      i += constant_1         # next byte in bitmap
+      byte_cnt += 1           # increment byte count (width)
+      sprite_x += 8           # next byte location on screen
+
+      if byte_cnt == byte_width  then
+         sprite_y += 1              # next line (increment y)
+      if byte_cnt == byte_width  then
+         sprite_x := start_x        # back to starting x
+      if byte_cnt == byte_width  then
+         height -= constant_1       # decrement lines displayed
+      if byte_cnt == byte_width  then
+         byte_cnt := 0              # reset byte count width
+
+      if height != 0 then     # continue until all lines displayed
+   again
+
+return # draw_bitmap
+
+
+: flash_screen
+
+      # flash the screen (inverse)
+
+   v0 := 0
+   v1 := 0
+   i := flasher8x15
+
+   loop
+      sprite v0 v1 15
+
+      v0 += 8
+
+      if v0 == 64  then
+         v1 += 15
+      if v0 == 64  then
+         v0 := 0
+
+      if v1 != 30  then
+   again
+
+   i := flasher8x2
+
+   loop
+      sprite v0 v1 2
+
+      v0 += 8
+
+      if v0 != 64  then
+   again
+
+return # flash_screen
+
+
+: set_i
+
+      # set value of i based on v0 and return to caller (4 bytes / entry)
+
+    jump0 set_text            # set i to text to display based on v0 offset
+
+
+: display_character
+
+      # v0 = character to display (offset index into font table)
+      # v1 = char_x = x loxation to display character
+      # v2 = char_y = y location to display character
+      # destroys value of v0
+      # 64 pixel wide by 32 pixel high screen can display 5 Rows of 12 Characters
+      #  (13 if last is sentence punctuation;  assumes start in column 1, zero-based)
+
+   i := font
+   i += v0
+   i += v0
+   i += v0
+   i += v0
+   i += v0
+   sprite char_x char_y 5
+
+return # display_character
+
+
+: display_text
+
+      # v0 = index into jump table 'set_text' to get location of text to display
+      # v1 = char_x = x location to start displaying text
+      # v2 = char_y = y location to start displaying text
+      # 64 pixel wide by 32 pixel high screen can display 5 Rows of 12 Characters
+      #  (13 if last is sentence punctuation;  assumes start in column 1, zero-based)
+      # NOTE: 13 is the only true and used control char that signifies End-of-Line / CR w/implied LF
+      # 0xFF signifies end of text (stop)
+      # REQUIRES: set_i and display_character routines
+
+   i := save_var_temp8
+   save v5                    # save variables used here
+
+   char_idx := 0
+   char_xx := char_x          # remember x for next line
+   char_xx += 251             # subtract 5 for increment below
+
+   v0 <<= v0                  # multiply by 4, the table entry size
+   v0 <<= v0
+   seti := v0                 # save for re-use
+
+   loop
+      v0 := seti              # get text to display index
+      set_i                   # set value of i in/from jump table
+
+      i += char_idx           # get the next character
+      load v0
+      while v0 != 0xFF        # FF signals end of text
+
+      if v0 == 0x0D  then
+         char_x := char_xx    # 13 = End-of-Line / CR (w/implied LF)
+      if v0 == 0x0D  then
+          char_y += 6         # next line
+
+      if v0 != 0x0D  then
+         display_character
+
+      char_idx += 1
+      char_x += 5
+   again
+
+   i := save_var_temp8
+   load v5                    # restore variables
+
+return # display_text
+
+
+: display_num
+
+      # v0 = number                       - value NOT preserved
+      # v1                                - value NOT preserved
+      # v2                                - value NOT preserved
+      # v3 = start_x = x start            - value NOT preserved
+      # v4 = start_y = y start            - value preserved
+      # caller MUST save and restore values of registers if needed up to v3 (used here)
+      #     i := save_var_temp8
+      #     save v3    # save variables
+      #  and
+      #     i := save_var_temp8
+      #     load v3    # restore variables
+      # destroys value of i
+
+      :alias  number       v0
+      :alias  ones         v1
+      :alias  tens         v2
+      :alias  start_x      v3
+      :alias  start_y      v4
+
+   i := bcd_digits_3
+   bcd number
+
+   i := bcd_digits_3
+   load v2                    # load digits into v0-v2
+
+   i := digit0                # tens digit
+   ones <<= ones
+   ones <<= ones              # multiply by 4
+   i += ones
+   sprite start_x start_y 4
+
+   start_x += 4               # next digit location
+
+   i := digit0                # ones digit
+   tens <<= tens
+   tens <<= tens              # multiply by 4
+   i += tens
+   sprite start_x start_y 4
+
+return # display_num
+
+
+: display_rules
+
+   v3 := 1
+
+   loop                       # display rules
+      clear
+
+      v0 := v3
+      char_x := 1
+      char_y := 1
+
+      display_text
+
+      v0 := 0                 # next screen arrows text
+      char_x := 50
+      char_y := 26
+
+      display_text
+
+      v0 := key
+
+      if v3 < 2  then
+         v0 := 0              # show first couple of instruction screens
+
+      while v0 != Key_Q       # 'Q' = quit displaying instructions
+
+      v3 += 1
+
+      if v3 != TEXT_TABLES  then    # display all
+   again
+
+return # display_rules
+
+
+: pause
+
+      # v0 has time to pause
+
+   delay := v0
+
+   loop
+      v0 := delay
+      if v0 != 0  then
+   again
+
+return # pause
+
+
+: main
+
+# startup screen
+
+   clear                      # clear screen
+
+   i := space_racer
+   v0 := 0                    # x start
+   v1 := 0                    # y start
+   v2 := 8                    # width in bytes
+   v3 := 32                   # height in lines
+   draw_bitmap
+
+   v0 := key                  # wait for keypress
+
+
+# display rules
+
+   clear
+
+   display_rules
+
+
+# starfield
+
+   clear                      # clear screen
+
+   v0 := 0
+   v1 := 0
+   i := starfield_top
+   v3 := 14
+
+   loop
+
+      sprite v0 v1 14
+
+      v0 += 8
+      i += v3
+
+      if v0 != 64  then
+   again
+
+   v0 := 0
+   v1 := 14
+   i := starfield_bottom
+
+   loop
+
+      sprite v0 v1 14
+
+      v0 += 8
+      i += v3
+
+      if v0 != 64  then
+   again
+
+
+# ships
+
+   ship1x := 23
+   ship1y := 29
+   score1 := 0
+
+   ship2x := 38
+   ship2y := 29
+   score2 := 0
+
+   i := ship
+   sprite ship1x ship1y 3
+   sprite ship2x ship2y 3
+
+
+   i := center_line
+   v0 := 29
+   v1 := 28
+
+   sprite v0 v1 4
+
+
+# scores
+
+   v0 := score1
+   v3 := SCORE1X
+   v4 := SCOREY
+
+   display_num
+
+   v0 := score2
+   v3 := SCORE2X
+   v4 := SCOREY
+
+   display_num
+
+
+   timer_line := 0
+   i := one_pixel
+   v0 := 31
+   v1 := 63
+
+   loop
+
+      sprite timer_line v0 1
+      sprite v1 v0 1
+
+      timer_line += 1
+      v1 += 255
+
+      if timer_line != 10  then
+   again
+
+   timer_line := 0
+
+
+   starfield_offset := 0
+
+   loop              # main play loop
+
+      i := ship
+      sprite ship1x ship1y 3       # erase ship 1
+      sprite ship2x ship2y 3       # erase ship 2
+
+
+      # shift top section one pixel left
+
+      v0 := starfield_offset     # X location
+      v1 := 0                    # Y location top row
+      i := starfield_top
+      v3 := 14
+      v4 := 7
+
+      sprite v0 v1 14      # erase first section
+
+      loop
+
+         v0 += 8
+         i += v3
+
+         sprite v0 v1 14      # erase section
+
+         v0 += 255            # subtract ONE
+
+         sprite v0 v1 14      # redisplay section one to the right
+
+         v0 += 1              # correct value
+         v4 += 255            # decrement counter
+
+         if v4 != 0  then     # do all seven
+      again
+
+      i := starfield_top
+      v0 := starfield_offset
+      v0 += 255               # subtract ONE
+
+      if v0 == 255  then
+         v0 := 63             # wrap-around
+
+      sprite v0 v1 14      # redisplay first section one to the left
+
+
+      # shift bottom section one pixel left
+
+      v0 := starfield_offset     # X location
+      v1 := 14                   # Y location top row
+      i := starfield_bottom
+      v3 := 14
+      v4 := 7
+
+      sprite v0 v1 14      # erase first section
+
+      loop
+
+         v0 += 8
+         i += v3
+
+         sprite v0 v1 14      # erase section
+
+         v0 += 255            # subtract ONE
+
+         sprite v0 v1 14      # redisplay section one to the right
+
+         v0 += 1              # correct value
+         v4 += 255            # decrement counter
+
+         if v4 != 0  then     # do all seven
+      again
+
+      i := starfield_bottom
+      v0 := starfield_offset
+      v0 += 255               # subtract ONE
+
+      if v0 == 255  then
+         v0 := 63             # wrap-around
+
+      sprite v0 v1 14      # redisplay first section one to the left
+
+
+      starfield_offset := v0  # set new value for next iteration
+
+
+      i := ship
+
+      sprite ship1x ship1y 3     # display ship 1
+
+      if vf == 1 begin           # check for collision
+         v0 := 3
+         buzzer := v0
+         sprite ship1x ship1y 3  # erase ship 1 collision
+         ship1x := 23
+         ship1y := 29
+         sprite ship1x ship1y 3  # display ship 1 at start
+      end
+
+      sprite ship2x ship2y 3     # display ship 2
+
+      if vf == 1 begin           # check for collision
+         v0 := 3
+         buzzer := v0
+         sprite ship2x ship2y 3  # erase ship 2 collision
+         ship2x := 38
+         ship2y := 29
+         sprite ship2x ship2y 3  # display ship 2 at start
+      end
+
+
+      v1 := 0
+
+      v0 := Key_Q
+      if v0 key then v1 := 255   # keyboard 4/Q = Ship 1 Up
+      v0 := Key_A
+      if v0 key then v1 := 1     # keyboard 7/A = Ship 1 Down
+
+      if v1 != 0 begin
+         ship1y += v1
+
+         if ship1y == 30 begin
+            ship1y := 29
+
+         else
+            ship1y -= v1
+            i := ship
+            sprite ship1x ship1y 3
+            ship1y += v1
+            sprite ship1x ship1y 3
+
+            if vf == 1 begin
+               v0 := 3
+               buzzer := v0
+               sprite ship1x ship1y 3    # erase ship 1 collision
+               ship1x := 23
+               ship1y := 29
+               sprite ship1x ship1y 3    # display ship 1 at start
+            end
+
+            if ship1y == 253 begin
+               ship1y := 29
+
+               v0 := score1
+               v3 := SCORE1X
+               v4 := SCOREY
+
+               display_num
+
+               score1 += 1
+
+               v0 := score1
+               v3 := SCORE1X
+               v4 := SCOREY
+
+               display_num
+            end
+         end
+      end
+
+      v1 := 0
+
+      v0 := Key_R
+      if v0 key then v1 := 255   # keyboard D/R = Ship 2 Up
+      v0 := Key_F
+      if v0 key then v1 := 1     # keyboard E/F = Ship 2 Down
+
+      if v1 != 0 begin
+         ship2y += v1
+
+         if ship2y == 30 begin
+            ship2y := 29
+
+         else
+            ship2y -= v1
+            i := ship
+            sprite ship2x ship2y 3
+            ship2y += v1
+            sprite ship2x ship2y 3
+
+            if vf == 1 begin
+               v0 := 3
+               buzzer := v0
+               sprite ship2x ship2y 3    # erase ship 2 collision
+               ship2x := 38
+               ship2y := 29
+               sprite ship2x ship2y 3    # display ship 2 at start
+            end
+
+            if ship2y == 253 begin
+               ship2y := 29
+
+               v0 := score2
+               v3 := SCORE2X
+               v4 := SCOREY
+
+               display_num
+
+               score2 += 1
+
+               v0 := score2
+               v3 := SCORE2X
+               v4 := SCOREY
+
+               display_num
+            end
+         end
+      end
+
+
+      if starfield_offset == 0 begin   # use one scroll as a timer counter
+         v0 := 1
+         v0 &= timer_line     # every odd count = divide by 2 (or multiply * 2)
+
+         if v0 == 0  begin
+            i := one_pixel
+            v0 := 31
+            v1 >>= timer_line    # integer divide by 2
+
+            sprite v1 v0 1
+            v2 := 63
+            v2 -= v1
+            sprite v2 v0 1
+         end
+
+         timer_line += 1
+      end
+
+
+      if timer_line != 19  then  # 19 because we want a longer time (~20 * 64 screen scrolls)
+   again    # main play loop
+
+
+# end of game
+
+   clear
+
+# ships
+
+   ship1x := 23
+   ship1y := 29
+
+   ship2x := 38
+   ship2y := 29
+
+   i := ship
+   sprite ship1x ship1y 3
+   sprite ship2x ship2y 3
+
+
+   i := center_line
+   v0 := 29
+   v1 := 28
+
+   sprite v0 v1 4
+
+
+# scores
+
+   v0 := score1
+   v3 := SCORE1X
+   v4 := SCOREY
+
+   display_num
+
+   v0 := score2
+   v3 := SCORE2X
+   v4 := SCOREY
+
+   display_num
+
+
+   char_y := 21
+
+   if score1 == score2 begin
+      v0 := 11
+      char_x := 23      # centered
+
+      display_text      # TIE!
+
+   else
+      char_x := 1       # left
+
+      if score2 > score1  then
+         char_x := 31   # right
+
+      v0 := 10
+
+      display_text      # WINNER!
+   end
+
+
+# flash and quit
+
+   v0 := 5
+   buzzer := v0                  # blink buzzer
+
+   v2 := 0                       # flash_screen uses v0 and v1
+
+   loop
+      flash_screen
+
+      v0 := 5
+      pause
+
+      v2 += 1
+
+      if v2 != 10  then
+   again
+
+   v0 := 5
+   buzzer := v0                  # blink buzzer
+
+   v0 := key
+
+   jump main                  # start game anew
