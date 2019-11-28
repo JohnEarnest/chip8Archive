@@ -5,10 +5,10 @@
 a <a href="https://creativecommons.org/share-your-work/public-domain/cc0/">Creative Commons Zero</a>
 "No Rights Reserved" license. If you've written anything that you would like to contribute,
 submit a pull request to our <a href="https://github.com/JohnEarnest/chip8Archive">GitHub Page</a>!</p>
-<div id="categories"></div>
 <div id="sorts"><a href="?sort=event">Sort By Category</a>
 <a href="?sort=platform">Sort By Platform</a><a href="?sort=author">Sort By Author</a>
 <a href="?sort=date">Sort by Date</a><a href="?sort=alpha">Sort A-Z</a></div>
+<div id="categories"></div>
 </body>
 
 <style>
@@ -23,7 +23,7 @@ body{font-family:Helvetica;margin-left:10%;margin-right:10%;margin-top:5%;}
 .screen img{width:100%;margin-top:5px;margin-bottom:5px;}
 .category,.entry,.screen img{border:1px solid black;}
 .desc{font-size:14px;overflow:hidden;}
-#sorts{display:flex;justify-content:space-between;margin-bottom:30px;}
+#sorts{display:flex;justify-content:space-between;margin:30px;}
 </style>
 
 <script>
@@ -41,7 +41,7 @@ ajax('programs.json','json',p=>{
 		return x[e]=(x[e]||[]).concat([p[y]]),p[y].slug=y,x
 	}, {})
 	const flat = _=> Object.keys(c).sort().map(x => c[x]).reduce((x,y)=>x.concat(y))
-	if (sort == 'date' ) c={'Sorted By Date'       :flat()}
+	if (sort == 'date' ) c={'Sorted By Release Date':flat()}
 	if (sort == 'alpha') c={'Sorted Alphabetically':flat()}
 	const k = sort=='event'?Object.keys(c):Object.keys(c).sort()
 	document.querySelector('#categories').innerHTML = k.map(x=>
