@@ -7,7 +7,8 @@ a <a href="https://creativecommons.org/share-your-work/public-domain/cc0/">Creat
 submit a pull request to our <a href="https://github.com/JohnEarnest/chip8Archive">GitHub Page</a>!</p>
 <div id="categories"></div>
 <div id="sorts"><a href="?sort=event">Sort By Category</a>
-<a href="?sort=platform">Sort By Platform</a><a href="?sort=author">Sort By Author</a></div>
+<a href="?sort=platform">Sort By Platform</a><a href="?sort=author">Sort By Author</a>
+<a href="?sort=date">Sort by Date</a><a href="?sort=alpha">Sort A-Z</a></div>
 </body>
 
 <style>
@@ -32,11 +33,16 @@ ajax=(u,t,f)=>{let r=send(u,t);r.onreadystatechange=_=>r.readyState==4&&f(r.resp
 
 sort=new URLSearchParams(document.location.search).get('sort')||'event'
 ajax('programs.json','json',p=>{
-	const c = Object.keys(p).reduce((x,y)=>{
+	let c = Object.keys(p).reduce((x,y)=>{
 		const e=sort=='event'?p[y].event||'Uncategorized':
-		        sort=='platform'?p[y].platform||'Unknown':p[y].authors[0]
+		        sort=='platform'?p[y].platform||'Unknown':
+		        sort=='date'?p[y].release||'1977-01-01':
+		        sort=='alpha'?p[y].title:  p[y].authors[0]
 		return x[e]=(x[e]||[]).concat([p[y]]),p[y].slug=y,x
 	}, {})
+	const flat = _=> Object.keys(c).sort().map(x => c[x]).reduce((x,y)=>x.concat(y))
+	if (sort == 'date' ) c={'Sorted By Date'       :flat()}
+	if (sort == 'alpha') c={'Sorted Alphabetically':flat()}
 	const k = sort=='event'?Object.keys(c):Object.keys(c).sort()
 	document.querySelector('#categories').innerHTML = k.map(x=>
 		dc('category',dc('heading',x)+dc('entries',c[x].map(
