@@ -1,0 +1,668 @@
+﻿#######################################
+# Danm8ku                             
+# Bjorn Kempen 2015                   
+# https://github.com/buffis/danm8ku   
+#######################################
+
+#######################################
+# Constants
+#######################################
+
+:const VSTACK_SPACE 2900
+:const BULLET_AREA  3000
+:alias ticks        v9
+
+#######################################
+# Data
+#######################################
+
+# This relies on the first byte in title being 0x00 after this.
+# Dont reorder.
+: DATAE0    0xE0
+
+: title
+    0x00 0x80 0x79 0x00 0x60 0x0C 0x0C 0x3E
+    0x0C 0x9B 0xFD 0x20 0x63 0x1C 0x0C 0x3E
+    0x0C 0xFB 0xCD 0x70 0xE7 0x1C 0x1E 0x23
+    0x0C 0xF3 0xFD 0xF8 0xCF 0x1E 0x1F 0x21
+    0x0C 0xC3 0xFD 0xD8 0xCD 0x1E 0x9B 0x21
+    0x1C 0xE3 0xCD 0xDD 0xDD 0x9E 0xBF 0x21
+    0x98 0xF3 0x8D 0xCD 0xD9 0x9F 0x3F 0x23
+    0xF8 0xF9 0x9D 0xCD 0xD9 0xDB 0x71 0x3F
+    0xF0 0x98 0xF9 0xCD 0xD9 0xD9 0x60 0x3C
+    0x00 0x00 0xF8 0x00 0x00 0x00 0x00 0x00
+
+: rightarea    0x1E 0x10 0x10 0x10 0x1E 0x10 0x10 0x10 
+: ouch_sprite1 0xEA 0xAA 0xAA 0xAA 0xEE 
+: ouch_sprite2 0xEA 0x8A 0x8E 0x8A 0xEA
+: yes1 0xAE 0xA8 0x4C 0x48 0x4E
+: yes2 0xE4 0x84 0xE4 0x20 0xE4
+
+# Clear data. This relies on the next 5 bytes being 0.
+# Don't reorder this.
+: clear_data 255 0 0 
+
+# Sprite movement data
+# ORDER OF THESE ARE IMPORTANT. DON'T REORDER.
+: bul_nop 0x00 0x00 0x00 0x00   # 0
+: bul_r 0x00 0xA0 0xA0 0x00     # 1
+: bul_l 0x00 0x50 0x50 0x00     # 2
+: bul   0x00 0x60 0x60 0x00     # 3 (not used for movement?)
+: bul_d 0x60 0x00 0x60 0x00     # 4
+: bul_dr 0xC0 0xA0 0x60 0x00    # 5
+: bul_dl 0x30 0x50 0x60 0x00    # 6
+: bullet_count 0                # 7 (unused so storing other stuff here)
+: player_position 5 15
+: UNUSED1 0
+: bul_u 0x00 0x60 0x00 0x60     # 8
+: bul_ur 0x00 0x60 0xA0 0xC0    # 9
+: bul_ul 0x00 0x60 0x50 0x30    # 10
+
+# Sprite clear data
+# ORDER OF THESE ARE IMPORTANT. DON'T REORDER.
+: clr_nop 0x00 0x60 0x60 0x00   # 0
+: clr_r 0x00 0xC0 0xC0 0x00     # 1
+: clr_l 0x00 0x30 0x30 0x00     # 2
+: player_sprite 0xC0 0x60 0xC0  # 3 (unused so storing other stuff here)
+: pattern_state 0x00
+: clr_d 0x60 0x60 0x00 0x00     # 4
+: clr_dr 0xC0 0xC0 0x00 0x00    # 5
+: clr_dl 0x30 0x30 0x00 0x00    # 6
+: rightareaok 0xA0 0x40 0xA0    # 7 (unused so storing other stuff here)
+: UNUSED2 0x00
+: clr_u 0x00 0x00 0x60 0x60     # 8
+: clr_ur 0x00 0x00 0xC0 0xC0    # 9
+: clr_ul 0x00 0x00 0x30 0x30    # 10
+
+#######################################
+# Title/Lose/Win-screen drawing
+#######################################
+
+: title_screen
+    clear
+    va := 56
+    vb := 11
+    i := title
+    loop
+        sprite va vb 1
+        load v0  # i += 1
+        va += -8
+        if va == -8 then vb +=  1
+        if va == -8 then va := 56
+        if vb != 21 then
+    again
+
+: posttitle
+    v4 := 5 if v4 key then ;
+    v4 := 7 if v4 key then ;
+    v4 := 8 if v4 key then ;
+    v4 := 9 if v4 key then ;
+
+    i := DATAE0
+    v0 := 0
+    v1 := random 31
+    v1 += -10
+    if v1 < 11 then jump posttitle
+    v1 += 10
+    v2 := 60
+    loop
+      if v0 == 32 then jump posttitle
+      sprite v0 v1 2
+      sprite v2 v1 2
+      if vf != 1 then jump posttitle
+      v0 += 4
+      v2 += -4
+    again
+
+: show_you_win_screen
+    clear
+    v3 := 0x1f
+    v5 := 0x3f
+    i := yes1
+    v0 := 26
+    v1 := 14
+    sprite v0 v1 5
+    v0 += 8
+    i := yes2
+    sprite v0 v1 5
+    i := 0
+    v0 := 3
+    v1 := 1
+    loop
+        v2 := 32
+        v6 := 32
+        v4 := 32
+        v2 += v0
+        v6 -= v0
+        v4 -= v1
+        v7 := v2
+        vb := v1
+        draw_win_data
+        v7 := v6
+        draw_win_data
+        vb := v4
+        draw_win_data
+        v7 := v2
+        draw_win_data
+        v0 += 1
+        v1 += 1
+        if v0 == 32 then v0 += 1
+        v0 &= v5
+    again
+
+: draw_win_data
+  vb &= v3
+  v7 &= v5
+  vc := 0
+  if v7 < 21 then vc += 1
+  if v7 > 41 then vc += 1
+  if vb < 10 then vc += 1
+  if vb > 19 then vc += 1
+  if vc > 0 then sprite v7 vb 4
+;   
+
+: show_you_lose_screen
+    clear
+    i := ouch_sprite1
+    v0 := 25
+    v1 := 13
+    sprite v0 v1 5
+    i := ouch_sprite2
+    v0 += 8
+    sprite v0 v1 5
+    v0 := key
+    v0 := key
+;   
+
+#######################################
+# Bullet Engine
+#######################################
+
+# Position (4 registers)
+:alias x    v4
+:alias x_f  v6
+:alias y    v5
+:alias y_f  v7
+
+# Velocity (2 registers)
+:alias vx   v0
+:alias vy   v1
+
+# Acceleration (1 register, only X)
+:alias ax   v2
+
+# Sprite offset (1 register)
+:alias so   v3
+
+: destroy_bullet
+    vx := 255
+    save_bullet
+    i := clr_nop 
+    so <<= so
+    so <<= so
+    i += so
+    sprite x y 4
+;
+
+: move_bullet
+    # Handles velocity for x
+    vc := vx
+    vx <<= vx      # multiply by two and check for neg bit             
+    va := vf       # is negative velocity?
+    x_f += vx      # add v to fractional x
+    vx := vc
+
+    # Hack to avoid calling subroutines to do:
+    # if vf != 0 -> (va==0 -> x+=1, va==1 -> x-=1)
+    # on fractional overflow
+    va &= vf
+    v8 := vf
+    v8 -= va
+    v8 -= va
+    x += v8
+
+    # Handles velocity for y
+    vc := vy
+    vy <<= vy      # multiply by two and check for neg bit       
+    va := vf       # is negative velocity?
+    y_f += vy      # add v to fractional x
+    vy := vc
+
+    # Hack to avoid calling subroutines to do:
+    # if vf != 0 -> (va==0 -> y+=1, va==1 -> y-=1)
+    # on fractional overflow
+    va &= vf
+    vd := vf
+    vd -= va
+    vd -= va
+    y += vd
+
+    # Handles acceleration for x
+    if vx < 250 begin
+        vx += ax
+        if vf != 0 then
+           vx -= ax
+    end
+
+    # Set so to values used to get movement sprites.
+    so := v8
+    if v8 > 1 then
+      so := 2
+    if vd > 1 then
+      vd := 2
+    vd <<= vd
+    vd <<= vd
+    so |= vd
+
+    # Do bounds checks
+    if x > 62 begin
+        destroy_bullet
+    else 
+        if y > 29 then destroy_bullet
+    end
+;
+
+: save_bullet
+    i := BULLET_AREA
+    i += vb
+    save v7
+;
+
+: draw_bullets
+    vb := 0 # offset
+    loop
+        i := BULLET_AREA
+        i += vb
+        load v7
+        
+        # Draw bullet if active
+        if vx != 255 begin
+            # This is pretty cool.
+            i := bul_nop
+            so <<= so
+            so <<= so
+            i += so
+            sprite x y 4
+        end 
+        
+        vb += 8 # sizeof bullet
+        if vb != 0 then
+    again
+;
+
+: act_bullets
+    vb := 0 # offset
+    loop
+        i := BULLET_AREA
+        i += vb
+        load v7
+
+        if vx != 255 then move_bullet
+        if vx != 255 then save_bullet
+        
+        vb += 8 # sizeof bullet
+        if vb != 0 then
+    again
+;
+
+: gogo_bullet
+    i := VSTACK_SPACE
+    save v7
+
+    i := bullet_count
+    load v0
+    
+    i := BULLET_AREA
+    i += v0
+    load v7
+
+    v8 := 0
+    if vx == 255 begin
+        i := bullet_count
+        load v0
+        va := v0
+        v0 += 8
+        i := bullet_count
+        save v0
+        v8 := 1
+    end
+
+    i := VSTACK_SPACE
+    load v7
+    so := 0
+
+    i := BULLET_AREA
+    i += va
+;
+
+#######################################
+# Game Engine
+#######################################
+
+: sync
+    loop
+        vf := delay
+        if vf != 0 then
+    again
+    vf := 1
+    delay := vf
+;
+
+: update_player
+    i := player_position
+    load v1
+
+    v3 >>= v1
+    v2 >>= v0
+    i := player_sprite
+    sprite v2 v3 3
+
+    v2 := 5
+    if v2 key begin
+        v1 += -1
+        if v1 == 1 then v1 := 2
+    end
+    v2 := 7
+    if v2 key begin
+        v0 += -1
+        if v0 == 1 then v0 := 2
+    end
+    v2 := 9
+    if v2 key begin
+        v0 += 1
+        if v0 == 35 then v0 := 34
+    end
+    v2 := 8
+    if v2 key begin
+        v1 += 1
+        if v1 == 58 then v1 := 57
+    end
+
+    i := player_position
+    save v1
+    v3 >>= v1
+    v2 >>= v0
+    i := player_sprite
+    sprite v2 v3 3
+;
+
+: main
+    title_screen
+    
+    # Clear state.
+    ticks := 0
+    v0 := 0
+    i := pattern_state
+    save v0
+
+    # Clear bullets
+    vb := 0
+    i := clear_data
+    load v7
+    i := BULLET_AREA    
+    loop
+        save v7
+        vb += 1
+        if vb != 32 then
+    again
+
+    # Clear screen
+    clear
+
+    # Draw right area.
+    i := rightarea
+    v0 := 57
+    v1 := 0
+    loop
+        sprite v0 v1 8
+        v1 += 8
+        if v1 < 32 then
+    again
+
+    i := player_position
+    load v1
+    v3 >>= v1
+    v2 >>= v0
+    i := player_sprite
+    sprite v2 v3 3
+
+    loop
+        draw_bullets # do this first cause...
+        update_player
+
+        if vf != 1 begin
+            act_bullets  # ... this takes a long time
+
+            vd := ticks
+
+            handle_pattern  # spawns bullets
+
+            if vd == 255 then
+                next_pattern
+            
+            ticks += 1
+            sync
+            again
+        end
+        
+    show_you_lose_screen
+    jump main
+
+#######################################
+# Pattern handling
+#######################################
+
+: next_pattern
+    i := pattern_state
+    load v0
+    v0 += 1
+    i := pattern_state
+    save v0
+  
+    v2 := 61
+    v1 := 1
+    v0 >>= v0
+    if vf == 0 begin
+        loop
+            if v0 != 1 begin
+                v1 += 4
+                v0 += -1
+                again
+            end
+        i := rightareaok 
+        sprite v2 v1 3
+    end
+;
+
+: handle_pattern
+    i := pattern_state
+    load v0
+    vf := 1
+    v0 &= vf
+    if v0 == 1 begin
+        if vd == 140 then
+            ticks := 254
+    else
+        i := pattern_state
+        load v0
+        jump0 patterns
+    end
+    : pattern_done
+;
+
+: pew_pew
+    save v7
+    i := bul
+    sprite x y 4
+;
+
+#######################################
+# Bullet patterns
+#######################################
+
+: pattern1
+    v0 := 0b00000111
+    v0 &= vd
+    if v0 == 0b00000111 begin
+        vc := random 31
+        gogo_bullet
+        ax := 2
+        vx := random 63
+        vx += 170
+        x := 55 y := vc pew_pew
+    end
+    jump pattern_done
+
+: pattern2
+    v0 := 0b00000011
+    v0 &= vd
+    if v0 == 0b00000011 begin
+        vc := random 31
+        gogo_bullet
+        if v8 == 1 begin
+            vx := random 127
+            vx += 127
+            x := 57 y := vc  vy := 35 ax := 0 pew_pew
+        end
+        vc := random 31
+        gogo_bullet
+        if v8 == 1 begin
+            vx := random 127
+            vx += 127
+            x := 57 y := vc  vy := 155 ax := 0 pew_pew
+        end
+    end
+    jump pattern_done
+
+: digits100  0
+: digits10   0
+: digits1    0
+: pattern3values
+206 50  210 46  214 42  218 38  222 34  226 30
+230 26  234 22  238 18  242 14  246 10  250 6
+254 2   250 130 246 134 242 138 238 142 234 146
+230 150 226 154 222 158 218 162 214 166 210 170
+206 174
+: pattern3
+    i := digits100
+    bcd vd
+    i := digits100
+    load v2
+    if v2 == 0 begin
+        if v0 == 1 then v1 += 10
+        if v0 == 2 then v1 += 20
+        v1 <<= v1
+        i += v1
+        load v1
+        gogo_bullet x := 60 y := 16 pew_pew
+    end
+    jump pattern_done
+
+: pattern4
+    v0 := 0b00001111
+    v0 &= vd
+    if v0 == 0b00001111 begin
+        vc := random 31
+        x := 60 y := vc vx := 150 vy := 0
+        gogo_bullet ax := 8 pew_pew 
+        gogo_bullet ax := 4 pew_pew 
+        x := 45 vx := 75
+        gogo_bullet vy := 135 pew_pew    
+        gogo_bullet vy := 10  pew_pew 
+    end
+    jump pattern_done
+
+: pattern5_shot1
+        vc := random 31
+        gogo_bullet x := 50 y := vc vx := 230 vy := 0 pew_pew
+        gogo_bullet x := 54 pew_pew
+        gogo_bullet x := 58 pew_pew
+;
+: pattern5
+    v0 := 0b00011111
+    v0 &= vd
+    if v0 == 0b00011111 begin
+        vc := random 31
+        gogo_bullet x := 35 y := vc vx := 66 vy := 12 ax := 2 pew_pew
+        gogo_bullet vy := 130 pew_pew
+    end
+    if vd == 64 then
+        pattern5_shot1
+    if vd == 128 then
+        pattern5_shot1
+    if vd == 192 then
+        pattern5_shot1
+    jump pattern_done
+
+: pattern6
+    v0 := 0b00000111
+    v0 &= vd
+    if v0 == 0b00000111 begin
+        v0 := 0b00100000
+        v0 &= vd
+        if v0 != 0 begin
+            y := 28
+            vy := 160
+        else
+            y := 0
+            vy := 30
+        end
+        x := random 31
+        x += 31
+        vx := 190
+        gogo_bullet pew_pew 
+    end
+    jump pattern_done
+
+: pattern7
+    v0 := 0b00000111
+    v0 &= vd
+    if v0 == 0b00000111 begin
+        v0 := 0b00010000
+        v0 &= vd
+        y := 28
+        vy := 160
+        if v0 == 0 begin
+            y := 0
+            vy := 30
+        end
+        vx := 0
+        ax := 0
+        x := random 31
+        gogo_bullet pew_pew 
+    end
+    jump pattern_done
+
+: pattern8
+    v0 := 0b00001111
+    v0 &= vd
+    if v0 == 0b00001111 begin
+        y >>= vd
+        y >>= y
+        y >>= y
+        x := 50
+        vx := 95
+        vy := 0
+        ax := 5
+        gogo_bullet pew_pew 
+        vy := 20
+        gogo_bullet pew_pew 
+        vy := 148
+        gogo_bullet pew_pew 
+    end
+    jump pattern_done
+
+: youwin
+    show_you_win_screen
+    jump main
+
+: patterns
+    jump pattern1
+    jump pattern2
+    jump pattern3
+    jump pattern4
+    jump pattern5
+    jump pattern6
+    jump pattern7
+    jump pattern8
+    jump youwin

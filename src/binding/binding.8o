@@ -1,0 +1,1869 @@
+﻿#########################
+# Binding of COSMAC
+# bindingofcosmac.8o
+# (c) Björn Kempen.
+#
+# WASD to move
+# F to shoot
+#########################
+
+#########################
+# If you are a bad player, then maybe set this to 1
+:const GOD_MODE 0
+# Doing that is pretty shameful though
+#########################
+
+:alias initialize_to_zero_reg v4
+
+:alias ROOM_L v0
+:alias ROOM_R v1
+:alias ROOM_U v2
+:alias ROOM_D v3
+:alias ROOM_ENEMIES v4
+:alias ROOM_MISC v5
+:alias ROOM_MAX_REG v5
+:const ROOM_SIZE 6
+
+:const KEY_W 5
+:const KEY_D 9
+:const KEY_A 7
+:const KEY_S 8
+:const KEY_F 0x0E
+
+:const NUM_ENEMIES 5
+:const ENEMY_SIZE 3
+:const ALL_ENEMIES_SIZE 15
+:alias ENEMY_ACTIVE v0
+:alias ENEMY_X v1
+:alias ENEMY_Y v2
+:alias ENEMY_MAX_REG v2
+
+:alias SHOT1_X v0
+:alias SHOT1_Y v1
+:alias SHOT1_VX v2
+:alias SHOT1_VY v3
+:alias SHOT2_X v4
+:alias SHOT2_Y v5
+:alias SHOT2_VX v6
+:alias SHOT2_VY v7
+:alias SHOT3_X v8
+:alias SHOT3_Y v9
+:alias SHOT3_VX va
+:alias SHOT3_VY vb
+:alias SHOT_MAX_REG vb
+:const SHOT_SIZE 4
+
+:const FIRST_ROOM_FLOOR1 7
+:const FIRST_ROOM_FLOOR2 20
+:const FIRST_ROOM_FLOOR3 30
+
+# ROOM_MISC values
+:const ROOM_LOCK_L 1
+:const ROOM_LOCK_R 2
+:const ROOM_LOCK_D 3
+:const ROOM_LOCK_U 4
+:const ROOM_CHEST 5
+:const ROOM_MISC_KEY 6
+:const ROOM_HOLE 7
+:const ROOM_BOSS 8
+
+:const BOSS_HP 20
+
+:const shots            3950 #size 3*4=12
+:const enemies          3962 #size 5*3=15
+:const current_room_id  3977 #size 1
+:const current_room     3978 #size 6
+:const bcd_target       3984 #size 3
+:const moving           3987 #size 1
+:const room_delay       3988 #size 1
+:const current_key      3989 #size 2
+:const current_chest    3991 #size 2
+:const current_boss     3993 #size 3
+
+: main
+	draw_title
+	backup_rooms
+
+: main_loop
+	initialize
+
+	# get startfloor
+	i := current_floor
+	load v0
+	v1 := v0
+	v0 := FIRST_ROOM_FLOOR1
+	if v1 == 1 then v0 := FIRST_ROOM_FLOOR2
+	if v1 == 2 then v0 := FIRST_ROOM_FLOOR3
+
+	load_room 
+
+	loop
+		check_collisions
+		if vc == 1 then jump gameover
+		draw_things
+		check_things
+		move_enemies
+		move_shots
+		handle_input
+		sync
+	again
+: gameover # TODO
+	vc := 0
+	loop
+		v1 := 7
+		v1 &= vc
+		if v1 == 0 begin
+			getplayerxy
+			i := player_sprite_w1
+			sprite v0 v1 0
+		end	
+		
+		sync
+		vc += 1
+		if vc < 95 then
+	again
+	v7 := 42
+	v8 := 37
+	loop
+		clear
+		v0 := 55
+		v1 := 15
+		i := game_over_sprite
+		sprite v0 v1 0
+
+		i := sprite_restart1	
+		v6 := 5
+		v0 := 50
+		v1 := 35
+		draw_gameover_text
+		v0 := 48
+		v1 := 45
+		draw_gameover_text
+
+		sprite v7 v8 1
+		vf := KEY_W
+		if vf key then v8 := 37
+		vf := KEY_S
+		if vf key then v8 := 47
+		vf := KEY_F
+		if vf key begin
+			# Restart
+			if v8 == 37 begin
+				i := current_floor
+				v0 := 0
+				save v0
+			end
+			jump main_loop
+		end
+		sync
+	again
+
+: draw_gameover_text
+	sprite v0 v1 5
+	i += v6
+	v0 += 8
+	if v0 < 80 then jump draw_gameover_text
+;
+
+: load_room # (0: ROOM_ID)
+	i := current_room_id
+	save v0
+	i := rooms
+	v1 := ROOM_SIZE
+	loop
+		if v0 > 0 begin
+			v0 += -1
+			i += v1
+			again
+		end
+			
+	load ROOM_MAX_REG
+	i := current_room
+	save ROOM_MAX_REG
+	
+	despawn_key
+	despawn_hole
+	despawn_boss
+	despawn_chest
+
+	if ROOM_MISC == ROOM_MISC_KEY then
+		spawn_key
+	if ROOM_MISC == ROOM_HOLE then
+		spawn_hole
+	if ROOM_MISC == ROOM_BOSS then
+		spawn_boss
+	if ROOM_MISC == ROOM_CHEST then
+		spawn_chest
+
+	# Remove enemies and bullets
+	i := zeroes
+	load vd
+	i := shots
+	save vb
+	i := enemies
+	save vd
+	
+	fetch_current_room
+	v0 := ROOM_ENEMIES
+	if ROOM_ENEMIES != 0 then
+		spawn_enemies
+
+	i := room_delay
+	v0 := 20
+	save v0
+;
+
+: check_collisions
+	# Player collisions
+	clear
+	check_hole_collision # needs to be first
+	check_key_collision
+	check_chest_collision
+	
+	clear
+	check_shot_collisions
+	clear
+	check_boss_shot_collisions
+
+	clear
+	vc := 0
+	if vc == GOD_MODE then
+		check_enemy_collision # needs to be last
+;
+
+: check_things
+	vb := 0
+
+	getplayerxy
+	if v0 < 2 begin
+	if v1 > 18 begin
+	if v1 < 28 begin
+		fetch_current_room
+		v8 := ROOM_L
+		v9 := ROOM_LOCK_L
+		va := 90
+		check_door
+	end end end
+
+	getplayerxy
+	if v0 > 90 begin
+	if v1 > 18 begin
+	if v1 < 28 begin
+		fetch_current_room
+		v8 := ROOM_R
+		v9 := ROOM_LOCK_R
+		va := -90
+		check_door
+	end end end
+
+
+	va := 0
+	getplayerxy
+	if v0 > 50 begin
+	if v0 < 60 begin
+	if v1 > 44 begin
+		fetch_current_room
+		v8 := ROOM_D
+		v9 := ROOM_LOCK_D
+		vb := -42
+		check_door
+	end end end
+
+	getplayerxy
+	if v0 > 50 begin
+	if v0 < 60 begin
+	if v1 < 2 begin
+		fetch_current_room
+		v8 := ROOM_U
+		v9 := ROOM_LOCK_U
+		vb := 42
+		check_door
+	end end end
+
+	check_player_bounds
+;
+
+: check_door
+		if v8 == -1 then ;				
+		if ROOM_MISC == v9 begin
+			has_key
+			if v1 == 0 then ;
+			remove_room_misc
+		end
+		getplayerxy
+		v0 += va
+		v1 += vb
+		setplayerxy
+		v0 := v8
+		load_room
+;
+
+: check_room_delay # returns on v0
+	i := room_delay
+	load v0
+	if v0 > 0 begin
+		v0 += -1
+		i := room_delay
+		save v0
+	end
+;
+
+
+: check_player_bounds
+	getplayerxy
+	if v0 < 1 then v0 := 1
+	if v0 > 98 then v0 := 98
+	if v1 < 1 then v1 := 1
+	if v1 > 46 then v1 := 46
+	setplayerxy
+;
+
+: has_key # returns keys remaining on v0. keys before on v1
+	i := keys_held
+	load v0
+	v1 := v0
+	if v0 > 0 then
+		v0 += -1
+	i := keys_held
+	save v0
+;
+
+: fetch_current_room
+	i := current_room
+	load ROOM_MAX_REG
+;
+
+
+: draw_keys_held
+	i := keys_held
+	load v0
+	i := key_sprite
+	v1 := 118
+	v2 := 4
+
+	if v0 > 0 then
+		sprite v1 v2 7 
+;
+
+: draw_hat_held
+	i := current_hat
+	load v0
+	if v0 == 0 then ;
+	vc := 117
+	vd := 20
+	i := player_hat2
+	if v0 == 2 then i := player_hat1
+	sprite vc vd 4
+;
+
+: draw_score
+	i := separator_sprite
+	v0 := 117
+	v1 := 15
+	sprite v0 v1 1
+	v1 := 28
+	sprite v0 v1 1
+
+	i := score
+	load v0
+	i := bcd_target
+	bcd v0
+	i := bcd_target
+	load v2
+
+	# v0,v1,v2 : bcd
+	# v3,v4 sprite coord
+	# v5 number_argument
+	v3 := 119
+	v4 := 40
+	if v0 > 0 begin
+		v5 := v0
+		get_number_sprite
+		sprite v3 v4 5
+		v4 += 7
+	end
+	if v1 > 0 begin
+		v5 := v1
+		get_number_sprite
+		sprite v3 v4 5
+		v4 += 7
+	end
+	v5 := v2
+	get_number_sprite
+	sprite v3 v4 5
+;
+
+: get_number_sprite
+	i := 0
+	v9 := 5
+	loop
+		if v5 == 0 then ;
+		v5 += -1
+		i += v9
+	again
+;
+
+: draw_enemies
+	v6 := 0
+	loop
+		i := enemies
+		i += v6
+		load ENEMY_MAX_REG
+		if ENEMY_ACTIVE != 0 begin
+			i := enemy_sprite
+			sprite ENEMY_X ENEMY_Y 6
+		end
+		v6 += ENEMY_SIZE
+		if v6 < ALL_ENEMIES_SIZE then
+	again
+	draw_boss
+;
+
+: draw_boss
+	i := current_boss
+	load v1
+	if v0 == 0 then ;
+	vc := v0
+	vd := v1
+	i := boss_sprite1
+	v1 := random 1
+	if v1 == 0 then i := boss_sprite2
+	sprite vc vd 0
+;
+
+: decrease_shot_timer
+	i := shot_timer
+	load v0
+	if v0 > 0 begin
+		v0 += -1
+		i := shot_timer
+		save v0
+	end
+;
+
+# TODO: Optimize
+: spawn_shot
+	i := shot_timer
+	load v0
+	if v0 > 0 then ;
+
+	getplayerxydir
+	vc := v0 # player x
+	vd := v1 # player y
+	vc += 6
+	vd += 6
+	va := v2
+
+	v4 := 0	
+	loop
+		i := shots
+		i += v4
+		load v3
+		if SHOT1_X == 0 begin
+			SHOT1_X := vc
+			SHOT1_Y := vd
+			SHOT1_VX := 0
+			SHOT1_VY := 0
+			if va == KEY_W then SHOT1_VY := -2
+			if va == KEY_S then SHOT1_VY := 2
+			if va == KEY_A then SHOT1_VX := -2
+			if va == KEY_D then SHOT1_VX := 2
+			i := shots
+			i += v4
+			save v3
+			i := shot_timer
+			v0 := 10
+			save v0
+			;
+		end
+		v4 += 4
+		if v4 < 12 then
+	again
+;
+
+: draw_shots
+	i := shots
+	load SHOT_MAX_REG
+	i := shot_sprite	
+	if SHOT1_X != 0 then
+		sprite SHOT1_X SHOT1_Y 4
+	if SHOT2_X != 0 then
+		sprite SHOT2_X SHOT2_Y 4
+	if SHOT3_X != 0 then
+		sprite SHOT3_X SHOT3_Y 4
+;
+
+: check_hole_collision
+	i := current_hole
+	load v0
+	if v0 == 0 then ;
+	draw_hole
+	getplayerxy
+	i := player_sprite_w1
+	sprite v0 v1 0
+	if vf != 0 begin
+		draw_player_down_hole
+		i := current_floor
+		load v0
+
+		v1 := FIRST_ROOM_FLOOR2
+		if v0 == 1 then
+			v1 := FIRST_ROOM_FLOOR3
+		v0 += 1
+		i := current_floor
+		save v0
+		v0 := v1
+		load_room
+	end
+;
+
+: check_key_collision
+	i := current_key
+	load v1
+	if v0 == 0 then ;
+
+	i := key_sprite
+	sprite v0 v1 7
+	getplayerxy
+	i := player_sprite_w1
+	sprite v0 v1 0
+	if vf != 0 begin
+		i := current_key
+		v0 := 0
+		v1 := 0
+		save v1
+		i := keys_held
+		load v0
+		v0 += 1
+		i := keys_held
+		save v0
+		remove_room_misc
+	end
+;
+
+: check_chest_collision
+	i := current_chest
+	load v1
+	if v0 == 0 then ;
+
+	i := chest_sprite
+	sprite v0 v1 0
+	getplayerxy
+	i := player_sprite_w1
+	sprite v0 v1 0
+	if vf != 0 begin
+		despawn_chest
+		i := current_hat
+		load v0
+		v0 += 1
+		i := current_hat
+		save v0
+		remove_room_misc
+	end
+;
+
+: check_enemy_collision	
+	draw_enemies
+	getplayerxy
+	i := player_sprite_w1
+
+	vc := 0	
+	sprite v0 v1 0
+	if vf != 0 then
+		vc := 1 # game over
+;
+
+: check_shot_collisions
+	draw_shots	
+
+	v6 := 0
+	loop
+		if v6 < ALL_ENEMIES_SIZE begin
+			i := enemies
+			i += v6
+			load ENEMY_MAX_REG
+			if ENEMY_ACTIVE != 0 begin
+				i := enemy_sprite
+				sprite ENEMY_X ENEMY_Y 6
+				if vf != 0 begin
+					# Despawn enemy
+					vf := 10
+					buzzer := vf
+					ENEMY_ACTIVE := 0
+				end				
+				sprite ENEMY_X ENEMY_Y 6
+				i := enemies
+				i += v6
+				save ENEMY_MAX_REG
+
+				if ENEMY_ACTIVE == 0 begin
+					decrement_enemy_room_count
+					increment_score
+					;
+				end
+			end
+			v6 += ENEMY_SIZE
+			again
+		end
+;
+
+# TODO: optimize
+: check_boss_shot_collisions
+	i := current_boss
+	load v1
+	if v0 == 0 then ;
+
+	i := boss_sprite1
+	sprite v0 v1 0
+
+	vc := 0
+	i := shots
+	load SHOT_MAX_REG
+	i := shot_sprite	
+	sprite SHOT1_X SHOT1_Y 4
+	if vf != 0 begin
+		SHOT1_X := 0
+		vc := 1
+	end
+	sprite SHOT1_X SHOT1_Y 4
+	sprite SHOT2_X SHOT2_Y 4
+	if vf != 0 begin
+		SHOT2_X := 0
+		vc := 1
+	end	
+	sprite SHOT2_X SHOT2_Y 4
+	sprite SHOT3_X SHOT3_Y 4
+	if vf != 0 begin
+		SHOT3_X := 0
+		vc := 1
+	end
+	sprite SHOT3_X SHOT3_Y 4
+	i := shots
+	save SHOT_MAX_REG
+
+	if vc > 0 begin
+		# boss hit
+		i := boss_hits
+		load v0
+		v0 += 1
+		i := boss_hits
+		save v0
+		vf := 10
+		buzzer := vf
+		if v0 == BOSS_HP then
+			start_end_sequence
+	end
+;
+
+# TODO: optimize
+: start_end_sequence
+	v9 := 0
+	loop
+		v9 += 1
+		v8 := 8
+		v8 &= v9
+		clear
+		if v8 == 0 then draw_boss
+		draw_player
+		sync
+		if v9 < 200 then
+	again
+	i := current_boss
+	load v1
+	v9 := 0
+	loop
+		v9 += 1
+		i := 500
+		v8 := random 255
+		i += v8
+		v3 := random 1
+		v4 := random 1
+		v0 += v3
+		v0 -= v4
+		v1 += v4
+		v1 -= v3
+		if v9 < 40 then sprite v0 v1 0
+		if v9 == 40 begin
+			clear
+			draw_player
+		end
+		sync
+		if v9 < 200 then
+	again
+	clear
+	getplayerxy
+	v2 := KEY_S
+	setplayerxydir
+	draw_player
+	vc += 5
+	vd += 8
+	v9 := 250
+	loop
+		v9 += 1
+		sync
+		i := mouth_sprite
+		if v9 == 50 then
+			sprite vc vd 2
+		if v9 != 250 then
+	again
+	clear
+	loop again
+
+: decrement_enemy_room_count
+	fetch_current_room
+	ROOM_ENEMIES += -1
+	i := current_room
+	save ROOM_MAX_REG
+
+	i := current_room_id
+	load v0
+	vd := v0
+	fetch_current_room
+
+	i := rooms
+	loop
+		if vd > 0 begin
+			vd += -1
+			vf := ROOM_SIZE
+			i += vf
+			again
+		end
+	save ROOM_MAX_REG
+;
+
+
+: move_shots
+	i := shots
+	load SHOT_MAX_REG
+	if SHOT1_X != 0 begin
+		SHOT1_X += SHOT1_VX
+		SHOT1_Y += SHOT1_VY
+		if SHOT1_X > 110 then SHOT1_X := 0
+		if SHOT1_Y > 64  then SHOT1_X := 0
+	end
+	if SHOT2_X != 0 begin
+		SHOT2_X += SHOT2_VX
+		SHOT2_Y += SHOT2_VY
+		if SHOT2_X > 110 then SHOT2_X := 0
+		if SHOT2_Y > 64  then SHOT2_X := 0
+	end
+	if SHOT3_X != 0 begin
+		SHOT3_X += SHOT3_VX
+		SHOT3_Y += SHOT3_VY
+		if SHOT3_X > 110 then SHOT3_X := 0
+		if SHOT3_Y > 64  then SHOT3_X := 0
+	end
+	i := shots
+	save SHOT_MAX_REG
+;
+
+# TODO: optimize
+: move_enemies
+	check_room_delay
+	if v0 != 0 then ;
+	getplayerxy
+	v8 := v0
+	v9 := v1
+	v6 := 0
+	i := enemies
+	loop
+			load ENEMY_MAX_REG
+
+			if ENEMY_ACTIVE != 0 begin
+				v7 := random 1
+				ENEMY_Y += v7
+				v7 := random 1
+				ENEMY_Y -= v7
+
+				vf := random 1
+				if vf == 0 begin
+					if v8 > ENEMY_X begin
+						ENEMY_X += v7
+					else
+						ENEMY_X -= v7
+					end
+				else
+					if v9 > ENEMY_Y begin
+						ENEMY_Y += v7
+					else
+						ENEMY_Y -= v7
+					end
+				end
+
+				if ENEMY_X < 4 then ENEMY_X := 4
+				if ENEMY_Y < 4 then ENEMY_Y := 4
+				if ENEMY_X > 98 then ENEMY_X := 98
+				if ENEMY_Y > 55 then ENEMY_Y := 55
+
+				i := enemies
+				i += v6
+				save ENEMY_MAX_REG
+			end
+
+			v6 += ENEMY_SIZE
+			if v6 < ALL_ENEMIES_SIZE then
+	again
+		
+	move_boss
+;
+
+: move_boss
+	i := current_boss
+	load v2
+	if v0 == 0 then ;
+
+	if v2 == 0 begin # move right
+		v0 += 1
+		if v0 > 64 begin
+			v3 := random 31
+			if v3 == 0 then v2 := 1
+			if v0 == 90 then v2 := 1
+		end
+	end
+	if v2 == 1 begin # move down
+		v1 += 1
+		if v1 > 20 begin
+			v3 := random 15
+			if v3 == 0 then v2 := 2
+			if v1 == 40 then v2 := 2
+		end
+	end
+	if v2 == 2 begin # move left
+		v0 += -1
+		if v0 < 64 begin
+			v3 := random 31
+			if v3 == 0 then v2 := 3
+			if v0 == 12 then v2 := 3
+		end
+	end
+	if v2 == 3 begin # move up
+		v1 += -1
+		if v1 < 20 begin
+			v3 := random 15
+			if v3 == 0 then v2 := 0
+			if v1 == 12 then v2 := 0
+		end
+	end
+	
+	i := current_boss
+	save v2
+;
+
+
+: remove_room_misc
+	i := current_room_id
+	load v0
+	v7 := v0
+	fetch_current_room
+	
+	i := rooms
+	loop
+		if v7 > 0 begin
+			v7 += -1
+			vf := ROOM_SIZE
+			i += vf
+			again
+		end
+	
+	ROOM_MISC := -1
+	save ROOM_MAX_REG 
+	i := current_room
+	save ROOM_MAX_REG	
+;
+
+
+: draw_things
+	clear
+	draw_player
+	draw_room
+	draw_key
+	draw_doors
+	draw_enemies
+	draw_shots
+	draw_keys_held
+	draw_hat_held
+	draw_score	
+	draw_chest
+	draw_hole
+;
+
+: draw_hole
+	i := current_hole
+	load v0
+	if v0 == 0 then ;
+	i := hole_sprite
+	v0 := 55
+	v1 := 27
+	sprite v0 v1 0
+;
+
+: draw_player_down_hole
+	clear
+	i := moving
+	v0 := 0
+	save v0
+
+	draw_room
+	draw_doors
+	
+	draw_hole
+
+	v0 := 55
+	v1 := 18
+	v2 := KEY_S
+	setplayerxydir
+	draw_player
+	v0 := 0
+	loop
+		v0 += 1
+		sync
+		if v0 < 60 then again
+	clear
+	loop
+		draw_player
+		sync
+		draw_player
+		getplayerxy
+		v1 += 1
+		setplayerxy
+		if v1 < 126 then
+	again
+	v1 := 18
+	setplayerxy
+;
+
+: draw_chest
+	i := current_chest
+	load v1
+	if v0 != 0 begin
+		i := chest_sprite
+		sprite v0 v1 0
+	end
+
+;
+
+: draw_key
+	i := current_key
+	load v1
+	if v0 != 0 begin
+		i := key_sprite
+		sprite v0 v1 7
+	end
+;
+
+: draw_doors
+	fetch_current_room
+	if ROOM_L != -1 begin
+		i := vline
+		if ROOM_MISC == ROOM_LOCK_L then
+			i := vline_lock
+		ve := 0
+		vd := 24
+		sprite ve vd 8
+		vd += 8
+		sprite ve vd 8
+	end
+	if ROOM_R != -1 begin
+		i := vline
+		if ROOM_MISC == ROOM_LOCK_R then
+			i := vline_lock
+		ve := 112
+		vd := 24
+		sprite ve vd 8
+		vd += 8
+		sprite ve vd 8
+	end
+	if ROOM_U != -1 begin
+		i := hline
+		if ROOM_MISC == ROOM_LOCK_U then
+			i := hline_lock
+		ve := 56
+		vd := 0
+		sprite ve vd 2
+		ve += 8
+		sprite ve vd 2
+	end
+	if ROOM_D != -1 begin
+		i := hline
+		if ROOM_MISC == ROOM_LOCK_D then
+			i := hline_lock
+		ve := 56
+		vd := 62
+		sprite ve vd 2
+		ve += 8
+		sprite ve vd 2
+	end
+;
+
+: spawn_key
+	v0 := random 31
+	v0 += 40
+	v1 := random 7
+	v1 += 20
+	i := current_key
+	save v1
+;
+
+: despawn_key
+	v0 := 0
+	i := current_key
+	save v1
+;
+
+: spawn_hole
+	v0 := 1
+	i := current_hole
+	save v0
+;
+
+: despawn_hole
+	v0 := 0
+	i := current_hole
+	save v0
+;
+
+
+: despawn_chest
+	v0 := 0
+	v1 := 0
+	i := current_chest
+	save v1
+;
+
+: spawn_chest
+	v0 := 50
+	v1 := 25
+	i := current_chest
+	save v1
+;
+
+: spawn_boss
+	i := current_boss
+	v0 := 10
+	v1 := 10
+	v2 := 0
+	save v2
+;
+
+: despawn_boss
+	i := current_boss
+	v0 := 0
+	save v0
+;
+
+: spawn_enemies
+	vb := v0
+	loop
+		vb += -1
+		spawn_enemy
+		if vb != 0 then
+	again
+;
+
+: spawn_enemy
+	v5 := 0
+	v6 := 0
+	i := enemies
+	loop
+		if v5 < NUM_ENEMIES begin
+			i := enemies
+			i += v6
+			load ENEMY_MAX_REG
+			if ENEMY_ACTIVE == 0 begin
+				ENEMY_ACTIVE := 1
+				set_enemy_random_corner
+				i := enemies
+				i += v6
+				save ENEMY_MAX_REG
+				;
+			end
+			v6 += ENEMY_SIZE
+			v5 += 1
+			again
+		end
+;
+
+: set_enemy_random_corner
+	# TODO: this is meant for more places. can be simplified if
+	# using just 4 places.
+	loop
+		va := random 7
+		if va > 3 then
+	again
+	if va == 0 begin
+		ENEMY_X := 5
+		ENEMY_Y := 5
+	end
+	if va == 1 begin
+		ENEMY_X := 90
+		ENEMY_Y := 5
+	end
+	if va == 2 begin
+		ENEMY_X := 5
+		ENEMY_Y := 53
+	end
+	if va == 3 begin
+		ENEMY_X := 90
+		ENEMY_Y := 53
+	end
+	va := random 7
+	va += -3
+	ENEMY_X += va
+	va := random 7
+	va += -3
+	ENEMY_Y += va
+;
+
+: initialize
+	restore_rooms
+	v0 := 64
+	v1 := 16
+	v2 := 7
+	setplayerxy
+
+	# TODO: document why this does this
+	i := zeroes
+	load initialize_to_zero_reg
+	i := initialize_to_zero_section
+	save initialize_to_zero_reg
+;
+
+: backup_rooms
+	v9 := 0
+	va := 0
+	loop
+		i := rooms
+		i += v9
+		load ROOM_MAX_REG
+		v0 := ROOM_ENEMIES
+		v1 := ROOM_MISC
+		i := room_safe_space
+		i += va
+		save v1
+		v9 += ROOM_SIZE
+		va += 2
+		if v9 != 252 then # 
+	again
+;
+
+: restore_rooms
+	v9 := 0
+	va := 0
+	vb := 4
+	loop
+		i := room_safe_space
+		i += va
+		load v1
+		i := rooms
+		i += v9
+		i += vb
+		save v1
+		v9 += ROOM_SIZE
+		va += 2
+		if v9 != 252 then
+	again		
+;
+
+: draw_player
+	getplayerxy
+	vc := v0
+	vd := v1
+	get_player_sprite
+	sprite vc vd 0
+	i := current_hat
+	load v0
+	if v0 == 0 then ;
+	vc += 4
+	i := player_hat2
+	if v0 == 2 then i := player_hat1
+	sprite vc vd 4
+;
+
+: get_player_sprite
+	getplayerxydir
+	i := moving
+	load v0
+	if v2 == KEY_W begin
+		i := player_sprite_w1
+		if v0 > 0 begin
+			v1 := random 1
+			if v1 == 0 then i := player_sprite_w2
+		end
+
+	end
+	if v2 == KEY_S begin
+		i := player_sprite_s1
+		if v0 > 0 begin
+			v1 := random 1
+			if v1 == 0 then i := player_sprite_s2
+		end
+	end
+	if v2 == KEY_A begin
+		i := player_sprite_a1
+		if v0 > 0 begin
+			v1 := random 1
+			if v1 == 0 then i := player_sprite_a2
+		end
+	end
+	if v2 == KEY_D begin
+		i := player_sprite_d1
+		if v0 > 0 begin
+			v1 := random 1
+			if v1 == 0 then i := player_sprite_d2
+		end
+	end
+;
+
+: handle_input
+	v3 := 0
+	getplayerxydir
+	vf := KEY_S
+	if vf key begin
+		v1 += 1
+		v2 := KEY_S
+		v3 := 1
+	end
+	vf := KEY_W
+	if vf key begin
+		v1 += -1
+		v2 := KEY_W
+		v3 := 1
+	end
+	vf := KEY_D
+	if vf key begin
+		v0 += 1
+		v2 := KEY_D
+		v3 := 1
+	end
+	vf := KEY_A
+	if vf key begin
+		v0 += -1
+		v2 := KEY_A
+		v3 := 1
+	end
+	setplayerxydir
+	vf := KEY_F
+	if vf key then spawn_shot
+
+	v0 := v3
+	i := moving
+	save v0
+
+	decrease_shot_timer
+;
+
+: draw_room
+	i := hline
+	v0 := 0
+	v1 := 0
+	v2 := 62
+	loop
+		sprite v0 v1 2
+		sprite v0 v2 2
+		v0 += 8
+		if v0 < 112 then
+	again
+	i := vline
+	v0 := 0
+	v2 := 112
+	loop
+		sprite v1 v0 8
+		sprite v2 v0 8
+		v0 += 8
+		if v0 < 64 then
+	again
+
+	i := current_room_id
+	load v0
+	v5 := 0
+	if v0 == FIRST_ROOM_FLOOR1 then
+		v5 := 1
+	if v0 == FIRST_ROOM_FLOOR2 then
+		v5 := 2
+	if v0 == FIRST_ROOM_FLOOR3 then
+		v5 := 3
+	if v5 != 0 then
+		draw_room_number
+;
+
+: draw_room_number
+	i := floor_text_sprite
+	v0 := 3
+	v1 := 3
+	v3 := 5
+	sprite v0 v0 5
+	i += v3
+	v0 += 8
+	sprite v0 v1 5
+	i += v3
+	v0 += 8
+	sprite v0 v1 5
+	get_number_sprite
+	v0 += 6
+	sprite v0 v1 5
+;
+
+: sync
+    loop
+        vf := delay
+        if vf != 0 then
+    again
+    vf := 1
+    delay := vf
+;
+
+: setplayerxy
+	i := playerx
+	save v1
+;
+: getplayerxy
+	i := playerx
+	load v1
+;
+: getplayerxydir
+	i := playerx
+	load v2
+;
+: setplayerxydir
+	i := playerx
+	save v2
+;
+
+: increment_score
+	i := score
+	load v0
+	i := score
+	v0 += 1
+	save v0
+;
+
+# These could probably be optimized somewhere, maybe.
+: playerx 0
+: playery 0
+: playerdir 7
+: shot_timer 0
+: current_floor 0
+
+# "Persistent" state that needs to be manually initialized to zero
+: initialize_to_zero_section
+: keys_held 0
+: score 0
+: current_hat 0
+: boss_hits 0
+: current_hole 0 
+
+################# Sprites #############
+: mouth_sprite
+0xE0 0x60
+: hole_sprite
+0x3F 0xE0 0x7F 0xF0 0xFF 0xF8 0xFF 0xF8 
+0xFF 0xF8 0xFF 0xF8 0x7F 0xF0 0x3F 0xE0 
+: zeroes # part of hole_sprite
+0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 
+0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 
+: vline
+0xC0 0xC0 0xC0 0xC0 0xC0 0xC0 0xC0 0xC0 
+: vline_lock
+0x80 0x40 0x80 0x40 0x80 0x40 0x80 0x40 
+: player_sprite_a1
+0x00 0x00 0x00 0x00 0x00 0x00 0x07 0xE0 
+0x04 0x20 0x08 0x30 0x1A 0x90 0x10 0x10 
+0x30 0x30 0x13 0x28 0x18 0x60 0x0F 0xC0 
+0x04 0x40 0x04 0xC0 0x0C 0x00 0x00 0x00 
+: player_sprite_a2
+0x00 0x00 0x00 0x00 0x00 0x00 0x07 0xE0 
+0x04 0x20 0x08 0x30 0x1A 0x90 0x10 0x18 
+0x10 0x30 0x33 0x20 0x18 0x60 0x0F 0xC0 
+0x04 0x40 0x0C 0x40 0x00 0xC0 0x00 0x00 
+: player_sprite_d1
+0x00 0x00 0x00 0x00 0x00 0x00 0x07 0xE0 
+0x04 0x20 0x08 0x30 0x1A 0x90 0x10 0x18 
+0x10 0x30 0x31 0xA0 0x18 0x60 0x0F 0xC0 
+0x04 0x40 0x06 0x40 0x00 0x60 0x00 0x00 
+: player_sprite_d2
+0x00 0x00 0x00 0x00 0x00 0x00 0x07 0xE0 
+0x04 0x20 0x08 0x30 0x1A 0x90 0x10 0x10 
+0x30 0x30 0x11 0xA8 0x18 0x60 0x0F 0xC0 
+0x04 0x40 0x04 0x60 0x06 0x00 0x00 0x00 
+: player_sprite_w1
+0x00 0x00 0x00 0x00 0x00 0x00 0x07 0xE0 
+0x04 0x20 0x08 0x30 0x18 0x10 0x30 0x10 
+0x10 0x30 0x10 0x28 0x18 0x60 0x0F 0xC0 
+0x04 0x40 0x04 0x40 0x00 0x40 0x00 0x00 
+: player_sprite_w2
+0x00 0x00 0x00 0x00 0x00 0x00 0x07 0xE0 
+0x04 0x20 0x08 0x30 0x18 0x10 0x10 0x18 
+0x30 0x30 0x10 0x20 0x18 0x60 0x0F 0xC0 
+0x04 0x40 0x04 0x40 0x04 0x00 0x00 0x00 
+: player_sprite_s1
+0x00 0x00 0x00 0x00 0x00 0x00 0x07 0xE0 
+0x04 0x20 0x08 0x30 0x1A 0x90 0x10 0x10 
+0x33 0xB0 0x10 0x28 0x18 0x60 0x0F 0xC0 
+0x04 0x40 0x04 0x40 0x00 0x40 0x00 0x00 
+: player_sprite_s2
+0x00 0x00 0x00 0x00 0x00 0x00 0x07 0xE0 
+0x04 0x20 0x08 0x30 0x1A 0x90 0x10 0x10 
+0x13 0xB8 0x30 0x20 0x18 0x60 0x0F 0xC0 
+0x04 0x40 0x04 0x40 0x04 0x00 0x00 0x00 
+: player_hat1
+0x7E 0x7E 0x7E 0x81
+: player_hat2
+0x10 0x3C 0x7E 0x00 #need to be aligned to 4b
+: key_sprite
+0x38 0x28 0x38 0x10 0x30 0x10 0x70
+: enemy_sprite
+0x5E 0x62 0xD6 0x43 0x7E 0x24
+: game_over_sprite
+0xEE 0xAE 0x8A 0xE8 0xAE 0xAC 0xEA 0xAE 
+0x00 0x00 0xEA 0xEE 0xAA 0x8E 0xAA 0xCC 
+0xE4 0xEA 0x00 0x00 0x00 0x00 0x00 0x00 
+0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 
+: chest_sprite
+0x00 0x00 0x00 0x00 0x00 0x00 0x0F 0xE0 
+0x10 0x10 0x10 0x10 0x1F 0xF0 0x11 0x10 
+0x11 0x10 0x10 0x10 0x1F 0xF0 0x00 0x00 
+0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 
+: boss_sprite1
+0x00 0x00 0x00 0x00 0x08 0x10 0x04 0x20 
+0x1E 0x78 0x13 0xC8 0x12 0x48 0x1E 0x78 
+0x07 0xF0 0x2A 0xA8 0x1F 0xF8 0x0A 0xAC 
+0x0F 0xFA 0x04 0x10 0x04 0x00 0x00 0x00 
+: boss_sprite2
+0x00 0x00 0x00 0x00 0x04 0x08 0x02 0x10 
+0x0F 0x3C 0x09 0xE4 0x09 0x24 0x0F 0x3C 
+0x07 0xF0 0x0A 0xA8 0x2F 0xFC 0x1A 0xAA 
+0x0F 0xF8 0x04 0x10 0x00 0x10 0x00 0x00 
+: floor_text_sprite
+0xE8 0x88 0xC8 0x88 0x8E 0xEE 0xAA 0xAA 
+0xAA 0xEE 0xE0 0xA0 0xE0 0xC0 0xA0 
+: sprite_restart1
+0xEE 0xA8 0xCC 0xA8 0xAE 0xEE 0x84 0xE4 
+0x24 0xE4 0xEE 0xAA 0xEC 0xAA 0xAA 
+: sprite_restart2
+0xE0 0x40 0x40 0x40 0x40
+: sprite_continue1
+0xEE 0x8A 0x8A 0x8A 0xEE 0x97 0xD2 0xF2 
+0xB2 0x92 0x52 0x5A 0x5E 0x56 0x52 
+: sprite_continue2
+0xAE 0xA8 0xAC 0xA8 0xEE
+: shot_sprite # needs to be after sprite_continue2
+0x60 0xB0 0xD0 0x60
+
+######################### LEVEL SECTION #######
+# 256 bytes
+# each room is 6 bytes so 42 rooms and 4 bytes of end padding
+: rooms
+: FLOOR1_START
+: room0_l -1
+: room0_r 3
+: room0_u -1
+: room0_d -1
+: room0_enemies 3
+: room0_misc 0
+: room1
+: room1_l 12
+: room1_r -1
+: room1_u -1
+: room1_d -1
+: room1_enemies 2
+: room1_misc 5
+: room2
+: room2_l -1
+: room2_r -1
+: room2_u -1
+: room2_d 3
+: room2_enemies 3
+: room2_misc 6
+: room3
+: room3_l 0
+: room3_r 7
+: room3_u 2
+: room3_d -1
+: room3_enemies 1
+: room3_misc 0
+: room4
+: room4_l 41
+: room4_r 9
+: room4_u -1
+: room4_d 5
+: room4_enemies 3
+: room4_misc 0
+: room5
+: room5_l -1
+: room5_r -1
+: room5_u 4
+: room5_d -1
+: room5_enemies 4
+: room5_misc 7
+: room6
+: room6_l -1
+: room6_r -1
+: room6_u -1
+: room6_d 7
+: room6_enemies 4
+: room6_misc 0
+: room7
+: room7_l 3
+: room7_r 10
+: room7_u 6
+: room7_d -1
+: room7_enemies 0
+: room7_misc 2
+: room8
+: room8_l -1
+: room8_r 11
+: room8_u -1
+: room8_d -1
+: room8_enemies 2
+: room8_misc 6
+: room9
+: room9_l 4
+: room9_r 12
+: room9_u -1
+: room9_d -1
+: room9_enemies 4
+: room9_misc 1
+: room10
+: room10_l 7
+: room10_r 14
+: room10_u -1
+: room10_d 11
+: room10_enemies 4
+: room10_misc -1
+: room11
+: room11_l 8
+: room11_r -1
+: room11_u 10
+: room11_d 12
+: room11_enemies 3
+: room11_misc -1
+: room12
+: room12_l 9
+: room12_r 1
+: room12_u 11
+: room12_d -1
+: room12_enemies 3
+: room12_misc -1
+: room13
+: room13_l -1
+: room13_r -1
+: room13_u -1
+: room13_d 14
+: room13_enemies 4
+: room13_misc -1
+: room14
+: room14_l 10
+: room14_r -1
+: room14_u 13
+: room14_d -1
+: room14_enemies 4
+: room14_misc -1
+: FLOOR2_START
+: room15
+: room15_l -1
+: room15_r -1
+: room15_u -1
+: room15_d 16
+: room15_enemies 5
+: room15_misc -1
+: room16
+: room16_l 40
+: room16_r 19
+: room16_u 15
+: room16_d 17
+: room16_enemies 3
+: room16_misc -1
+: room17
+: room17_l -1
+: room17_r 20
+: room17_u 16
+: room17_d -1
+: room17_enemies 4
+: room17_misc -1
+: room18
+: room18_l -1
+: room18_r 22
+: room18_u -1
+: room18_d -1
+: room18_enemies 4
+: room18_misc -1
+: room19
+: room19_l 16
+: room19_r -1
+: room19_u -1
+: room19_d -1
+: room19_enemies 1
+: room19_misc 6
+: room20
+: room20_l 17
+: room20_r -1
+: room20_u -1
+: room20_d 21
+: room20_enemies 0
+: room20_misc -1
+: room21
+: room21_l -1
+: room21_r 25
+: room21_u 20
+: room21_d -1
+: room21_enemies 2
+: room21_misc -1
+: room22
+: room22_l 18
+: room22_r -1
+: room22_u -1
+: room22_d 23
+: room22_enemies 4
+: room22_misc -1
+: room23
+: room23_l -1
+: room23_r 26
+: room23_u 22
+: room23_d 24
+: room23_enemies 3
+: room23_misc -1
+: room24
+: room24_l -1
+: room24_r 27
+: room24_u 23
+: room24_d 25
+: room24_enemies 2
+: room24_misc -1
+: room25
+: room25_l 21
+: room25_r 28
+: room25_u 24
+: room25_d -1
+: room25_enemies 3
+: room25_misc 4
+: room26
+: room26_l 23
+: room26_r 29
+: room26_u -1
+: room26_d -1
+: room26_enemies 3
+: room26_misc -1
+: room27
+: room27_l 24
+: room27_r -1
+: room27_u -1
+: room27_d -1
+: room27_enemies 5
+: room27_misc -1
+: room28
+: room28_l 25
+: room28_r -1
+: room28_u -1
+: room28_d -1
+: room28_enemies 2
+: room28_misc 5
+: room29
+: room29_l 26
+: room29_r -1
+: room29_u -1
+: room29_d -1
+: room29_enemies 0
+: room29_misc 7
+: FLOOR3_START
+: room30
+: room30_l -1
+: room30_r 32
+: room30_u -1
+: room30_d -1
+: room30_enemies 0
+: room30_misc -1
+: room31
+: room31_l -1
+: room31_r -1
+: room31_u -1
+: room31_d 32
+: room31_enemies 4
+: room31_misc 6
+: room32
+: room32_l 30
+: room32_r 34
+: room32_u 31
+: room32_d 33
+: room32_enemies 3
+: room32_misc -1
+: room33
+: room33_l -1
+: room33_r -1
+: room33_u 32
+: room33_d -1
+: room33_enemies 2
+: room33_misc -1
+: room34
+: room34_l 32
+: room34_r 35
+: room34_u -1
+: room34_d -1
+: room34_enemies 2
+: room34_misc -1
+: room35
+: room35_l 34
+: room35_r 37
+: room35_u -1
+: room35_d -1
+: room35_enemies 3
+: room35_misc 2
+: room36
+: room36_l -1
+: room36_r -1
+: room36_u 39
+: room36_d 37
+: room36_enemies 0
+: room36_misc -1
+: room37
+: room37_l 35
+: room37_r -1
+: room37_u 36
+: room37_d 38
+: room37_enemies 3
+: room37_misc -1
+: room38
+: room38_l -1
+: room38_r -1
+: room38_u 37
+: room38_d -1
+: room38_enemies 5
+: room38_misc -1
+: room39
+: room39_l -1
+: room39_r -1
+: room39_u -1
+: room39_d -1
+: room39_enemies 0
+: room39_misc 8
+: room40
+: room40_l -1
+: room40_r 16
+: room40_u -1
+: room40_d -1
+: room40_enemies 2
+: room40_misc -1
+: room41
+: room41_l -1
+: room41_r 4
+: room41_u -1
+: room41_d -1
+: room41_enemies 4
+: room41_misc -1
+################# START PADDING ###############
+# need to pad this area with 4 bytes
+# so might as well put some sprites here
+: separator_sprite
+: noenemy
+: hline
+0xFF 0xFF
+: hline_lock
+0x55 0xAA
+################## END OF LEVEL SECTION #######
+
+: room_safe_space # overwrite title screen with room data here
+: draw_title
+	hires
+	v0 := 19
+	v1 := 20
+	v1 += va
+	loop
+		i := titletext_up
+		i += v2
+		sprite v0 v1 5
+		v0 += 8
+		v2 += 5
+		if v2 == 45 begin
+			v0 += -31
+			v1 += 21
+		end
+		if v2 < 80 then
+	again
+	v0 += -100
+	v1 += -14
+	v2 := 0
+	loop
+		i := titlelogo
+		i += v2
+		sprite v0 v1 12
+		v0 += 8
+		v2 += 12
+		if v2 < 144 then
+	again
+	
+	v1 := 0
+	i := 233
+	loop
+		v0 += 3
+		v1 := random 7
+		sprite v0 v1 9
+		v1 += 52
+		
+		sprite v0 v1 9
+		vf := KEY_F
+		if vf key then ;
+		vf := KEY_W
+		if vf key then ;
+		vf := KEY_S
+		if vf key then ;
+		vf := KEY_A
+		if vf key then ;
+		vf := KEY_A
+		if vf key then ;
+	again
+
+;
+: titletext_up
+0xFB 0x33 0x33 0x33 0x33
+0x67 0x6C 0xEF 0x6C 0x67
+0x87 0x06 0x87 0x06 0x87
+0x9B 0x5B 0x9B 0x5B 0x9B
+0xCF 0x6D 0x6D 0x6D 0x6F
+0x37 0xB6 0xB6 0xB6 0x36 
+0x8F 0xD8 0xDB 0xDB 0xCF
+0x07 0x0D 0x0D 0x0D 0x07
+0x1E 0xB0 0xB8 0xB0 0x30
+: titletext_down
+0x71 0xDB 0xDB 0xDB 0x71
+0xEF 0x02 0x02 0x02 0xE2
+0x9C 0x36 0x36 0x36 0x1C
+0xF1 0xDB 0xF3 0xDB 0xF1
+0xEF 0x0D 0xCF 0x0D 0xED
+0x3E 0x88 0x08 0x88 0x88
+0xD8 0xD8 0xF8 0xD8 0xD8
+: titlelogo
+#1
+0x0F 0x1F 0x3E 0x3C 0x3C 0x7C 0x7C 0x7C 
+0x78 0xF8 0xFF 0x7F 
+#2
+0xFC 0xFC 0x00 0x00 0x00 0x00 0x00 0x00 
+0x01 0x01 0xF9 0xF0 
+#3
+0x3F 0x7F 0x78 0x78 0xF8 0xF8 0xF1 0xF1 
+0xF1 0xF1 0xFF 0xFF 
+#4
+0xE0 0xF0 0xF1 0xF1 0xF1 0xF1 0xF0 0xF0 
+0xF0 0xF0 0xE1 0xC1 
+#5
+0x7F 0xFF 0xF0 0xF0 0xF0 0xFF 0xFF 0x03 
+0x03 0x03 0xFF 0xFF 
+#6
+0xE3 0xE3 0x03 0x03 0x03 0xC3 0xE3 0xE3 
+0xE3 0xE3 0xC3 0x83 
+#7
+0xFF 0xFF 0xC7 0xC7 0xC7 0xC7 0xC7 0xC7 
+0xC7 0xC7 0xC7 0xC3 
+#8
+0xFE 0xFF 0xCF 0xCF 0xCF 0xCF 0xCF 0xCF 
+0xC7 0xC7 0xC7 0xC7 
+#9
+0x0F 0x1F 0x9F 0x9F 0x9F 0x9F 0x9F 0x8F 
+0x8F 0x8F 0x8F 0x87
+#10
+0xF8 0xFC 0x3E 0x3E 0xFE 0xFE 0xBF 0x1F 
+0x9F 0x8F 0x8F 0x8F 
+#11
+0x3F 0x7F 0x7C 0x7C 0x3C 0x3E 0x3E 0x3E 
+0x1F 0x1F 0x0F 0x07 
+#12
+0xF8 0xF8 0x00 0x00 0x00 0x00 0x00 0x00 
+0x00 0x00 0xFF 0xFF 

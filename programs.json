@@ -1467,5 +1467,73 @@
 			"shiftQuirks":false,
 			"loadStoreQuirks":false
 		}
+	},
+	"trucksimul8or": {
+		"title":    "Truck Simul8or",
+		"authors":  ["buffi"],
+		"images":   ["truck.gif"],
+		"desc":     "You're a kid, you're a truck.",
+		"release":  "2015-07-28",
+		"platform": "xochip",
+		"options": {
+			"tickrate":1000,
+			"fillColor":"#FFCC00",
+			"fillColor2":"#FF6600",
+			"blendColor":"#662200",
+			"backgroundColor":"#996600",
+			"buzzColor":"#FFAA00",
+			"quietColor":"#000000",
+			"shiftQuirks":false,
+			"loadStoreQuirks":false,
+			"vfOrderQuirks":false,
+			"enableXO":true
+		}
+	},
+	"danm8ku": {
+		"title":    "Danm8ku",
+		"authors":  ["buffi"],
+		"images":   ["title.gif","gameplay.gif"],
+		"desc":     "Bullet hell for the Chip-8! Survive 8 waves of exciting bullet patterns!",
+		"event":    "Octojam2",
+		"release":  "2015-10-31",
+		"platform": "chip8",
+		"options": {
+			"tickrate":1000,
+			"fillColor":"#00FF00",
+			"fillColor2":"#FF0000",
+			"blendColor":"#FFFF00",
+			"backgroundColor":"#000000",
+			"buzzColor":"#999900",
+			"quietColor":"#333300",
+			"shiftQuirks":false,
+			"loadStoreQuirks":false,
+			"vfOrderQuirks":false,
+			"enableXO":true
+		}
+	},
+	"binding": {
+		"title":    "The Binding of COSMAC",
+		"authors":  ["buffi"],
+		"images":   ["title.gif"],
+		"desc":     "Simplified Isaac demake for SCHIP. 42 screens across three floors with an exciting boss battle at the end!",
+		"event":    "Octojam3",
+		"release":  "2016-10-21",
+		"platform": "schip",
+		"options": {
+			"tickrate":1000,
+			"fillColor":"#FFCC00",
+			"fillColor2":"#FF6600",
+			"blendColor":"#662200",
+			"backgroundColor":"#996600",
+			"buzzColor":"#FFAA00",
+			"quietColor":"#000000",
+			"shiftQuirks":false,
+			"loadStoreQuirks":false,
+			"vfOrderQuirks":false,
+			"clipQuirks":true,
+			"jumpQuirks":false,
+			"enableXO":false,
+			"screenRotation":0
+		}
 	}
 }
