@@ -1380,5 +1380,23 @@
 			"shiftQuirks":false,
 			"loadStoreQuirks":false
 		}
+	},
+	"down8": {
+		"title":    "down8",
+		"authors":  ["tinaun"],
+		"images":   ["down8.gif"],
+		"desc":     "you fall down an endless hole and then you die!",
+		"event":    "Octojam2",
+		"release":  "2015-10-28",
+		"platform": "chip8",
+		"options": {
+			"tickrate":15,
+			"fillColor":"#27130F",
+			"backgroundColor":"#3DBDFA",
+			"buzzColor":"#FF6600",
+			"quietColor":"#000000",
+			"shiftQuirks":false,
+			"loadStoreQuirks":false
+		}
 	}
 }
