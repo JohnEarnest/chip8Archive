@@ -1,0 +1,475 @@
+﻿# chipcross.8o
+# buffi 2018
+# for octojam-v
+
+# Controls:
+# WASD to move cursor
+# E to select current box
+
+################# ( REG ALIASES ) #####################
+
+# Sprite positions of the cursor in pixels.
+:alias sprite_x v4
+:alias sprite_y v5
+
+# Also keep track of the row thats currently active (0-6, top is 0)
+# since this is needed to address the gamestate.
+:alias POS_Y v6
+
+# Reserved register for keeping track of the current level.
+# This means no using of Octo pseudoinstructions for comparison.
+:alias cur_lvl_no ve
+
+################# ( GAME STORAGE ) #####################
+
+###   ORDERING OF THESE ARE IMPORTANT!   ###
+#
+# Needs to be gamestate minus seven, since that means that means that we can
+# clear the gamestate quickly by doing: i := zeroes, load v6, save v6
+:const zeroes 2005
+
+# Bitmask of the currently active board (7 bytes). MSB is unused.
+:const gamestate 2012
+
+# Bitmask of the solution of the current level (7 bytes), followed by
+# the solution transposed, to allow for counting the columns as well.
+# current_level needs to be seven bytes after gamestate, since that means
+# that it's possible to load both of them into 14 registers, and compare
+# v0-v6 with v7-vd. 
+:const current_level 2019
+#
+###      END OF IMPORTANT ORDERING!      ###
+
+# Bytes for unpacking BCD encoded digits. Can be put anywhere.
+:const bcdloc 3400
+
+################# ( GAME MACROS ) #####################
+
+# Very few functions are used, since most functions/macros are 
+# only called ones. Macros are put here.
+
+# Checks if the level has been completed.
+# Output: vf=0 if level is completed.
+:macro check_level_completed {
+	vf := 0
+	saveflags v7 # Store register v0-v7 for later use
+
+	i := gamestate
+	load vd
+	if v0 != v7 then vf := 1
+	if v1 != v8 then vf := 1
+	if v2 != v9 then vf := 1
+	if v3 != va then vf := 1
+	if v4 != vb then vf := 1
+	if v5 != vc then vf := 1
+	if v6 != vd then vf := 1
+
+	loadflags v7 # Fetch registers back.
+}
+
+# Clears the current state of selected boxes.
+:macro clear_gamestate {
+	i := zeroes
+	load v6
+	save v6
+}
+
+# Starts the next level.
+:macro start_next_level {
+	clear
+	clear_gamestate
+	setup_level
+	draw_level_digits
+	draw_level_grid
+	sprite_x := 16
+	sprite_y := 19
+	POS_Y := 0
+	i := cursor
+	sprite sprite_x sprite_y 3
+}
+
+# Draw the boxes for the different problems (right side of screen)
+# as well as UI elements around them ("LEVELS" text and separator).
+:macro draw_level_boxes {
+	# Draw the boxes.
+	i := spr_level_box
+	v1 := 15
+	loop
+		v0 := 75
+		loop
+			sprite v0 v1 8
+			v0 += 11
+			if v0 != 119 then
+		again
+		v1 += 11
+		if v1 != 59 then
+	again
+
+
+	# Draw markers inside the boxes.
+	v0 := cur_lvl_no
+	i := level_done_marker
+	v1 := 76
+	v2 := 16
+	loop
+		if v0 == 1 then jump draw_level_boxes_markers_done
+
+		sprite v1 v2 6
+		v1 += 11
+		v0 += -1
+
+		if v1 == 120 begin
+			v1 := 76
+			v2 += 11
+		end
+	again
+
+	: draw_level_boxes_markers_done
+
+	# Draw the "LEVELS" text.
+	i := spr_levels
+	v0 := 79
+	v1 := 5
+	loop
+		sprite v0 v1 7
+		v0 += 8
+		vf := 7
+		i += vf
+		if v0 != 111 then
+	again
+
+	# Draw separator between gamefield and level boxes.
+	i := spr_big_line
+	v0 := 65
+	v1 := 0
+	loop
+		sprite v0 v1 4
+		v1 += 4
+		if v1 != 64 then
+	again
+}
+
+# Show a small end-game sequence!
+# Loops forever.
+:macro show_endgame_sequence {
+	i := level_done_marker
+	v1 := 109
+	v2 := 49
+	sprite v1 v2 6
+
+	buzz_with_delay
+	
+	loop
+		i := hit
+		v4 := random 255
+		v5 := random 255
+		sprite v4 v5 1
+		sprite v5 v4 1
+	again
+}
+
+# Handles setting the current box in the problem selecteor.
+# Both handles setting the internal gamestate, and the sprite drawing.
+:macro mark_current {
+	i := hit
+	sprite sprite_x sprite_y 3
+
+	i := gamestate
+	i += POS_Y
+	load v0
+	
+	v1 := sprite_x
+	v2 := 1
+	loop
+		while v1 != 52
+			v1 += 6	
+			v2 <<= v2
+	again
+	v0 ^= v2
+	i := gamestate
+	i += POS_Y
+	save v0
+}
+
+# Main input loop.
+:macro inputloop {
+	loop
+		v2 := key
+
+		# Clear player sprite
+		i := cursor
+		sprite sprite_x sprite_y 3
+
+		if v2 == OCTO_KEY_D begin
+			if sprite_x != 52 then sprite_x += 6
+		end
+		if v2 == OCTO_KEY_A begin
+			if sprite_x != 16 then sprite_x += -6
+		end
+		if v2 == OCTO_KEY_W begin
+			if POS_Y != 0 begin
+				POS_Y += -1
+				sprite_y += -6
+			end
+		end
+		if v2 == OCTO_KEY_S begin
+			if POS_Y != 6 begin
+				POS_Y += 1
+				sprite_y += 6
+			end
+		end
+
+		sprite sprite_x sprite_y 3
+
+		if v2 == OCTO_KEY_E begin mark_current end
+
+		check_level_completed
+		if vf != 0 then 
+	again
+
+	# Level is completed! Show a celebratory buzzer + delay.
+	buzz_with_delay
+	
+	# Check if this was the last level.
+	if cur_lvl_no == 16 begin
+		show_endgame_sequence
+	end
+}
+
+# Draw the grid of the main section of the game.
+:macro draw_level_grid {
+	i := spr_grid
+	v0 := 14
+
+	loop
+		v1 := 17
+		loop
+			sprite v0 v1 12
+			v1 += 12
+			if v1 != 53 then
+		again
+		v0 += 6
+		if v0 != 56 then
+	again
+
+	v0 := 14
+	v1 := 53
+	loop
+		sprite v0 v1 7
+		v0 += 6
+		if v0 != 56 then
+	again
+	v1 := 17
+	i := spr_big_line
+	loop
+		sprite v0 v1 6
+		v1 += 6
+		if v1 != 59 then
+	again
+	
+	sprite v0 v1 1
+}
+
+# Draws the digits describing the current level.
+# See docs on the digit lookup table furthe down for how this works.
+# Some of the common stuff between the left and top side is broken
+# out into a method.
+:macro draw_level_digits {
+	v4 := 0
+	v3 := 18
+	# Y axis
+	loop
+		draw_level_shared
+		v2 := 9
+		sprite v2 v3 5
+
+		# Left digit
+		i := hex v1
+		v2 := 4
+		sprite v2 v3 5		
+
+		v3 += 6
+		if v4 != 7 then
+	again
+
+	# X axis
+	v3 := 16
+	loop
+		draw_level_shared
+		v2 := 10
+		sprite v3 v2 5
+
+		# Top digit
+		i := hex v1
+		v2 := 3
+		sprite v3 v2 5		
+
+		v3 += 6
+		if v4 != 14 then
+	again
+}
+
+# Loads the current level into the active gamestate.
+# Level is 7 rows of 7 bits (MSB is ignored)
+# This function assumes vf is 0 when it starts.
+:macro setup_level {
+	i := level_data
+	loop
+		load vd
+		while vf != cur_lvl_no
+			vf += 1
+	again
+
+	i := current_level
+	save vd
+	cur_lvl_no += 1
+}
+
+################# (  MAIN LOOP  ) #####################
+
+# Needs to be at the address directly after the font data
+# to not have to do an extra jump. Just macros above!
+: main
+   	hires
+	loop
+		start_next_level
+		draw_level_boxes
+		inputloop
+	again
+	
+################# (  FUNCTIONS  ) #####################
+
+# Beep and delay 60 seconds to show great success.
+: buzz_with_delay 
+	vf := 60
+	buzzer := vf
+	delay := vf
+	loop
+		vf := delay
+		if vf != 0 then
+	again
+;
+
+# Some common stuff broken out of the level drawing.
+# Saves a bunch of memory.
+: draw_level_shared
+		i := current_level
+		i += v4
+		v4 += 1
+		load v0
+		i := digit_lookup_table
+		i += v0
+		load v0
+		
+		# Right digit
+		i := bcdloc
+		bcd v0
+		load v2
+		i := hex v2
+;
+
+################# ( LEVEL DATA  ) #####################
+
+# Levels are encoded as 14 rows of data.
+# The first 7 rows are essentially a 7 line Octo sprite, where the leftmost
+# pixel (MSB) needs to be zero.
+# The next 7 rows are the same sprite, but transposed over the diagonal.
+# Example:
+# 0x18, 0x38, 0x08, 0x1F, 0x3F, 0x1E, 0x00   (a duck!)
+# 0x00, 0x24, 0x6E, 0x7E, 0x0E, 0x0E, 0x0C   (mirrored duck, facing air)
+#
+# This allows taking each row, and looking them up in the lookup table below,
+# to fetch the digits to display to both the left and top of the image.
+#
+# Note that since at most two digits are allowed, levels can not have more than
+# one 'gap' in a row, so things like 0b01101001 would not be valid.
+#
+# Macro below will take an Octo sprite, and output it both normally and transposed.
+
+:macro output_level A B C D E F G {
+	:byte { A }
+	:byte { B }
+	:byte { C }
+	:byte { D }
+	:byte { E }
+	:byte { F }
+	:byte { G }
+	:byte { ( ( ( A & 0b01000000 ) >> 6 ) << 6 ) | ( ( ( B & 0b01000000 ) >> 6 ) << 5 ) | ( ( ( C & 0b01000000 ) >> 6 ) << 4 ) | ( ( ( D & 0b01000000 ) >> 6 ) << 3 ) | ( ( ( E & 0b01000000 ) >> 6 ) << 2 ) | ( ( ( F & 0b01000000 ) >> 6 ) << 1 ) | ( ( G & 0b01000000 ) >> 6 ) }
+	:byte { ( ( ( A & 0b00100000 ) >> 5 ) << 6 ) | ( ( ( B & 0b00100000 ) >> 5 ) << 5 ) | ( ( ( C & 0b00100000 ) >> 5 ) << 4 ) | ( ( ( D & 0b00100000 ) >> 5 ) << 3 ) | ( ( ( E & 0b00100000 ) >> 5 ) << 2 ) | ( ( ( F & 0b00100000 ) >> 5 ) << 1 ) | ( ( G & 0b00100000 ) >> 5 ) }
+	:byte { ( ( ( A & 0b00010000 ) >> 4 ) << 6 ) | ( ( ( B & 0b00010000 ) >> 4 ) << 5 ) | ( ( ( C & 0b00010000 ) >> 4 ) << 4 ) | ( ( ( D & 0b00010000 ) >> 4 ) << 3 ) | ( ( ( E & 0b00010000 ) >> 4 ) << 2 ) | ( ( ( F & 0b00010000 ) >> 4 ) << 1 ) | ( ( G & 0b00010000 ) >> 4 ) }
+	:byte { ( ( ( A & 0b00001000 ) >> 3 ) << 6 ) | ( ( ( B & 0b00001000 ) >> 3 ) << 5 ) | ( ( ( C & 0b00001000 ) >> 3 ) << 4 ) | ( ( ( D & 0b00001000 ) >> 3 ) << 3 ) | ( ( ( E & 0b00001000 ) >> 3 ) << 2 ) | ( ( ( F & 0b00001000 ) >> 3 ) << 1 ) | ( ( G & 0b00001000 ) >> 3 ) }
+	:byte { ( ( ( A & 0b00000100 ) >> 2 ) << 6 ) | ( ( ( B & 0b00000100 ) >> 2 ) << 5 ) | ( ( ( C & 0b00000100 ) >> 2 ) << 4 ) | ( ( ( D & 0b00000100 ) >> 2 ) << 3 ) | ( ( ( E & 0b00000100 ) >> 2 ) << 2 ) | ( ( ( F & 0b00000100 ) >> 2 ) << 1 ) | ( ( G & 0b00000100 ) >> 2 ) }
+	:byte { ( ( ( A & 0b00000010 ) >> 1 ) << 6 ) | ( ( ( B & 0b00000010 ) >> 1 ) << 5 ) | ( ( ( C & 0b00000010 ) >> 1 ) << 4 ) | ( ( ( D & 0b00000010 ) >> 1 ) << 3 ) | ( ( ( E & 0b00000010 ) >> 1 ) << 2 ) | ( ( ( F & 0b00000010 ) >> 1 ) << 1 ) | ( ( G & 0b00000010 ) >> 1 ) }
+	:byte { ( ( ( A & 0b00000001 ) >> 0 ) << 6 ) | ( ( ( B & 0b00000001 ) >> 0 ) << 5 ) | ( ( ( C & 0b00000001 ) >> 0 ) << 4 ) | ( ( ( D & 0b00000001 ) >> 0 ) << 3 ) | ( ( ( E & 0b00000001 ) >> 0 ) << 2 ) | ( ( ( F & 0b00000001 ) >> 0 ) << 1 ) | ( ( G & 0b00000001 ) >> 0 ) }
+}
+
+# Here are the levels.
+# Try loading them in the sprite editor.
+# Very convinient level editor!
+
+: level_data
+output_level 0x00 0x00 0x00 0x18 0x18 0x00 0x00 # tutorial
+output_level 0x08 0x08 0x08 0x7F 0x08 0x08 0x08 # cross
+output_level 0x00 0x66 0x66 0x00 0x00 0x42 0x7E # smile
+output_level 0x08 0x1C 0x3E 0x77 0x3E 0x1C 0x08 # ???
+
+output_level 0x77 0x14 0x77 0x7F 0x63 0x7F 0x63 # ??? 
+output_level 0x18 0x38 0x08 0x1F 0x3F 0x1E 0x00 # duck
+output_level 0x30 0x50 0x1C 0x3E 0x1E 0x08 0x00 # flamingo
+output_level 0x20 0x30 0x78 0x7C 0x10 0x7F 0x3E # boat
+
+output_level 0x14 0x77 0x14 0x1C 0x3E 0x77 0x63 # ???
+output_level 0x47 0x63 0x71 0x78 0x7C 0x7E 0x7F # ???
+output_level 0x77 0x36 0x14 0x08 0x14 0x36 0x77 # ???
+output_level 0x3E 0x63 0x63 0x77 0x3E 0x41 0x41 # ???
+
+output_level 0x67 0x7D 0x5F 0x7F 0x63 0x63 0x7E # face?
+output_level 0x1C 0x3E 0x3E 0x63 0x63 0x7F 0x36 # ???
+output_level 0x3E 0x41 0x41 0x3E 0x41 0x41 0x41 # ??? 
+output_level 0x22 0x77 0x7D 0x7F 0x3E 0x1C 0x08 # heart
+
+################# ( LOOKUP TABLE ) #####################
+
+# Used to map level data to the digits to display.
+# Since the MSB of each row is not used, theres 128 possible values.
+# Each valid value maps to the digits to display.
+# They are encoded using BCD.
+# Example:
+# Sprite data is 0b00110111
+# Digits to display are 2 and 3.
+# 0b00110111 is 55 in decimal, so : digit_lookup_table + 55 is set to the value '23'.
+#
+# Since some values cannot be mapped to (due to at most having two digits),
+# theres some extra space here for sprite storage to.
+# Unused storage is marked with '255'.
+
+: digit_lookup_table
+0 1 1 2 1 11 2 3 1 11 11 12 2 21 3 4 1 11 11 12 11 255
+12 13 2 21 21 22 3 31 4 5 1 11 11 12 11 255 12 13 11
+: cursor 0x00 0x40 0x00
+12 255 13 14 2 21 21 22 21 255 22 23 3 31 31 32 4 41 5 6 1
+11 11 12 11 255 12 13 11
+: hit 0xE0 0xE0 0xE0
+12 255 13 14 11
+: level_done_marker 0xFC 0xCC 0xB4 0xB4 0xCC 0xFC
+255 12 255 255 255 13 255 14 15 2 21 21 22 21 255 22 23 21 255 255 255
+22 255 23 24 3 31 31 32 31 255 32 33 4 41 41 42 5 51 6 7
+
+################# ( SPRITE DATA ) #####################
+
+# A little bit of data is overlapping between sprites to save memory.
+
+: spr_levels
+0x23 0x22 0x23 0x22 0x3B 0x80 0xFF 
+0xD1 0x11 0x91 0x0E 0xC4 0x00 0xFF
+0x7A 0x42 0x72 0x42 0x7B 0x00 0xFF
+0x0E 0x10 0x0C 0x02 0xDC 0x01
+# 0xFF is part of this as well, but available from the next sprite
+
+: spr_level_box
+0xFF 0x81 0x81 0x81 0x81 0x81 0x81 0xFF 
+
+: spr_grid # 12 bytes, but some used for spr_big_line too
+0xFC 0x80 0x80 0x80 0x80 0x80 0xFC
+: spr_big_line
+0x80 0x80 0x80 0x80 0x80 0x80

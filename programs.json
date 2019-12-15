@@ -270,7 +270,7 @@
 		"authors":  ["JohnEarnest"],
 		"images":   ["sweetcopter.gif"],
 		"desc":     "An adaptation of \"Swing Copters\" for the Super Chip8.",
-		"release":  "2014-09-2",
+		"release":  "2014-09-02",
 		"platform": "schip",
 		"options":  {
 			"tickrate":"100",
@@ -1213,7 +1213,7 @@
 		"images":   ["breakout.gif"],
 		"desc":     "You can't even imagine how amazing this breakout clone is!",
 		"event":    "Octojam1",
-		"release":  "2014-9-1",
+		"release":  "2014-09-01",
 		"platform": "chip8",
 		"options": {
 			"tickrate":7,
@@ -1250,7 +1250,7 @@
 		"authors":  ["Kesha"],
 		"images":   ["kesha.gif"],
 		"desc":     "A surreal telephone adventure.",
-		"release":  "2016-1-21",
+		"release":  "2016-01-21",
 		"platform": "xochip",
 		"options": {
 			"tickrate":1000,
@@ -1409,7 +1409,7 @@
 		"images":   ["title.gif"],
 		"desc":     "The classic puzzle game of deduction.",
 		"event":    "Octojam3",
-		"release":  "2015-11-8",
+		"release":  "2015-11-08",
 		"platform": "chip8",
 		"options":  {
 			"tickrate":20,
@@ -1531,6 +1531,31 @@
 			"loadStoreQuirks":false,
 			"vfOrderQuirks":false,
 			"clipQuirks":true,
+			"jumpQuirks":false,
+			"enableXO":false,
+			"screenRotation":0
+		}
+	},
+	"chipcross": {
+		"title":    "Chipcross",
+		"authors":  ["buffi"],
+		"images":   ["chipcross.gif"],
+		"desc":     "16 levels of Picross implemented in CHIP8. 800 bytes of fun.",
+		"event":    "Octojam5",
+		"release":  "2018-10-15",
+		"platform": "schip",
+		"options": {
+			"tickrate":20,
+			"fillColor":"#FFCC00",
+			"fillColor2":"#FF6600",
+			"blendColor":"#662200",
+			"backgroundColor":"#996600",
+			"buzzColor":"#FFAA00",
+			"quietColor":"#000000",
+			"shiftQuirks":false,
+			"loadStoreQuirks":false,
+			"vfOrderQuirks":false,
+			"clipQuirks":false,
 			"jumpQuirks":false,
 			"enableXO":false,
 			"screenRotation":0
