@@ -1560,5 +1560,30 @@
 			"enableXO":false,
 			"screenRotation":0
 		}
+	},
+	"knight": {
+		"title":    "Knight",
+		"authors":  ["simonpacis"],
+		"images":   ["knight.gif"],
+		"desc":     "You're Artore the Puny, littlebrother and inferior to your great big brother, King Arthur.",
+		"event":    "Octojam3",
+		"release":  "2016-10-07",
+		"platform": "schip",
+		"options": {
+			"tickrate":"200",
+			"fillColor":"#FFCC00",
+			"fillColor2":"#FF6600",
+			"blendColor":"#662200",
+			"backgroundColor":"#996600",
+			"buzzColor":"#FFAA00",
+			"quietColor":"#000000",
+			"shiftQuirks":false,
+			"loadStoreQuirks":false,
+			"vfOrderQuirks":false,
+			"clipQuirks":false,
+			"jumpQuirks":false,
+			"enableXO":false,
+			"screenRotation":0
+		}
 	}
 }
