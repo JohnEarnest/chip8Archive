@@ -1585,5 +1585,33 @@
 			"enableXO":false,
 			"screenRotation":0
 		}
+	},
+	"chipquarium": {
+		"title":    "Chipquarium",
+		"authors":  ["mattmik"],
+		"images":   ["chipquarium.gif"],
+		"desc":     "A CHIP-8 fish tank simulator.",
+		"event":    "Octojam3",
+		"release":  "2016-10-31",
+		"platform": "chip8",
+		"options": {
+			"tickrate":15,
+			"fillColor":"#FFFFFF",
+			"fillColor2":"#FF6600",
+			"blendColor":"#662200",
+			"backgroundColor":"#0072ff",
+			"buzzColor":"#FFAA00",
+			"quietColor":"#0000FF",
+			"shiftQuirks":false,
+			"loadStoreQuirks":false,
+			"vfOrderQuirks":false,
+			"clipQuirks":true,
+			"vBlankQuirks":true,
+			"jumpQuirks":false,
+			"logicQuirks":true,
+			"screenRotation":0,
+			"maxSize":3215,
+			"touchInputMode":"none"
+		}
 	}
 }
