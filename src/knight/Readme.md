@@ -1,6 +1,6 @@
 KNIGHT
-––––––
-By [SIMON KLIT-JOHNSON](github.com/simonklitjohnson)
+------
+By [SIMON KLIT-JOHNSON](https://github.com/simonpacis)
 
 Move with WASD, attack with E and dodge with Q.
 
