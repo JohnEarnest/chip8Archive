@@ -1613,5 +1613,45 @@
 			"maxSize":3215,
 			"touchInputMode":"none"
 		}
+	},
+	"glitchGhost": {
+		"title":    "Glitch Ghost",
+		"authors":  ["JackieKircher"],
+		"images":   ["glitchGhost.gif"],
+		"desc":     "glitch ghost is all alone in the cemetery, please help them make some friends by turning the trespassing humans into new ghosts!",
+		"event":    "Octojam1",
+		"release":  "2014-10-29",
+		"platform": "chip8",
+		"options": {
+			"tickrate":200,
+			"fillColor":"#FFFFFF",
+			"backgroundColor":"#555555",
+			"buzzColor":"#FFFFFF",
+			"quietColor":"#000000",
+			"shiftQuirks":false,
+			"loadStoreQuirks":false
+		}
+	},
+	"octovore": {
+		"title":    "Octovore",
+		"authors":  ["JackieKircher"],
+		"images":   ["octovore.gif"],
+		"desc":     "a game of hungry hungry octopods",
+		"event":    "Octojam2",
+		"release":  "2015-11-02",
+		"platform": "schip",
+		"options": {
+			         "tickrate" : 120,
+			        "fillColor" : "#5B1B96",
+			       "fillColor2" : "#E03B22",
+			       "blendColor" : "#68E022",
+			  "backgroundColor" : "#8BDCE8",
+			        "buzzColor" : "#68E022",
+			       "quietColor" : "#000000",
+			      "shiftQuirks" :  false,
+			  "loadStoreQuirks" :  false,
+			    "vfOrderQuirks" :  false,
+			         "enableXO" :  true
+		}
 	}
 }

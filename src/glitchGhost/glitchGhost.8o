@@ -1,0 +1,1431 @@
+﻿#----------------------------#
+#  glitch ghost
+#  author: jackie kircher
+#----------------------------#
+
+
+#-- cutscenes --#
+  : title   # G - 7 wide
+    0x3C 0x62 0xC0 0xC0 0xDE 0xD2 0xC2 0x66 0x3C 0x00 0x00
+  : title1  # L - 6 wide
+    0x00 0x00 0xC0 0x40 0x40 0x40 0x40 0x80 0x44 0x7C 0x00
+  : title2  # I - 3 wide
+    0xE0 0x40 0x40 0x60 0x40 0x80 0x40 0x40 0xE0 0x00 0x00
+  : title3  # T - 7 wide
+    0x00 0xBE 0xF2 0x16 0x10 0x10 0x10 0x10 0x10 0x30 0x38
+  : title4  # C - 7 wide
+    0x3C 0x62 0xC0 0xC0 0xC0 0xC0 0xC2 0x66 0x3C 0x00 0x00
+  : title5  # H - 7 wide
+    0x00 0x00 0x84 0xC2 0x44 0x44 0x7C 0x46 0x46 0x84 0x40
+
+  : title6  # G - 7 wide
+    0x00 0x00 0x3C 0x62 0xC0 0xC0 0xDE 0xD2 0xC2 0x66 0x3C
+  : title7  # H - 7 wide
+    0x00 0x84 0xC2 0x44 0x44 0x7C 0x46 0x46 0x84 0x40 0x00
+  : title8  # O - 7 wide
+    0x7C 0xC6 0xC2 0x82 0x86 0x84 0x84 0xCC 0x78 0x00 0x00
+  : title9  # S - 7 wide
+    0x00 0x00 0x7C 0xC4 0xC0 0x78 0x08 0xC2 0xA4 0x8C 0x78
+  : title10 # T - 7 wide
+    0xBE 0xF2 0x16 0x10 0x10 0x10 0x10 0x10 0x30 0x38 0x00
+
+  : alphabet
+    0x00 0x00 0x00 0x00 0x00 # space
+    0xF0 0x90 0xF0 0x90 0x90 # A (1)
+    0xE0 0xA0 0xF0 0x90 0xF0 # B (2)
+    0xF0 0x80 0x80 0x80 0xF0 # C (3)
+    0xE0 0xA0 0x90 0x90 0xF0 # D (4)
+    0xF0 0x80 0xE0 0x80 0xF0 # E (5)
+    0xF0 0x80 0xE0 0x80 0x80 # F (6)
+    0xE0 0x80 0xB0 0x90 0xF0 # G (7)
+    0x90 0x90 0xF0 0x90 0x90 # H (8)
+    0xE0 0x40 0x40 0x40 0xE0 # I (9)
+    0x60 0x20 0x20 0x20 0xE0 # J (10)
+    0x90 0xA0 0xC0 0xA0 0x90 # K (11)
+    0x80 0x80 0x80 0x80 0xF0 # L (12)
+    0x90 0xF0 0xB0 0x90 0x90 # M (13)
+    0x90 0xD0 0xD0 0xB0 0x90 # N (14)
+    0xF0 0x90 0x90 0x90 0xF0 # O (15)
+    0xF0 0x90 0xF0 0x80 0x80 # P (16)
+    0xE0 0x90 0x90 0xB0 0x70 # Q (17)
+    0xE0 0x90 0xF0 0xA0 0x90 # R (18)
+    0xF0 0x80 0xF0 0x10 0xF0 # S (19)
+    0xF0 0x40 0x40 0x40 0x40 # T (20)
+    0x90 0x90 0x90 0x90 0xF0 # U (21)
+    0x90 0x90 0xA0 0xC0 0x80 # V (22)
+    0x90 0x90 0xD0 0xF0 0x90 # W (23)
+    0x90 0xD0 0x60 0xB0 0x90 # X (24)
+    0x90 0x90 0xE0 0x40 0x40 # Y (25)
+    0xF0 0x30 0x60 0xC0 0xF0 # Z (26)
+    0x00 0x00 0x00 0x00 0x40 # . (27)
+    0x80 0x80 0x80 0x00 0x80 # ! (28)
+
+  : happy-ghost
+    0x00 0x00 0x7C 0x54 0x7C 0xFE 0x7C 0x54 0x00 0x00 0x38
+  : happy-ghost-mid
+    0x00 0x7C 0x54 0xFE 0x7C 0x7C 0x54 0x00 0x00 0x00 0x10
+  : happy-ghost-top
+    0x7C 0xD6 0x7C 0x7C 0x7C 0x54 0x00 0x00 0x00 0x00 0x10
+
+
+#-- sprites --#
+
+  # human
+  : human
+    0xE0 0xE0 0x40 0x40 0xE0 0xA0 0xA0
+
+  # ghost
+  : ghost
+    0xF8 0xA8 0xF8 0xF8 0xF8 0xA8 0x00 0x00 0x00 0x20
+  : ghostlo
+    0x00 0xF8 0xA8 0xF8 0xF8 0xF8 0xA8 0x00 0x00 0x70
+  : ghostright
+    0xF8 0xE8 0xF8 0xF8 0xF8 0xA8 0x00 0x00 0x00 0x20
+  : ghostrightlo
+    0x00 0xF8 0xE8 0xF8 0xF8 0xF8 0xA8 0x00 0x00 0x70
+  : ghostleft
+    0xF8 0xB8 0xF8 0xF8 0xF8 0xA8 0x00 0x00 0x00 0x20
+  : ghostleftlo
+    0x00 0xF8 0xB8 0xF8 0xF8 0xF8 0xA8 0x00 0x00 0x70
+  : ghostup
+    0xF8 0xF8 0xF8 0xF8 0xF8 0xA8 0x00 0x00 0x00 0x20
+  : ghostuplo
+    0x00 0xF8 0xF8 0xF8 0xF8 0xF8 0xA8 0x00 0x00 0x70
+
+  # graves
+  : grave0
+    0x00 0x60 0x60 0x60 0x00 0x00 0x00 0x00 0x00 0x00
+  : grave1
+    0x40 0xA0 0xA0 0xE0 0x00 0x00 0x00 0x00 0x00 0x00
+  : grave2
+    0x40 0xE0 0x40 0x40 0x00 0x00 0x00 0x00 0x00 0x00
+  : grave3
+    0x00 0x60 0xF0 0x90 0x00 0x00 0x00 0x00 0x00 0x00
+  : graveopen
+    0x00 0x60 0xF0 0x90 0x00 0x90 0x00 0x90 0x00 0x90
+  : graveclosed
+    0x00 0x60 0xF0 0x90 0x00 0xF0 0x60 0xF0 0x60 0xF0
+
+  # borders
+  : border-left
+    0x40 0xC0 0x40
+  : border-right
+    0x02 0x03 0x02
+  : border-top
+    0x40 0xE0
+  : border-bottom
+    0xE0 0x40
+  : gate-left
+    0x90 0x10 0xD4
+  : gate-right
+    0x12 0x10 0x56
+
+
+#-- setup --#
+
+  # game state
+  : buried-counter 0
+
+  # cutscenes
+  : happy-ghost-frame  0
+  : happy-ghost-delta 11
+
+  # map
+  :alias map_xpos   v8
+  :alias map_ypos   v9
+  : tmp  0 0 0 0 0
+
+  # the coordinates the human should start at
+  #   these values are padded out to be the same size
+  #   as the map screens so they can be indexed via
+  #   map_xpos and map_ypos
+  : human-start
+    31 13 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 # (0,0)
+    53 12 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 # (0,1)
+    19 18 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 # (0,2)
+    50  4 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 # (1,0)
+    50 13 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 # (1,1)
+    24 14 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 # (1,2)
+     3  5 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 # (2,0)
+    10  1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 # (2,1)
+     9 22 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 # (2,2)
+
+  : map
+    2  7  9  0 23  9  0 39  9  1 55  9
+    3  7 22  2 23 22  1 39 22  3 55 22 # (0,0)
+
+    2 19 11  0 25 11  2 32 11  0 37 11
+    2 44 11  3  3 22  3 53 25  4  7  8 # (0,1)
+
+    3  9  3  3 25  3  0 41  5  1  7 20
+    2 33 14  1 32 23  3 41 25  4 52 12 # (0,2)
+
+    3  4  0  0 58  5  3 54 12  1 24 24
+    1 37 24  2 27 14  2 34 14  4 30 18 # (1,0)
+
+    2 18  4  2 34  4  2 50  4  1 55  7
+    1 18 18  0 32 22  3 42 18  4  7  9 # (1,1)
+
+    3  4 10  0 50  2  1 13  1  3 31 27
+    2  2 21  2 35 14  2 50 25  4 55 17 # (1,2)
+
+    3  3  0  0  7  3  3 53  0  0 57  8
+    1 51 25  2 20 18  2 20 24  4 28 17 # (2,0)
+
+    0 57  3  3  4 31  3 29 19  2 19 10
+    2 19 16  2 40 10  2 40 16  4 29  9 # (2,1)
+
+    1 13 24  3  8  1  0 27  3  2 21 14
+    2 51 18  1 42  5  2 58 18  4 54  6 # (2,2)
+
+    0
+    0  0  0  0  0  0  0  0  0  1 50 12
+    0  0  0  0  0  0  0  0  0  4 46 21 # (TUTORIAL)
+
+  :const  MCOL  24
+  :const -MCOL -24
+  :const  MROW  72
+  :const -MROW -72
+
+  :const LBOUND     0
+  :const RBOUND    48
+  :const TBOUND     0
+  :const BBOUND   144
+  :const TUTORIAL 216
+
+  :const HTOP 10
+  :const HMID  8
+  :const HBOT  6
+
+  # humans
+  :alias humanx v6
+  :alias humany v7
+  : human-scared  0
+  : human-map-pos 0 0
+
+  :const UP 1
+  :const DN 2
+  :const LF 3
+  :const RT 4
+
+  # ghost
+  :alias ghostx     va
+  :alias ghosty     vb
+  :alias ghostframe vc
+  :alias ghostpos   vd
+
+  :const HI  0
+  :const LO 10
+
+
+#-- ghost --#
+
+: idletimer
+  0
+
+: make-ghost
+  ghostx     := 15 # starting x position
+  ghosty     := 13 # starting y position
+  ghostframe :=  0 # starting frame
+  ghostpos   := HI # bounce direction
+;
+
+: draw-ghost
+  i := ghost
+  i += ghostframe
+  sprite ghostx ghosty 10
+;
+
+# bounce the ghost up and down
+: idle-ghost
+  v1 := 10
+  i  := idletimer
+  load v0
+  v0 += v1
+  v2 := vf
+  i  := idletimer
+  save v0
+  if v2 == 1 then bounce-ghost
+;
+
+: move-ghost
+  :alias newx     v1
+  :alias newy     v2
+  :alias newframe v3
+
+  newx := ghostx
+  newy := ghosty
+
+  :alias input v0
+  input := 7
+  if input key then newx += -1
+  input := 9
+  if input key then newx +=  1
+  input := 5
+  if input key then newy += -1
+  input := 8
+  if input key then newy +=  1
+
+  # return early and don't change anything if no
+  # direction keys are being pressed
+  v0 := 0
+  if newx != ghostx then v0 := 1
+  if newy != ghosty then v0 := 1
+  if v0 == 0 then return
+
+  # boundary checking y
+  # boundaries are only applied if on the edge of the map
+  v0 := 1
+  if map_ypos != TBOUND then v0   := 0
+  if newy     !=  1     then v0   := 0
+  if v0       ==  1     then newy := 2
+  v0 := 1
+  if map_ypos != BBOUND then v0   := 0
+  if newy     != 21     then v0   := 0
+  if v0       ==  1     then newy := 20
+
+  # boundary checking x
+  # boundaries are only applied if on the edge of the map
+  v0 := 1
+  if map_xpos != LBOUND then v0   := 0
+  if newx     !=  1     then v0   := 0
+  if v0       ==  1     then newx := 2
+  v0 := 1
+  if map_xpos != RBOUND then v0   := 0
+  if newx     != 58     then v0   := 0
+  if v0       ==  1     then newx := 57
+
+  # update frame offset so ghost turns
+  newframe := 0
+  if newx > ghostx then newframe := 20
+  if newx < ghostx then newframe := 40
+  if newy < ghosty then newframe := 60
+  newframe += ghostpos
+
+  # erase old ghost position
+  i := ghost
+  i += ghostframe
+  sprite ghostx ghosty 10
+
+  # draw new ghost position
+  i := ghost
+  i += newframe
+  sprite newx newy 10
+
+  # update ghost values
+  # (do this here so there is minimal flicker)
+  ghostx     := newx
+  ghosty     := newy
+  ghostframe := newframe
+;
+
+: bounce-ghost
+  :alias pos   v1
+  :alias frame v2
+
+  pos   := ghostpos
+  frame := ghostframe
+
+  if pos == HI then ghostframe +=  10
+  if pos == HI then ghostpos   :=  LO
+  if pos == LO then ghostframe += -10
+  if pos == LO then ghostpos   :=  HI
+
+  # erase the ghost on the previous frame
+  i := ghost
+  i += frame
+  sprite ghostx ghosty 10
+
+  # draw the ghost in the new position
+  i := ghost
+  i += ghostframe
+  sprite ghostx ghosty 10
+;
+
+: haunt
+  # remove current ghost
+  i := ghost
+  i += ghostframe
+  sprite ghostx ghosty 10
+
+  # glitch the ghost for 6 frames
+  :alias hauntoffset v1
+  hauntoffset := 0
+  v0 := 160
+  i  := ghost
+  i  += v0
+  loop
+    sync
+
+    i += hauntoffset
+    sprite ghostx ghosty 10
+
+    hauntoffset += 10
+    if hauntoffset != 150 then
+  again
+
+  clear
+  if map_ypos == TUTORIAL then draw-instructions
+  draw-background
+  draw-ghost
+
+  # don't scare the human if they're not on this screen
+  :alias h_map_xpos v0
+  :alias h_map_ypos v1
+  i := human-map-pos
+  load v1
+  if map_xpos != h_map_xpos then return
+  if map_ypos != h_map_ypos then return
+
+  # scare them!
+  calculate-scare-direction
+  :alias scared v5
+  scared := v0
+  save-human-scared
+
+  draw-human
+;
+
+: calculate-scare-direction
+  :alias xdir v0
+  :alias ydir v1
+
+  # calculate the total distance between the ghost and the
+  # human horizontally and the direction
+  :alias ghost_cx v2
+  :alias human_cx v3
+  :alias xmag     v4
+
+  ghost_cx := ghostx
+  ghost_cx += 3
+  human_cx := humanx
+  human_cx += 2
+
+  xdir := 0
+  # ghost and human are at the same x position
+  if ghost_cx == human_cx then xdir := 0
+  if ghost_cx == human_cx then xmag := 0
+  # ghost is the to the right of the human
+  if ghost_cx >  human_cx then xdir := LF
+  if ghost_cx >  human_cx then xmag := ghost_cx
+  if ghost_cx >  human_cx then xmag -= human_cx
+  # x is negative if ghost is left
+  if ghost_cx <  human_cx then xdir := RT
+  if ghost_cx <  human_cx then xmag := human_cx
+  if ghost_cx <  human_cx then xmag -= ghost_cx
+
+
+  # calculate the total distance between the ghost and the
+  # human horizontally and the direction
+  :alias ghost_cy v2
+  :alias human_cy v3
+  :alias ymag     v5
+
+  ghost_cy := ghosty
+  ghost_cy += 4
+  human_cy := humany
+  human_cy += 3
+
+  ydir := 0 # direction to move vertically
+  if ghost_cy == human_cy then ydir := 0
+  if ghost_cy == human_cy then ymag := 0
+  # y is positive if ghost is below
+  if ghost_cy >  human_cy then ydir := UP
+  if ghost_cy >  human_cy then ymag := ghost_cy
+  if ghost_cy >  human_cy then ymag -= human_cy
+  # y is negative if ghost is above
+  if ghost_cy <  human_cy then ydir := DN
+  if ghost_cy <  human_cy then ymag := human_cy
+  if ghost_cy <  human_cy then ymag -= ghost_cy
+
+  :alias scareto v2
+  scareto := 0
+  if ymag >= xmag then scareto := ydir
+  if ymag <  xmag then scareto := xdir
+
+  # if both xmag and ymag are 0, then the ghost is on top
+  # of the human and it should jsut run in a random direction
+  v0 := scareto
+  if v0 == 0 then scareto := random 0b11
+  if v0 == 0 then scareto += 1
+
+  # return scareto direction in v0
+  v0 := scareto
+;
+
+
+#-- human --#
+
+: make-human
+  humanx := 31
+  humany := 14
+
+  v0 := 0
+  i  := human-scared
+  save v0
+
+  v0 := 0
+  v1 := 0
+  i  := human-map-pos
+  save v1
+;
+
+# saves the value in 'scared' to human-scared
+# -> an alias for scared must be set
+: save-human-scared
+  ve := v0
+  v0 := scared
+  i  := human-scared
+  save v0
+
+  v0 := ve
+;
+
+# loads the value for human-scared into 'scared'
+# -> an alias for scared must be set
+: load-human-scared
+  ve := v0
+  i  := human-scared
+  load v0
+
+  scared := v0
+  v0     := ve
+;
+
+: load-human-position
+  i := human-start
+  i += map_xpos
+  i += map_ypos
+  load v1
+  humanx := v0
+  humany := v1
+;
+
+: draw-human
+  # don't draw human if they aren't on the current screen
+  i := human-map-pos
+  load v1
+  if map_xpos != v0 then return
+  if map_ypos != v1 then return
+
+  i := human
+  sprite humanx humany 7
+
+  :alias scared v5
+  load-human-scared
+  if scared != 0 then run-human-run
+;
+
+: run-human-run
+  :alias human_nx v1
+  :alias human_ny v2
+  :alias scared   v5
+  load-human-scared
+
+  loop
+    sync
+
+    move-ghost
+    idle-ghost
+
+    i  := tmp
+    v0 := scared
+    save-human-scared
+
+    # wrap around effect
+    v4 := 0
+    if ghostx == 60 then new-screen-right
+    if ghostx == -1 then new-screen-left
+    if ghosty == -1 then new-screen-up
+    if ghosty == 23 then new-screen-down
+    if v4 ==  1 then scared := 0
+    if v4 ==  1 then save-human-scared
+    if v4 ==  1 then return
+
+    i  := tmp
+    load-human-scared
+    scared := v0
+
+    human_nx := humanx
+    human_ny := humany
+    if scared == UP then human_ny += -1
+    if scared == DN then human_ny +=  1
+    if scared == LF then human_nx += -1
+    if scared == RT then human_nx +=  1
+
+    i := human
+    sprite humanx   humany   7 # erase current human
+    sprite human_nx human_ny 7 # draw new position
+
+    v4 := vf
+    if v4 == 0 then humanx := human_nx
+    if v4 == 0 then humany := human_ny
+    if v4 == 1 then check-grave-collision
+               if v0 == 10 then return
+    if v4 == 1 then human-turn
+
+    # check to see if they're at the edge of the screen
+    v0 := 0
+    if humanx ==  0 then v0 := 1
+    if humanx == 61 then v0 := 1
+    if humany ==  0 then v0 := 1
+    if humany == 25 then v0 := 1
+    if v0 == 0 then
+  again
+
+  # "run off-screen"
+  sprite humanx humany 7
+
+  # update global map coordinates
+  i := human-map-pos
+  load v1
+  if humanx ==  0 then v0 += -MCOL
+  if humanx == 61 then v0 +=  MCOL
+  if humany ==  0 then v1 += -MROW
+  if humany == 25 then v1 +=  MROW
+  i := human-map-pos
+  save v1
+
+  # calm down
+  scared := 0
+  save-human-scared
+;
+
+: human-turn
+  :alias human_nx v1
+  :alias human_ny v2
+
+  :alias scared v5
+  load-human-scared
+
+  # always turn right
+  v0 := scared
+  if v0 == UP then scared := RT
+  if v0 == LF then scared := UP
+  if v0 == DN then scared := LF
+  if v0 == RT then scared := DN
+  save-human-scared
+
+  i := human
+  sprite human_nx human_ny 7 # erase collision
+  sprite humanx   humany   7 # draw in old position
+;
+
+: reset-human
+  make-human
+  clear
+  draw-background
+  draw-ghost
+  draw-human
+;
+
+
+#-- background --#
+
+# graves
+: grave-table
+  i := grave0      return
+  i := grave1      return
+  i := grave2      return
+  i := grave3      return
+  i := graveopen   return
+  i := graveclosed return
+;
+
+: select-grave
+  jump0 grave-table
+;
+
+: draw-grave
+  :alias gravex v1
+  :alias gravey v2
+
+  i := map
+  i += v4
+  i += map_xpos
+  i += map_ypos
+  load v2
+
+  v0 <<= v0
+  v0 <<= v0
+  select-grave
+  sprite gravex gravey 10
+;
+
+: draw-background
+
+  if map_xpos == LBOUND then draw-border-left
+  if map_xpos == RBOUND then draw-border-right
+  if map_ypos == TBOUND then draw-border-top
+  if map_ypos == BBOUND then draw-border-bottom
+
+  v4 := 0
+  loop
+    draw-grave
+
+    v4 +=  3
+    if v4 != 24 then
+  again
+;
+
+# borders
+: draw-border-left
+  v4 :=  1
+  v5 := 33
+  if map_ypos == BBOUND then v4 :=  0
+  if map_ypos == BBOUND then v5 := 32
+
+  i  := border-left
+  v1 := 0
+  loop
+    sprite v1 v4 3
+
+    v4 += 4
+    if v4 != v5 then
+  again
+;
+
+: draw-border-right
+  v4 :=  1
+  v5 := 33
+  if map_ypos == BBOUND then v4 :=  0
+  if map_ypos == BBOUND then v5 := 32
+
+  i  := border-right
+  v1 := 56
+  loop
+    sprite v1 v4 3
+
+    v4 += 4
+    if v4 != v5 then
+  again
+;
+
+: draw-border-top
+  v4 :=  1
+  v5 := 65
+  if map_xpos == RBOUND then v4 :=  0
+  if map_xpos == RBOUND then v5 := 64
+
+  i  := border-top
+  v1 := 0
+  loop
+    sprite v4 v1 2
+
+    v4 += 4
+    if v4 != v5 then
+  again
+
+  if map_xpos == LBOUND then draw-gate
+;
+
+: draw-border-bottom
+  v4 :=  1
+  v5 := 65
+  if map_xpos == RBOUND then v4 :=  0
+  if map_xpos == RBOUND then v5 := 64
+
+  i  := border-bottom
+  v1 := 30
+  loop
+    sprite v4 v1 2
+
+    v4 += 4
+    if v4 != v5 then
+  again
+;
+
+: draw-gate
+  v0 := 21
+  v1 := 0
+
+  i := gate-left
+  sprite v0 v1 3
+  v0 += 8
+  i := gate-right
+  sprite v0 v1 3
+;
+
+: new-screen-right
+  map_xpos   += MCOL
+  ghostx     :=    0
+  ghostframe :=   20
+  ghostpos   :=   HI
+  load-human-position
+
+  clear
+  draw-background
+  draw-human
+  draw-ghost
+
+  v4 := 1
+;
+
+: new-screen-left
+  map_xpos   += -MCOL
+  ghostx     :=    59
+  ghostframe :=    40
+  ghostpos   :=    HI
+  load-human-position
+
+  clear
+  draw-background
+  draw-human
+  draw-ghost
+
+  v4 := 1
+;
+
+: new-screen-up
+  map_ypos   += -MROW
+  ghosty     :=    22
+  ghostframe :=    60
+  ghostpos   :=    HI
+  load-human-position
+
+  clear
+  draw-background
+  draw-human
+  draw-ghost
+
+  v4 := 1
+;
+
+: new-screen-down
+  map_ypos   += MROW
+  ghosty     :=    0
+  ghostframe :=    0
+  ghostpos   :=   HI
+  load-human-position
+
+  clear
+  draw-background
+  draw-human
+  draw-ghost
+
+  v4 := 1
+;
+
+: check-grave-collision
+  :alias human_nx   v1
+  :alias human_ny   v2
+  :alias grave_cx   v3
+  :alias grave_cy   v4
+  :alias grave_type v5
+
+  i := tmp
+  save v2
+
+  v0 := 21 # the open grave will always be offset 21
+  i  := map
+  i  += map_xpos
+  i  += map_ypos
+  i  += v0
+  load v2
+  grave_type := v0
+  grave_cx   := v1
+  grave_cy   := v2
+
+  # restore human_nx and human_ny to v1 and v2
+  i := tmp
+  load v2
+
+  # return if there is no open grave on the screen
+  if grave_type != 4 then jump regular-collision
+
+  v0 :=  1
+  v5 := grave_cx
+  v5 += -2
+  if human_nx < v5 then v0 := 0
+  v5 +=  5
+  if human_nx > v5 then v0 := 0
+  v5 := grave_cy
+  v5 += -6
+  if human_ny < v5 then v0 := 0
+  v5 += 15
+  if human_ny > v5 then v0 := 0
+  if v0 == 0 then jump regular-collision
+
+  bury-human
+  if v0 == 10 then return
+
+  # use v0 as a return flag
+  # -> 0 means the human did not hit an open grave
+  : regular-collision
+    v4 := 1 #restore v4 for previous loop (ugly)
+    v0 := 0
+;
+
+: bury-human
+
+  v0 := 5
+  v5 := 21
+  i  := map
+  i  += map_xpos
+  i  += map_ypos
+  i  += v5
+  save v0
+
+  increment-buried-counter
+
+  clear
+  reset-human
+  if map_ypos == TUTORIAL then draw-instructions
+
+  # use v0 as a return flag for check-grave-collision
+  # -> 10 means the human hit an open grave
+  v0 := 10
+;
+
+: increment-buried-counter
+  i  := buried-counter
+  load v0
+  v0 += 1
+  i  := buried-counter
+  save v0
+;
+
+
+#-- cutscenes --#
+
+: wait-for-input
+  loop
+    v1 := 0
+    v2 := 0xC
+    if v2 key  then v1 := 1
+    if v1 == 1 then increment-buried-counter
+    v0 := 2
+    if v1 == 1 then jump0 main
+
+    v2 := 6
+    if v2 -key then
+  again
+
+  # allow time to release buttons
+  sync
+  sync
+;
+
+: play-beginning
+  clear
+
+  draw-title
+    wait-for-input
+
+  draw-prologue-page-one
+    wait-for-input
+
+  draw-prologue-page-two
+    wait-for-input
+
+  draw-tutorial
+
+  clear
+;
+
+: draw-title
+  v3 := 11
+
+  v1 :=  8
+  v2 :=  4
+  i  := title
+  sprite v1 v2 11
+
+  v1 +=  8
+  i  += v3
+  sprite v1 v2 11
+
+  v1 +=  7
+  i  += v3
+  sprite v1 v2 11
+
+  v1 +=  4
+  i  += v3
+  sprite v1 v2 11
+
+  v1 +=  8
+  i  += v3
+  sprite v1 v2 11
+
+  v1 +=  8
+  i  += v3
+  sprite v1 v2 11
+
+  v1 := 16
+  v2 := 16
+  i  += v3
+  sprite v1 v2 11
+
+  v1 +=  8
+  i  += v3
+  sprite v1 v2 11
+
+  v1 +=  8
+  i  += v3
+  sprite v1 v2 11
+
+  v1 +=  8
+  i  += v3
+  sprite v1 v2 11
+
+  v1 +=  7
+  i  += v3
+  sprite v1 v2 11
+;
+
+: draw-prologue-page-one
+  # glitch ghost is the only ghost in the cemetery.
+
+  clear
+  v1 := 2
+  v2 := 1
+
+  v0 := 7
+  print-letter
+  v0 := 12
+  print-letter
+  v0 := 9
+  print-letter
+  v0 := 20
+  print-letter
+  v0 := 3
+  print-letter
+  v0 := 8
+  print-letter
+
+  v0 := 0
+  print-letter
+  v0 := 7
+  print-letter
+  v0 := 8
+  print-letter
+  v0 := 15
+  print-letter
+  v0 := 19
+  print-letter
+  v0 := 20
+  print-letter
+
+  newline
+
+  v0 := 9
+  print-letter
+  v0 := 19
+  print-letter
+
+  v0 := 0
+  print-letter
+  v0 := 20
+  print-letter
+  v0 := 8
+  print-letter
+  v0 := 5
+  print-letter
+
+  v0 := 0
+  print-letter
+  v0 := 15
+  print-letter
+  v0 := 14
+  print-letter
+  v0 := 12
+  print-letter
+  v0 := 25
+  print-letter
+
+  newline
+
+  v0 := 7
+  print-letter
+  v0 := 8
+  print-letter
+  v0 := 15
+  print-letter
+  v0 := 19
+  print-letter
+  v0 := 20
+  print-letter
+
+  v0 := 0
+  print-letter
+  v0 := 9
+  print-letter
+  v0 := 14
+  print-letter
+
+  v0 := 0
+  print-letter
+  v0 := 20
+  print-letter
+  v0 := 8
+  print-letter
+  v0 := 5
+  print-letter
+
+  newline
+
+  v0 := 3
+  print-letter
+  v0 := 5
+  print-letter
+  v0 := 13
+  print-letter
+  v0 := 5
+  print-letter
+  v0 := 20
+  print-letter
+  v0 := 5
+  print-letter
+  v0 := 18
+  print-letter
+  v0 := 25
+  print-letter
+  v0 := 27
+  print-letter
+  v0 := 27
+  print-letter
+  v0 := 27
+  print-letter
+;
+
+: draw-prologue-page-two
+  # help them make some friends!
+
+  clear
+  v1 := 2
+  v2 := 1
+
+  v0 := 8
+  print-letter
+  v0 := 5
+  print-letter
+  v0 := 12
+  print-letter
+  v0 := 16
+  print-letter
+
+  v0 := 0
+  print-letter
+  v0 := 20
+  print-letter
+  v0 := 8
+  print-letter
+  v0 := 5
+  print-letter
+  v0 := 13
+  print-letter
+
+  newline
+
+  v0 := 13
+  print-letter
+  v0 := 1
+  print-letter
+  v0 := 11
+  print-letter
+  v0 := 5
+  print-letter
+
+  v0 := 0
+  print-letter
+  v0 := 19
+  print-letter
+  v0 := 15
+  print-letter
+  v0 := 13
+  print-letter
+  v0 := 5
+  print-letter
+
+  newline
+
+  v0 := 6
+  print-letter
+  v0 := 18
+  print-letter
+  v0 := 9
+  print-letter
+  v0 := 5
+  print-letter
+  v0 := 14
+  print-letter
+  v0 := 4
+  print-letter
+  v0 := 19
+  print-letter
+  v0 := 28
+  print-letter
+;
+
+: draw-instructions
+  # e to haunt
+
+  v1 := 8
+  v2 := 4
+
+  v0 := 5
+  print-letter
+
+  v0 := 0
+  print-letter
+  v0 := 20
+  print-letter
+  v0 := 15
+  print-letter
+
+  v0 := 0
+  print-letter
+  v0 := 8
+  print-letter
+  v0 := 1
+  print-letter
+  v0 := 21
+  print-letter
+  v0 := 14
+  print-letter
+  v0 := 20
+  print-letter
+;
+
+# take a number in v0 and print the corresponding letter
+# at v1, v2
+: print-letter
+  if v0 == 0 then jump next-letter
+
+  v4 := 0
+  v5 := 0
+  loop
+    v5 += 5
+    v4 += 1
+    if v4 != v0 then
+  again
+
+  i := alphabet
+  i += v5
+  sprite v1 v2 5
+
+  : next-letter
+  v1 += 5
+;
+
+: newline
+  v1 := 2
+  v2 += 6
+;
+
+: draw-tutorial
+  clear
+
+  map_xpos := 1
+  map_ypos := TUTORIAL
+
+  make-ghost
+  make-human
+  v0 := 1
+  v1 := TUTORIAL
+  i  := human-map-pos
+  save v1
+
+  draw-instructions
+  draw-background
+  draw-ghost
+  draw-human
+
+  v4 := 0
+  loop
+    sync
+    v4 += 1
+    if v4 != 40 then
+  again
+
+  haunt
+
+  v4 := 0
+  loop
+    sync
+    v4 += 1
+    if v4 != 40 then
+  again
+;
+
+: play-ending
+  clear
+  draw-happy-ghosts
+
+  loop
+    vf := 10
+    delay := vf
+    loop
+      vf := delay
+      if vf != 0 then
+    again
+
+    next-happy-ghost-frame
+  again
+;
+
+: draw-happy-ghosts
+  i  := happy-ghost-frame
+  load v0
+
+  v1 :=  2
+  v2 := 15
+  i  := happy-ghost
+  i  += v0
+  sprite v1 v2 11
+
+  v1 :=  7
+  v2 :=  2
+  i  := happy-ghost
+  i  += v0
+  sprite v1 v2 11
+
+  v1 := 15
+  v2 :=  9
+  i  := happy-ghost
+  i  += v0
+  sprite v1 v2 11
+
+  v1 := 24
+  v2 :=  4
+  i  := happy-ghost
+  i  += v0
+  sprite v1 v2 11
+
+  v1 := 29
+  v2 := 17
+  i  := happy-ghost
+  i  += v0
+  sprite v1 v2 11
+
+  v1 := 34
+  v2 :=  4
+  i  := happy-ghost
+  i  += v0
+  sprite v1 v2 11
+
+  v1 := 43
+  v2 :=  9
+  i  := happy-ghost
+  i  += v0
+  sprite v1 v2 11
+
+  v1 := 51
+  v2 :=  2
+  i  := happy-ghost
+  i  += v0
+  sprite v1 v2 11
+
+  v1 := 56
+  v2 := 15
+  i  := happy-ghost
+  i  += v0
+  sprite v1 v2 11
+;
+
+: next-happy-ghost-frame
+  draw-happy-ghosts
+
+  :alias delta v1
+  :alias frame v2
+
+  i := happy-ghost-delta
+  load v0
+  delta := v0
+
+  i := happy-ghost-frame
+  load v0
+  frame := v0
+
+  v2 += delta
+  if v2 == 22 then delta := -11
+  if v2 ==  0 then delta :=  11
+
+  i  := happy-ghost-delta
+  v0 := delta
+  save v0
+
+  i  := happy-ghost-frame
+  v0 := frame
+  save v0
+
+  draw-happy-ghosts
+;
+
+
+#-- main --#
+: sync
+  loop
+    vf := delay
+    if vf != 0 then
+  again
+
+  # delay for up to 1/60th of a second
+  # using the fixed-rate delay timer
+  vf := 2
+  delay := vf
+;
+
+: main
+
+  play-beginning
+  clear
+
+  map_xpos := LBOUND
+  map_ypos := TBOUND
+  make-ghost
+  draw-ghost
+
+  make-human
+  draw-human
+
+  draw-background
+
+  loop
+    sync
+
+    i := buried-counter
+    load v0
+    if v0 == 9 then victory
+
+    move-ghost
+
+    v0 := 6
+    if v0 key then haunt
+
+    # wrap around effect
+    if ghostx == 60 then new-screen-right
+    if ghostx == -1 then new-screen-left
+    if ghosty == -1 then new-screen-up
+    if ghosty == 23 then new-screen-down
+
+    idle-ghost
+  again
+;
+
+: victory
+  v1 := 0
+  v2 := 32
+  v0 := v1
+
+  v3 := 0
+  loop
+    sync
+
+    if v0 == v1 then buzzer := v2
+    if v0 == v2 then buzzer := v1
+
+    v4 := v0
+    if v4 == v1 then v0 := v2
+    if v4 == v2 then v0 := v1
+
+    v3 += 1
+    if v3 != 10 then
+  again
+
+  v0 := 0
+  i  := buried-counter
+  save v0
+
+  play-ending
+;
