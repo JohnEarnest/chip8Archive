@@ -12,26 +12,26 @@ controls
 ========
 menu
 ----
-4 (C) to procede through menus and start the game
-R (D) to toggle between menu options
+- 4 (C) to procede through menus and start the game
+- R (D) to toggle between menu options
 
 left arm
 --------
 the left arm controls WASD style, but shifted up a row
 
-2 (2) to steer the left arm up
-Q (4) to steer the left arm left
-W (5) to steer the left arm down
-E (6) to steer the left arm right
+- 2 (2) to steer the left arm up
+- Q (4) to steer the left arm left
+- W (5) to steer the left arm down
+- E (6) to steer the left arm right
 
 right arm
 ---------
 the right arm similarly controls WASD style, but shifted down a row
 
-S (8) to steer the right arm up
-Z (A) to steer the right arm left
-X (0) to steer the right arm down
-C (B) to steer the right arm right
+- S (8) to steer the right arm up
+- Z (A) to steer the right arm left
+- X (0) to steer the right arm down
+- C (B) to steer the right arm right
 
 shoutouts
 ---------
