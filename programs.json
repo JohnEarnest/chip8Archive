@@ -1119,7 +1119,7 @@
 		"desc":     "Press the X button to make the horse jump over the fence.",
 		"event":    "Octojam2",
 		"release":  "2015-10-30",
-		"platform": "chip8",
+		"platform": "schip",
 		"options": {
 			"tickrate":20,
 			"fillColor":"#C3C3C3",
