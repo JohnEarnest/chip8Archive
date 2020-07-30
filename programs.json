@@ -507,7 +507,7 @@
 		"images":   ["DVN8.gif"],
 		"desc":     "This is your great-grandma's dungeon crawler. You can see it with the manual at https://systemlogoff.com/share/DVN8/index.html",
 		"release":  "2017-10-30",
-		"platform": "chip8",
+		"platform": "schip",
 		"event":"Octojam4",
 		"options":  {
 			"tickrate":"20",
