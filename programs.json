@@ -1653,5 +1653,62 @@
 			    "vfOrderQuirks" :  false,
 			         "enableXO" :  true
 		}
+	},
+	"businessiscontagious": {
+		"title":    "Business Is Contagious",
+		"authors":  ["JohnEarnest"],
+		"images":   ["business.gif"],
+		"desc":     "capitalism.txt",
+		"event":    "NokiaJam",
+		"release":  "2020-02-05",
+		"platform": "xochip",
+		"options":  {
+			"tickrate":1000,
+			"fillColor":"#43523d",
+			"fillColor2":"#43523d",
+			"blendColor":"#43523d",
+			"backgroundColor":"#c7f0d8",
+			"buzzColor":"#43523d",
+			"quietColor":"#43523d",
+			"shiftQuirks":false,
+			"loadStoreQuirks":false,
+			"vfOrderQuirks":false,
+			"clipQuirks":false,
+			"vBlankQuirks":false,
+			"jumpQuirks":false,
+			"screenRotation":0,
+			"maxSize":"65024",
+			"touchInputMode":"gamepad",
+			"logicQuirks":false,
+			"displayScale":"6"
+		}
+	},
+	"nokiatemplate": {
+		"title":    "Nokia 3310 Template",
+		"authors":  ["JohnEarnest"],
+		"images":   ["simcard.gif"],
+		"desc":     "SCHIP template program for resembling the Nokia 3310",
+		"event":    "NokiaJam",
+		"release":  "2020-01-20",
+		"platform": "schip",
+		"options":  {
+			"tickrate":30,
+			"fillColor":"#c7f0d8",
+			"fillColor2":"#c7f0d8",
+			"blendColor":"#c7f0d8",
+			"backgroundColor":"#43523d",
+			"buzzColor":"#43523d",
+			"quietColor":"#43523d",
+			"shiftQuirks":false,
+			"loadStoreQuirks":false,
+			"vfOrderQuirks":false,
+			"clipQuirks":false,
+			"vBlankQuirks":false,
+			"jumpQuirks":false,
+			"screenRotation":0,
+			"maxSize":"65024",
+			"logicQuirks":false,
+			"displayScale":"6"
+		}
 	}
 }
