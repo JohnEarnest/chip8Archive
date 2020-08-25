@@ -1316,7 +1316,7 @@
 			"clipQuirks":false,
 			"jumpQuirks":false,
 			"enableXO":true,
-			"screenRotation":0,
+			"screenRotation":0
 		}
 	},
 	"br8kout": {
