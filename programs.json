@@ -1294,6 +1294,31 @@
 			"touchInputMode":"seg16"
 		}
 	},
+	"flutterby": {
+		"title":    "Flutter By",
+		"authors":  ["TomRintjema"],
+		"images":   ["flutterby.gif"],
+		"desc":     "A game where you are a butterfly trying to get to flowers.",
+		"event":    "Octojam6",
+		"release":  "2019-10-08",
+		"platform": "xochip",
+		"options": {
+			"tickrate":7,
+			"fillColor":"#9BBC0F",
+			"fillColor2":"#8BAC0F",
+			"blendColor":"#306230",
+			"backgroundColor":"#0F380F",
+			"buzzColor":"#333333",
+			"quietColor":"#000000",
+			"shiftQuirks":false,
+			"loadStoreQuirks":false,
+			"vfOrderQuirks":false,
+			"clipQuirks":false,
+			"jumpQuirks":false,
+			"enableXO":true,
+			"screenRotation":0,
+		}
+	},
 	"br8kout": {
 		"title":    "Br8kout",
 		"authors":  ["SharpenedSpoon"],
