@@ -28,6 +28,7 @@ body{font-family:Helvetica;margin-left:10%;margin-right:10%;margin-top:5%;}
 
 <script>
 dc=(c,x)=>`<div class='${c}'>${x}</div>`
+an=x=>`<a name="${x}" href="#${x}">${x}</a>`
 send=(u,t)=>{let r=new XMLHttpRequest();return r.open('GET',u),r.responseType=t,r.send(),r}
 ajax=(u,t,f)=>{let r=send(u,t);r.onreadystatechange=_=>r.readyState==4&&f(r.response)}
 
@@ -45,7 +46,7 @@ ajax('programs.json','json',p=>{
 	if (sort == 'alpha') c={'Sorted Alphabetically':flat()}
 	const k = sort=='event'?Object.keys(c):Object.keys(c).sort()
 	document.querySelector('#categories').innerHTML = k.map(x=>
-		dc('category',dc('heading',x)+dc('entries',c[x].map(
+		dc('category',dc('heading',an(x))+dc('entries',c[x].map(
 			x=>`<div class='entry'>
 				<a href='play.html?p=${x.slug}'>
 					<div class='title'>${x.title}</div>
