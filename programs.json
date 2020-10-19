@@ -1075,7 +1075,7 @@
 		"desc":     "Inspired by Super Hexagon",
 		"event":    "Octojam1",
 		"release":  "2014-11-04",
-		"platform": "chip8",
+		"platform": "schip",
 		"options": {
 			"tickrate": "500",
 			"fillColor": "#FFFFFF",
