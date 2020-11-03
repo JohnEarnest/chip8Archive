@@ -1822,5 +1822,34 @@
 			"logicQuirks":false,
 			"displayScale":"6"
 		}
+	},
+	"OctoPartyMix": {
+		"title":    "Octo Party Mix!",
+		"authors":  ["ConnorGilhulyOrCratmang"],
+		"images":   ["recording.gif"],
+		"desc":     "It's basically Warioware. But with cute octo buddies!",
+		"event":    "Octojam7",
+		"release":  "2020-10-29",
+		"platform": "xochip",
+		"options": {
+			"tickrate": 1000,
+			"fillColor": "#55ff55",
+			"fillColor2": "#ff7700",
+			"blendColor": "#ffffff",
+			"backgroundColor": "#000000",
+			"buzzColor": "#000000",
+			"quietColor": "#000000",
+			"shiftQuirks": false,
+			"loadStoreQuirks": false,
+			"vfOrderQuirks": false,
+			"clipQuirks": false,
+			"vBlankQuirks": false,
+			"jumpQuirks": false,
+			"screenRotation": 0,
+			"maxSize": 65024,
+			"touchInputMode": "swipe",
+			"logicQuirks": false,
+			"fontStyle": "octo"
+		}
 	}
 }

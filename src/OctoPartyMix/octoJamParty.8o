@@ -1,0 +1,1284 @@
+﻿#
+#       #######
+#     ## ##### ##
+#    ## # ### # ## 
+#    ####     ####
+#    ### ##### ###
+# #  ### ## ## ###  #
+# ### ## ##### ## ###
+#  ###  #     #  ###
+#       ### ###
+#   #  ###   ###  #
+#    ###       ###
+#
+# OCTO PARTY MIX!
+# By Connor Gilhuly, or Cratmang
+
+# This game is intended to run at 1000 cycles/Frame
+# Colours can be whatever you want, should you decide to change them. However, they should ideally be distinct from one another.
+# These are the colours this game was shipped with:
+#  Background:  #000000
+#  Foreground1: #55ff55
+#  Foreground2: #ff7700
+#  Blended:     #ffffff
+
+#--- Registers ---#
+# v0 - input
+# v1 - input2
+# v2
+# v3 - score digit 1 (0 0 x)
+# v4 - score digit 2 (0 x 0)
+# v5 - score digit 3 (x 0 0)
+:alias counter v6
+:alias counter2 v7
+:alias victory v8 #0 = Unknown, 1 = Yes :^D, 2 = No :^(
+:alias timer v9
+:alias frame va
+:alias lives vb
+:alias diffCounter vc
+:alias vx vd
+:alias vy ve
+#vf - Flag register
+
+:macro clearAll {
+	plane 1
+	clear
+	plane 2
+	clear
+}
+
+#--- Title ---#
+
+: TitleO
+	0x3C 0x42 0x81 0x81 0x81 0x81 0x42 0x3C
+	
+: Titlectopus #12 rows including space
+	0x00 0x00 0x24 0x24 0x18 0x24 0x18 0x42 0x91 0x14 0x55 0x26
+	
+: TitleC
+	0x3C 0x42 0x80 0x80 0x80 0x80 0x42 0x3C
+
+: TitleT
+	0xFE 0x10 0x10 0x10 0x10 0x10 0x10 0x10
+
+: TitlePA
+	0xC0 0xA0 0xCE 0x8A 0x8D
+	
+: TitleRT
+	0x0E 0x04 0x64 0x44 0x44
+	
+: TitleYM
+	0xA9 0xAF 0x4F 0x4F 0x4F
+
+: TitleIX
+	0x54 0x14 0x48 0x54 0x54
+
+#--- Text ---#
+
+#Font, 3x4 pixels
+: font
+	0x40 0xA0 0xE0 0xA0   0x80 0xC0 0xA0 0xC0   0x60 0x80 0x80 0x60   0x20 0x60 0xA0 0x60 # A b C d
+	0x40 0xE0 0x80 0x60   0xE0 0x80 0xC0 0x80   0xE0 0x80 0xA0 0xE0   0xA0 0xA0 0xE0 0xA0 # e F G H
+	0x40 0x00 0x40 0x40   0x40 0x00 0x40 0xC0   0x80 0xA0 0xC0 0xA0   0x80 0x80 0x80 0xE0 # i j k L
+	0xE0 0xE0 0xE0 0xA0   0x00 0x00 0xE0 0xA0   0xE0 0xA0 0xA0 0xE0   0xC0 0xA0 0xC0 0x80 # M n O P
+	0xE0 0xA0 0xE0 0x20   0xC0 0xA0 0xC0 0xA0   0x60 0x80 0x60 0xC0   0x40 0xE0 0x40 0x40 # q R S t
+	0xA0 0xA0 0xA0 0xE0   0x00 0xA0 0xA0 0x40   0xA0 0xE0 0xE0 0xE0   0x00 0xA0 0x40 0xA0 # U v W x
+	0x00 0xA0 0x40 0xC0   0xE0 0x20 0x40 0xE0   0x00 0x00 0x00 0x40   0x00 0x00 0x40 0x40 # y Z . ,
+	0x40 0x40 0x00 0x40   0x60 0x20 0x00 0x40   0x20 0x40 0x40 0x80   0x00 0x00 0x00 0x00 # ! ? / _
+
+	#This should take the data from :font, and draw the corresponding letter based on a given string... I think. I don't really know for sure. I just copied this from
+	## the tutorial on Github.
+:stringmode text "ABCDEFGHIJKLMNOPQRSTUVWXYZ.,!?/" {
+	:calc addr { font + VALUE * 4 }
+	i := addr
+	sprite vx vy 4
+	vx += 4
+}
+:stringmode text " " { vx += 4 }
+
+#--- Score ---#
+
+: scoreFont #For score! 5x6
+	0x70 0x88 0xA8 0xA8 0x88 0x70   0x20 0x60 0x20 0x20 0x20 0x70 # 0 1
+	0x70 0x88 0x10 0x20 0x40 0xF8   0x70 0x88 0x30 0x08 0x88 0x70 # 2 3 
+	0x30 0x50 0x90 0xF8 0x10 0x10   0xF8 0x80 0xF0 0x08 0x88 0x70 # 4 5
+	0x70 0x80 0xF0 0x88 0x88 0x70   0xF8 0x08 0x10 0x78 0x20 0x20 # 6 7 
+	0x70 0x88 0x88 0x70 0x88 0x70   0x70 0x88 0x88 0x78 0x08 0x70 # 8 9
+	
+: score 0 0 0
+
+:stringmode printScoreDigit "0123456789" {
+	:calc addr { scoreFont + VALUE * 6 }
+	i := addr
+	sprite vx vy 6
+	vx += 6
+}
+
+: scoreDigit #Using vF, determines the digit, then gets the appropriate string. 
+	if vf == 1 begin printScoreDigit "1" ; end
+	if vf == 2 begin printScoreDigit "2" ; end
+	if vf == 3 begin printScoreDigit "3" ; end
+	if vf == 4 begin printScoreDigit "4" ; end
+	if vf == 5 begin printScoreDigit "5" ; end
+	if vf == 6 begin printScoreDigit "6" ; end
+	if vf == 7 begin printScoreDigit "7" ; end
+	if vf == 8 begin printScoreDigit "8" ; end
+	if vf == 9 begin printScoreDigit "9" ; end
+	printScoreDigit "0" ; #The last remaining possibilty + error handler
+;
+
+
+: printScore
+	i := score
+	load v3 - v5
+	vx := 23
+	# vy is defined beforehand/elsewhere
+	if v5 == 0 begin plane 2 else plane 1 end
+	vf := v5
+	scoreDigit
+	if v4 == 0 begin if v5 == 0 begin plane 2 else plane 1 end else plane 1 end
+	vf := v4
+	scoreDigit
+	if v3 == 0 begin if v4 == 0 begin if v5 == 0 begin plane 2 else plane 1 end else plane 1 end else plane 1 end
+	vf := v3
+	scoreDigit
+;
+	
+: incrementScore
+	i := score
+	load v3 - v5
+	v3 += 1
+	if v3 > 9 begin
+		v3 := 0
+		v4 += 1
+		if v4 > 9 begin
+			v4 := 0
+			v5 += 1
+			if v5 > 9 begin 
+				v5 := 0
+				#This only goes up to 3 digits, but who's going to go that high!?
+			end
+		end
+	end
+	save v3 - v5
+;
+
+: resetScore
+	i := score
+	v3 := 0
+	v4 := 0
+	v5 := 0
+	save v3 - v5
+;
+
+#--- Game Difficulty ---#
+
+: difficulty 1
+: gamesToIncreaseDiff 3 #diffCounter will reset to this every time the difficulty resets/increases.
+
+: resetDifficulty
+	i := difficulty
+	diffCounter := 1
+	save diffCounter - diffCounter
+	i := gamesToIncreaseDiff
+	load diffCounter - diffCounter
+;
+
+: increaseDifficulty
+	i := difficulty
+	load diffCounter - diffCounter
+	diffCounter += 1
+	save diffCounter - diffCounter
+	i := gamesToIncreaseDiff
+	load diffCounter - diffCounter
+	
+	#Announnce level up!
+	clearAll
+	plane 1
+	vx := 15
+	vy := 11
+	text "LEVEL UP!"
+	timer := 255
+	counter := 60
+	plane 2
+	loop
+		timer -= 1
+		if timer == 0 begin
+			counter -= 1
+			vx := 15
+			vy := 11
+			text "LEVEL UP!"
+		end
+	if counter > 0 then again
+	frame := 0 #This shouldn't be needed, but just to be safe
+	clearAll
+;
+
+
+#--- Titlescreen ---#
+: WritePartyMix #Writes on the currently set plane.
+	i := TitlePA
+	vx := 17
+	vy := 15
+	sprite vx vy 5
+	i := TitleRT
+	vx += 8
+	sprite vx vy 5
+	i := TitleYM
+	vx += 8
+	sprite vx vy 5
+	i := TitleIX
+	vx += 8
+	sprite vx vy 5
+;
+
+
+: Title
+	#Write "OCTO"
+		plane 1
+		i := TitleO
+		vx := 14
+		vy := 2
+		sprite vx vy 8
+		i := TitleC
+		vx += 10
+		sprite vx vy 8
+		i := TitleT
+		vx += 9
+		sprite vx vy 8
+		i := TitleO
+		vx += 9
+		sprite vx vy 8
+		#And add a little Octo!
+		plane 2
+		i := Titlectopus
+		vx := 14
+		sprite vx vy 12
+		
+	#Write "Party Mix"
+		WritePartyMix
+		#No, it's not that easy.
+		
+	#Write "by Cratmang"
+		plane 1
+		vx := 10
+		vy := 23
+		text "BY CRATMANG"
+		
+	#Write "Tap to continue"	
+		plane 2
+		vx := 4
+		vy := 28 
+		text "TAP/E TO START"
+		
+	v0 := OCTO_KEY_E
+	v1 := 0
+	plane 1
+	loop
+		#Press E or Tap to continue
+		WritePartyMix
+		if v0 key begin #key press
+			if v1 == 0 begin 
+				v1 := 1
+				vx := 4
+				vy := 28 
+				text "TAP/E TO START"
+			end
+		else # key release
+			if v1 == 1 then v1 := 2
+		end
+	if v1 < 2 then again
+	clearAll
+;
+
+#--- Timer ---#
+: drawBomb 
+	#Draw the bomb
+	i := OctoBomb
+	vx := 0
+	vy := 26
+	#Drawing the bomb on both layers creates the white octopus bomb
+	plane 1
+	sprite vx vy 6
+	plane 2
+	sprite vx vy 6 
+	#Draw the fuse
+	i := fuse
+	vy := 31
+	vx := 7
+	plane 1
+	loop
+		vx += 1
+		sprite vx vy 1
+	if vx < 60 then again 
+	#Set the counter for the microgame
+	counter := 60
+	
+	#And the flame for the fuse
+	vy := 29
+	i := fuseFire
+	plane 2
+	sprite counter vy 3
+	;
+	
+
+: updateFuse 
+	#Move fuse flame,
+	timer -= 1
+	if timer <= 0 begin
+		if counter > 7 begin
+			plane 1 
+			i := fuse
+			vy := 31 
+			sprite counter vy 1
+
+			i := fuseFire
+			vy := 29
+			plane 2
+			sprite counter vy 3
+		end
+		counter -= 1
+		if counter == 7 begin
+			#Erase the Octobomb, then replace it with an explosion
+			i := OctoBomb
+			vx := 0
+			vy := 26
+			plane 1
+			sprite vx vy 6
+			plane 2
+			sprite vx vy 6 
+			i := OctoBombExplode
+			vy := 22
+			sprite vx vy 0
+			
+		else
+			if counter > 7 then sprite counter vy 3
+		end
+	end
+	;
+
+#--- Microgames ---#
+
+
+#------ Digger - The player must repeatedly tap the screen to find buried treasure.
+: DiggerGame
+	clearAll
+	#Flash the instructions - Dig!
+	
+	#Draw the scene
+		clearAll
+		plane 2
+	
+		#Draw the ground
+		i := ground
+		vy := 22
+		vx := 0
+		loop
+			sprite vx vy 4
+			vx += 8
+		if vx < 64 then again
+		
+		#Draw dirt pile
+		i := BigDirtPile
+		vx := 8
+		vy := 5
+		sprite vx vy 0
+	
+	#Draw the Octo
+		plane 1
+		i := DiggingOcto3
+		vx := 24
+		vy := 6
+		sprite vx vy 15
+		i := DiggingOcto4
+		vx := 32
+		sprite vx vy 15
+	
+	#Draw the bomb + fuse
+	drawBomb
+	
+	#Set any other parameters
+	frame := 0 #The variable that determines which frame that the Octo is on
+	counter2 := 0 #This is how many times the player has dug, plus 5.
+	victory := 2 #The player will lose if the timer runs out before the goal is met.
+	v0 := OCTO_KEY_E
+	i := difficulty
+	load v1 - v1
+	
+	#In order to win, the player must dig x times, where x = the current difficulty.
+	
+	loop
+	# If E is pressed, put shovel in the Earth.
+	# Else, if frame == 1, pull out shovel, and possibly treasure (win)
+		if v0 key begin
+			vy := 6
+			plane 1
+			if counter2 < v1 begin
+				if frame == 0 begin #Button has been pressed
+					frame := 1
+					#Erase Octo
+					i := DiggingOcto3
+					vx := 24
+					sprite vx vy 15
+					i := DiggingOcto4
+					vx := 32
+					sprite vx vy 15
+					
+					#Draw Octo Digging
+					i := DiggingOcto1
+					vx := 24
+					sprite vx vy 15
+					i := DiggingOcto2
+					vx := 32
+					sprite vx vy 15
+					
+				end
+			end
+		else
+			if counter2 < v1 begin
+				if frame == 1 begin #Button has just been released
+					frame := 0
+					counter2 += 1
+					#Erase Octo
+					i := DiggingOcto1
+					vx := 24
+					sprite vx vy 15
+					i := DiggingOcto2
+					vx := 32
+					sprite vx vy 15
+					
+					#Draw Octo digging
+					if counter2 >= v1 begin #We found the treasure!
+						i := DiggingOctoYay
+						vx := 24
+						vy := 6
+						sprite vx vy 0
+						victory := 1
+					else #Keep digging, octo.
+						i := DiggingOcto3
+						vx := 24
+						sprite vx vy 15
+						i := DiggingOcto4
+						vx := 32
+						sprite vx vy 15
+					end
+				end
+			end
+		end
+		updateFuse
+		
+	if counter > 0 then again
+	clearAll
+	frame := 0
+;
+
+
+#------ Top Hat
+: TopHatterGame
+	#Set up game
+		clearAll
+		#Draw Octo
+		plane 2
+		i := OctoBeingHatted
+		vx := 24
+		vy := 14
+		sprite vx vy 0
+		
+		#Draw the bomb + fuse
+		drawBomb
+		
+		#The hat
+		plane 1
+		i := tophat
+		vx := 0
+		vy := 3
+		sprite vx vy 7
+		
+		#Input
+		v0 := OCTO_KEY_E 
+		victory := 0 #The hat must be placed directly on the Octo, or you DIE! (nah, but you do lose a life.)
+		v1 := 0 #Hat's X position
+		i := difficulty
+		load v2 - v2 
+		
+	loop
+		if victory == 0 begin #We have not tried to hat yet
+			
+			if v0 key begin #Press down to place hat... 
+				#Throw hat down
+				# Check if hat is close to or at center of screen.
+				#  Octo is 16 px wide, and is drawn at vx24
+				#  Hat is 7 px wide. There should be an appropriate sized window. (Maybe the full 16 px?)
+				#  Minimum x for victory = 24
+				#  Maximim x for victory = 24 + 16 (the octo's width) - 7 (the hat's width) = 33
+				
+				#Erase hat
+				plane 1
+				i := tophat
+				vy := 3 
+				sprite v1 vy 7
+				
+				#Draw Hat
+				vy := 9
+				sprite v1 vy 7
+				
+				#Erase octo
+				i := OctoBeingHatted
+				plane 2
+				vx := 24
+				vy := 14
+				sprite vx vy 0
+				
+				#Draw octo
+				if v1 >= 24 begin
+					if v1 <= 33 begin
+						#Happilly hatted
+						i := OctoSuccessfullyHatted
+						victory := 1
+					else victory := 2 end
+				else victory := 2 end
+				# You lose! You failed this simple task!
+				if victory == 2 then i := OctoFailinglyHatted
+				sprite vx vy 0
+				
+				
+			else #Hat moves
+				#We need to set a frame limit, otherwise the hat will be moving too fast for this game to be playable on level 1.
+				if timer == 255 begin
+				
+					#Erase hat
+					plane 1
+					i := tophat
+					vy := 3 
+					sprite v1 vy 7
+
+					#Move and draw hat
+					v1 += v2
+					if v1 >= 64 then v1 -= 64
+					sprite v1 vy 7
+				end
+			end
+		end
+		
+		
+		updateFuse
+	if counter > 0 then again
+	clearAll
+	frame := 0
+;
+
+#------ Dance
+# Octo coach dances, Player must copy dance	
+: dancingGame
+	clearAll
+	#Setup game
+		#coach
+		i := long dancerIdle
+		vx := 10
+		vy := 11
+		plane 2
+		sprite vx vy 0
+		plane 1
+		sprite vx vy 0
+		
+		#player
+		vx := 37
+		sprite vx vy 0
+		vx := 40
+		vy := 28
+		text "YOU"
+		plane 2
+		vx := 40
+		text "YOU"
+
+		#Do not draw bomb + fuse until time is running out - the timer is extended on this game.
+		counter := 125
+		timer := 255
+		#drawBomb
+
+		#registers
+		#v0 input
+		#v1 number of moves to make = difficulty
+		i := difficulty
+		load v1 - v1
+		v2 := 0 #correct moves made
+		v3 := 0 #move to make - 1 = up, 2 = right, 3 = down, 4 = left
+		v4 := 0 #move being made
+		counter2 := 5 #Time between moves
+		victory := 0
+		v5 := 25 #If the game ends early (which it most likely will), this timer will tell the game to end before the timer runs out
+	
+	loop
+		#Octo Coach busts a move, player must copy it
+		
+		if counter2 == 0 begin
+			if v3 == 0 begin
+				#Erase Coach
+				i := long dancerIdle
+				vx := 10
+				vy := 11
+				plane 2
+				sprite vx vy 0
+				plane 1
+				sprite vx vy 0
+				
+				#Choose next step. Should result from 1 - 4?
+				v3 := random 0b11
+				v3 += 1
+				if v3 == 1 begin #Up
+					i := long dancerUp
+				else
+					if v3 == 2 begin #Right
+						i := long dancerRight
+					else
+						if v3 == 3 begin #Down
+							i := long dancerDown
+						else
+							#All that's left is... well, Left (4).
+							i := long dancerLeft
+						end
+					end
+				end
+				#Redraw Coach 
+				sprite vx vy 0
+				plane 2
+				sprite vx vy 0
+			else
+				#Player must make a move!
+				v0 := OCTO_KEY_W
+				if v0 key begin #Up
+					i := long dancerUp
+					v4 := 1
+				else
+					v0 := OCTO_KEY_D
+					if v0 key begin #Right
+						i := long dancerRight
+						v4 := 2
+					else
+						v0 := OCTO_KEY_S
+						if v0 key begin #Down
+							i := long dancerDown
+							v4 := 3
+						else
+							#All that's left is... well, Left.
+							v0 := OCTO_KEY_A
+							if v0 key begin
+								i := long dancerLeft
+								v4 := 4
+							end
+						end
+					end
+				end
+				
+				#Draw over player if we moved, we'll erase the idle player in just a sec
+				if v4 > 0 begin
+					plane 1
+					vx := 37
+					vy := 11
+					sprite vx vy 0
+					i := long dancerIdle
+					sprite vx vy 0
+					
+					#check if move was right move
+					# if yes, v2 += 1
+					#  if v2 == v1 (difficulty), you win!
+					#  set counter2
+					# if it was the wrong move, coach is upset, and you lose!
+					
+					if v4 == v3 begin #DING DING! Correct!
+						v2 += 1
+						counter2 := 5
+						if v2 >= v1 begin
+							victory := 1 #YOU WIN! PERFECT!
+						end
+						
+					else #WRONG! YOU LOSE!
+						victory := 2
+						#Get Coach's current direction
+						if v3 == 1 begin #Up
+							i := long dancerUp
+						else
+							if v3 == 2 begin #Right
+								i := long dancerRight
+							else
+								if v3 == 3 begin #Down
+									i := long dancerDown
+								else
+									#All that's left is... well, Left (4).
+									i := long dancerLeft
+								end
+							end
+						end
+						#Erase Coach 
+						vx := 10
+						vy := 11
+						plane 1
+						sprite vx vy 0
+						plane 2
+						sprite vx vy 0
+						#Then redraw coach
+						i := long dancerNo
+						sprite vx vy 0
+						plane 1
+						sprite vx vy 0
+						counter2 := 250
+					end
+				end
+			end
+		else
+			if timer == 0 begin
+				counter2 -= 1
+				if counter2 == 0 begin
+					if victory == 1 begin
+						#Octos will now celebrate!
+						#Get Coach's current direction
+							if v3 == 1 begin #Up
+								i := long dancerUp
+							else
+								if v3 == 2 begin #Right
+									i := long dancerRight
+								else
+									if v3 == 3 begin #Down
+										i := long dancerDown
+									else
+										#All that's left is... well, Left (4).
+										i := long dancerLeft
+									end
+								end
+							end
+							#Erase Coach 
+							vx := 10
+							vy := 11
+							plane 2
+							sprite vx vy 0
+							plane 1
+							sprite vx vy 0
+							#Erase Player
+							vx := 37
+							sprite vx vy 0
+							#Redraw Player in celebratory pose
+							i := long dancerYeah
+							sprite vx vy 0
+							#... And the coach too.
+							vx := 10
+							sprite vx vy 0
+							plane 2
+							sprite vx vy 0
+							counter2 := 250
+					else
+						if victory == 0 begin
+							#Nice move! No get ready for the next one.
+							if v3 > 0 begin
+								counter2 := 5
+								#Get Coach's current direction
+								if v3 == 1 begin #Up
+									i := long dancerUp
+								else
+									if v3 == 2 begin #Right
+										i := long dancerRight
+									else
+										if v3 == 3 begin #Down
+											i := long dancerDown
+										else
+											#All that's left is... well, Left (4).
+											i := long dancerLeft
+										end
+									end
+								end
+								#Erase Coach 
+								vx := 10
+								vy := 11
+								plane 2
+								sprite vx vy 0
+								plane 1
+								sprite vx vy 0
+								#Erase Player
+								vx := 37
+								sprite vx vy 0
+								#Redraw Player in idle pose
+								i := long dancerIdle
+								sprite vx vy 0
+								#... And the coach too.
+								vx := 10
+								sprite vx vy 0
+								plane 2
+								sprite vx vy 0
+								v3 := 0
+								v4 := 0
+							end
+						end
+					end
+				end
+			end
+		end
+		
+		#Reduce extended countdown/timer
+		if counter < 60 begin
+			updateFuse
+		else
+			if counter == 60 begin #Time is running out!!!11!!11!
+				if timer == 0 begin drawBomb timer -= 1
+				else updateFuse end
+			else
+				timer -= 1
+				if timer == 0 then counter -= 1
+			end
+		end
+		
+		#Catch if the game is over long before time is up
+		if victory > 0 begin
+			if timer == 0 then v5 -= 1
+			if v5 == 0 then counter := 0
+		end
+	if counter > 0 then again 
+	clearAll
+	frame := 0
+;
+
+	
+#--- MICROGAMES END, BACK TO MAIN STUFF ---#
+
+#--- Lifecounter ---#
+:macro setLifeAnimationTimer {
+	frame := 0
+	timer := 255
+	counter := 15
+	counter2 := 4
+}
+
+
+: drawOctoLives 
+		plane 1 #Green layer
+		#Erase octopi, then switch to next frame
+		if frame != 0 begin # 0 = Start frame / blank screen
+			#The screen is not blank, so erase the previous frame of octopi
+			
+			if frame == 1 begin
+				i := OctoLife
+				frame := 2
+			else
+				i := OctoLife2
+				frame := 1
+			end
+			
+			#If we can do a "get current/next frame", maybe we can cut down on the amount of code needed?
+			
+			vx := 10
+			vy := 16 
+			if lives > 0 then sprite vx vy 12
+			vx += 12
+			if lives > 1 then sprite vx vy 12
+			vx += 12
+			if lives > 2 then sprite vx vy 12
+			vx += 12
+			if lives > 3 then sprite vx vy 12
+			
+		else
+			clear
+			frame := 1 
+		end
+		
+		#Now set brush and draw new Octopi
+		if frame == 1 begin
+			i := OctoLife
+		else
+			i := OctoLife2
+		end
+		vx := 10
+		vy := 16
+		if lives > 0 then sprite vx vy 12
+		vx += 12
+		if lives > 1 then sprite vx vy 12
+		vx += 12
+		if lives > 2 then sprite vx vy 12
+		vx += 12
+		if lives > 3 then sprite vx vy 12
+		vx += 12
+		;
+		
+
+: celebrateVictory 
+	#animage happy octos
+	#when done, increase score by 1
+	
+	setLifeAnimationTimer
+	timer := 1
+	counter := 1
+	
+	
+	plane 1 #Green layer
+	#Erase octopi, then switch to next frame
+	
+	loop
+		timer -= 1
+		if timer <= 0 begin
+			counter -= 1
+			timer := 255
+			if counter <= 0 begin
+				counter2 -= 1
+				counter := 10
+		
+				if frame != 0 begin # 0 = Start frame / blank screen
+					#The screen is not blank, so erase the previous frame of octopi
+
+					if frame == 1 begin
+						i := OctoCelebrate
+						frame := 2
+					else
+						i := OctoCelebrate2
+						frame := 1
+					end
+
+					#If we can do a "get current/next frame", maybe we can cut down on the amount of code needed?
+
+					vx := 10
+					vy := 16 
+					if lives > 0 then sprite vx vy 12
+					vx += 12
+					if lives > 1 then sprite vx vy 12
+					vx += 12
+					if lives > 2 then sprite vx vy 12
+					vx += 12
+					if lives > 3 then sprite vx vy 12
+
+				else
+					clear
+					frame := 1 
+				end
+
+				#Now set brush and draw new Octopi
+				if frame == 1 begin
+					i := OctoCelebrate
+				else
+					i := OctoCelebrate2
+				end
+				vx := 10
+				vy := 16
+				if lives > 0 then sprite vx vy 12
+				vx += 12
+				if lives > 1 then sprite vx vy 12
+				vx += 12
+				if lives > 2 then sprite vx vy 12
+				vx += 12
+				if lives > 3 then sprite vx vy 12
+				vx += 12
+				
+			end
+		end
+	
+	if counter2 > 0 then again
+	
+	#score += 1
+	setLifeAnimationTimer
+	;
+
+
+: burnOctoBurn 
+	#continued from youFailed
+	#Actually burns the octo
+	
+	vx -= 4
+	vy -= 4
+	i := OctoBurnt
+	plane 2 #Purple layer
+	sprite vx vy 0
+	
+	timer := 255
+	counter := 26
+	plane 1 #Green layer
+	
+	loop
+		timer -= 1
+		if timer <= 0 begin
+			sprite vx vy 0
+			counter -= 1
+			timer := 255
+		end
+	
+	if counter > 0 then	again
+	plane 2 #Purple layer
+	sprite vx vy 0 #Draw over the flame to erase it
+	;
+	
+: youFailed 
+	#Kill an octo
+	#Reduce lives by 1
+	#If there are still lives left, increase score by 1
+	plane 1
+	clear
+	vx := 10
+	vy := 16
+	i := OctoSad
+	lives -= 1
+	if lives > 0 begin
+		sprite vx vy 12
+		vx += 12
+		if lives > 1 begin
+			sprite vx vy 12
+			vx += 12
+			if lives > 2 begin
+				sprite vx vy 12
+				vx += 12
+			end
+			burnOctoBurn
+		else
+			burnOctoBurn
+		end
+	else
+		burnOctoBurn
+	end
+	
+	setLifeAnimationTimer
+	victory := 0
+	;
+
+
+#--- Main Game Loop ---#
+: main 
+	loop
+		#Titlescreen - Tap or press E / 6 to continue
+			Title
+
+		#Brief control explanation
+		# Play through this neverending gauntlet of microgames! How far can you get?
+		# Every microgame uses E/6 or WASD/5789. If you're on mobile, tap and swipe.
+		# You have 4 lives. If you fail a microgame, you lose a life.
+		# At 0 lives, the game is over.
+
+		#Setup
+		lives := 4
+		resetDifficulty
+		
+		
+		#Game Loop
+		loop
+			
+			#Check if difficulty should be increased now
+			if diffCounter == 0 then increaseDifficulty
+			
+			setLifeAnimationTimer
+			frame := 0
+			drawOctoLives
+			vy := 2
+			printScore
+			
+			#Dancing Octo screen
+			loop 
+				timer -= 1
+				if timer == 0 begin
+					counter -= 1
+					if counter <= 0 begin
+						drawOctoLives
+						counter := 15
+						counter2 -= 1
+						#Update score - show score being updated
+						if counter2 == 2 begin
+							vy := 2
+							printScore
+							incrementScore
+							printScore
+						end
+					end
+					timer := 200
+				end	
+			
+			if counter2 > 0 then again
+			clearAll
+			
+			#Choose random microgame
+			loop
+				v1 := random 0b11
+			if v1 == 3 then again
+			#Print instructions for game
+			
+			if v1 == 0 begin
+				plane 2
+				vx := 24
+				vy := 12
+				text "DIG!"
+				plane 1
+				vx := 24
+				vy := 12
+				text "DIG!"
+			else 
+				if v1 == 1 begin
+					plane 2
+					vx := 24
+					vy := 12
+					text "HAT!"
+					plane 1
+					vx := 24
+					vy := 12
+					text "HAT!"
+				else 
+					if v1 == 2 begin
+						plane 2
+						vx := 15
+						vy := 12
+						text "FOLLOW ME!"
+						plane 1
+						vx := 15
+						vy := 12
+						text "FOLLOW ME!"
+					else 
+						# Link to more games here!
+					end
+				end
+			end
+			
+			timer := 255
+			counter := 17
+			loop
+				timer -= 1
+				if timer == 0 then counter -= 1
+			if counter > 0 then again
+			
+			
+			#Play microgame
+			if v1 == 0 begin
+				DiggerGame
+			else 
+				if v1 == 1 begin
+					TopHatterGame
+				else 
+					if v1 == 2 begin
+						dancingGame
+					else 
+					# Link to more games here!
+					end
+				end
+			end
+			
+			
+			if victory == 1 begin
+				celebrateVictory
+			else
+				youFailed
+			end
+			
+			diffCounter -= 1
+			
+		if lives > 0 then again
+
+		#Game Over
+		clearAll #Screen should already be blank, but just to be safe...
+		vx := 15
+		vy := 3
+		plane 2
+		text "GAME OVER"
+		vy := 9
+		vx := 11
+		text "FINAL SCORE"
+		plane 1
+		vy := 9
+		vx := 11
+		text "FINAL SCORE"
+		vy := 15
+		printScore
+		v0 := OCTO_KEY_E
+		v1 := 0
+		
+		plane 2
+		loop
+			timer -= 1
+			if timer == 0 begin
+				counter -= 1
+				if counter == 0 begin
+					vx := 22
+					vy := 28 
+					text "TAP/E"
+					counter := 10
+				end
+			end
+			if v0 key begin #key press
+				if v1 == 0 begin 
+					v1 := 1
+					plane 1
+					vx := 22
+					vy := 28 
+					text "TAP/E"
+					plane 2
+				end
+			else # key release
+				if v1 == 1 then v1 := 2
+			end
+		if v1 < 2 then again
+		resetScore
+		clearAll
+	again
+;
+
+#--- Sprites / Graphical data ---#
+
+#-- Life counting Octos
+: OctoLife #12 Rows
+	0x3C 0x7E 0xBB 0xAB 0xD7 0xAB 0x56 0x0C 0xA7 0xC9 0x24 0x4C 
+: OctoLife2 #This is just Octolife1 flipped around.
+	0x3C 0x7E 0xDD 0xD5 0xEB 0xD5 0x6A 0x30 0xE5 0x93 0x24 0x32
+: OctoCelebrate
+	0x3C 0x7E 0xBB 0x55 0xC7 0xAB 0x56 0x0C 0xA1 0xCB 0x28 0x46
+: OctoCelebrate2
+	0x3C 0x7E 0xDD 0xAA 0xE3 0xD5 0x6A 0x30 0x85 0xD3 0x14 0x62
+: OctoSad
+	0x3C 0x7E 0xFF 0xD7 0x29 0xD7 0x2A 0x14 0x42 0x89 0xA5 0x24
+: OctoBurnt #16x16 (Input '0' for Rows)
+	0x02 0x40 0x62 0x6E 0xB7 0x69 0x37 0xF4 0x7C 0x3C 0x7F 0x1E 0x75 0x0E 0xF7 0xEF 
+	0x90 0xAF 0xF4 0xEF 0xC8 0x5F 0xFC 0x3F 0x7B 0xFE 0x76 0xFE 0x3E 0xFC 0x0F 0xF0
+
+#-- Bomb timer
+: fuse #Literally just 1 pixel
+	0x80
+: OctoBomb #6 rows
+	0x18 0x3C 0x5A 0x7E 0xA5 0xDB 
+: fuseFire #3 rows
+	0x20 0x40 0xF0
+: OctoBombExplode #16x16, but it's actually 10 rows tall.
+	0x08 0x00 0x88 0x00 0x88 0x00 0xDC 0x20 0xFE 0xC0 0xFF 0x80 0xBD 0x80 0xDB 0x00
+	0xBD 0xC0 0xFF 0xF0 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+	
+#-- Digging Game
+#Sprites
+: ground #4 rows
+	0xFF 0x44 0x88 0x11
+: BigDirtPile #16x16 (Input '0' for Rows)
+	0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+	0x01 0x80 0x02 0x40 0x07 0x20 0x0F 0xF0 0x1F 0xD8 0x3F 0xFC 0x7F 0xFE 0xFF 0xFF
+#Digging Octo 1 and 2 are actually two halves of the same sprite. Same goes for 3 and 4. All are 15 rows tall. 
+: DiggingOcto1 # Frame 1 - E is pressed
+	0x00 0x00 0x00 0x00 0x00 0x00 0x03 0x07 0x07 0x17 0x33 0x2C 0x2B 0x09 0x06
+: DiggingOcto2
+	0x00 0x00 0x00 0x00 0x00 0xE0 0xF0 0xB8 0xA8 0x68 0xD8 0xF0 0x60 0x80 0x78
+: DiggingOcto3 # Frame 0 - E is not pressed
+	0x00 0x00 0x10 0x38 0x38 0x00 0x13 0x17 0x17 0x17 0x03 0x3B 0x1D 0x24 0x3B
+: DiggingOcto4
+	0x00 0x00 0x00 0x00 0x00 0xE0 0xF0 0xB8 0xA8 0x68 0xD8 0x70 0xC0 0x30 0x78
+: DiggingOctoYay 
+	0x08 0x90 0x00 0x00 0x4D 0xF2 0x1E 0xF8 0x00 0x00 0x9E 0xD9 0x1E 0xF8 0x1E 0xF8 
+	0x40 0x02 0x11 0x08 0x00 0x00 0x03 0xC0 0x27 0xE4 0x2B 0xD4 0x35 0xAC 0x36 0x6C
+	
+#-- Hatter Game
+: OctoBeingHatted
+	0x03 0x80 0x0F 0xE0 0x1F 0xF0 0x3B 0xB8 0x3B 0xB8 0xBC 0x7A 0xBB 0xBA 0xBA 0xBA 0xDB 0xB6 0x64 0x4C 0x7B 0xBC 0x34 0x58 0x0E 0xE0 0x3C 0x78 0x00 0x00 0x00 0x00
+: OctoSuccessfullyHatted
+	0x00 0x00 0x0F 0xE0 0x1F 0xF0 0x3B 0xB8 0x35 0x58 0x5C 0x74 0x2B 0xA8 0x12 0x90 0x33 0x98 0x64 0x4C 0x7B 0xBC 0x34 0x58 0x0E 0xE0 0x3C 0x78 0x00 0x00 0x00 0x00
+: OctoFailinglyHatted
+	0x03 0x80 0x0F 0xE0 0x1F 0xF0 0x3D 0x78 0x33 0x98 0x3C 0x78 0x3B 0xB8 0x3A 0xB8 0x1B 0xB0 0x0C 0x60 0x13 0x90 0x34 0x58 0x36 0xD8 0xAC 0xEA 0x6C 0x6C 0x18 0x30
+: tophat # 7 rows
+	0x3C 0x3C 0x3C 0x3C 0x3C 0x00 0xFF
+	
+#-- Dancing Game
+: dancerIdle
+	0x00 0x00 0x00 0x00 0x07 0xC0 0x0B 0xA0 0x1B 0xB0 0x1C 0x70 0x1B 0xB0 0x1A 0xB0 0x1B 0xB0 0x4C 0x64 0x47 0xC4 0x78 0x3C 0x36 0xD8 0x0C 0x60 0x00 0x00 0x00 0x00
+: dancerUp
+	0x00 0x00 0x07 0xC0 0x0B 0xA0 0x0B 0xA0 0x1C 0x70 0x1B 0xB0 0x1A 0xA8 0x1B 0xA8 0x1C 0x68 0x0F 0xD8 0x27 0xB8 0x38 0x10 0x16 0xE0 0x04 0x30 0x06 0x00 0x00 0x00
+: dancerRight
+	0x00 0x00 0x00 0x00 0x07 0xC0 0x0D 0xE0 0x1D 0x90 0x1E 0x30 0x1D 0xD0 0x1D 0x50 0x1D 0xD0 0x00 0x20 0x1E 0xC2 0x30 0x3C 0x3D 0x48 0x01 0xB0 0x00 0x00 0x00 0x00
+: dancerDown
+	0x00 0x00 0x00 0x00 0x07 0xC0 0x0F 0xE0 0x1F 0xF0 0x1B 0xB0 0x1B 0xB0 0x1C 0x70 0x1B 0xB0 0x0A 0xA0 0x03 0x80 0x18 0x30 0x32 0x98 0x36 0xD8 0x26 0xC8 0x04 0x40
+: dancerLeft
+	0x00 0x00 0x00 0x00 0x07 0xC0 0x0F 0x60 0x13 0x70 0x18 0xF0 0x17 0x70 0x15 0x70 0x17 0x70 0x08 0x00 0x86 0xF0 0x78 0x18 0x25 0x78 0x1B 0x00 0x00 0x00 0x00 0x00
+: dancerYeah
+	0x00 0x14 0x00 0x1C 0x07 0xC8 0x0B 0xA0 0x15 0x50 0x1C 0x70 0x1B 0xB0 0x1A 0xB0 0x5B 0xB4 0x4C 0x64 0x77 0xDC 0x20 0x08 0x0A 0xA0 0x0C 0x60 0x00 0x00 0x00 0x00
+: dancerNo
+	0x00 0x00 0x00 0x00 0x07 0xC0 0x0F 0xE0 0x1D 0x70 0x13 0x90 0x1C 0x68 0x1B 0xA8 0x1A 0xA8 0x0B 0xA8 0x04 0x58 0x38 0x30 0x46 0xC0 0x2C 0x60 0x00 0x00 0x00 0x00
+	
