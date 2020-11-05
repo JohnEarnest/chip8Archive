@@ -1851,5 +1851,34 @@
 			"logicQuirks": false,
 			"fontStyle": "octo"
 		}
+	},
+	"chickenScratch": {
+		"title":    "Chicken Scratch",
+		"authors":  ["JohnEarnest"],
+		"images":   ["gameplay.gif"],
+		"desc":     "What if Pac-Man, but Chicken?",
+		"event":    "Octojam7",
+		"release":  "2020-10-28",
+		"platform": "xochip",
+		"options": {
+			"tickrate": 500,
+			"fillColor": "#7C4300",
+			"fillColor2": "#FD8100",
+			"blendColor": "#FD8100",
+			"backgroundColor": "#D5A08C",
+			"buzzColor": "#3C2300",
+			"quietColor": "#000000",
+			"shiftQuirks": 0,
+			"loadStoreQuirks": 0,
+			"vfOrderQuirks": false,
+			"clipQuirks": 0,
+			"vBlankQuirks": 0,
+			"jumpQuirks": 0,
+			"screenRotation": 0,
+			"maxSize": 65024,
+			"touchInputMode": "none",
+			"logicQuirks": 0,
+			"fontStyle": "octo"
+		}
 	}
 }
