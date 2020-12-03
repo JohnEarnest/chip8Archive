@@ -4,6 +4,12 @@ Since 1977 the [Chip8](https://en.wikipedia.org/wiki/CHIP-8) platform has provid
 
 Check out the [Online Gallery](https://johnearnest.github.io/chip8Archive/) of submitted programs!
 
+More Chip8 Software Elsewhere
+-----------------------------
+- [The _Revival Studios_ ROM collection](https://github.com/dmatlack/chip8/tree/master/roms)
+- [David Winter's CHIP-8 Emulation Page](http://pong-story.com/chip8/)
+- [_3d Viper Maze_ by Timenus](https://github.com/Timendus/3d-viper-maze)
+
 Schema
 ------
 The `programs.json` file is the central registry of program metadata. Each entry may contain the following fields:
