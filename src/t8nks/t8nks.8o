@@ -179,7 +179,7 @@
 	sprite xpos ypos 5
 
 	xpos += 9
-	i := wind
+	i := wind-buffer
 	load wind - wind
 	i := bcd-buff
 	bcd wind
@@ -199,7 +199,7 @@
 :alias bulletindex temp4
 : anim-bullets
 	bulletindex := 0
-	i := bulletindex
+	i := bulletindex-buffer
 	save bulletindex - bulletindex
 	load bulletindex - bulletcount
 	: startloop
@@ -220,7 +220,7 @@
 					jump startloop
 				end end
 			end
-			i := bulletindex
+			i := bulletindex-buffer
 			load bulletindex - bulletcount
 			i := bulletarray i += bulletindex save ypos
 			if bullettype == BFG begin if yvel == 0 then
@@ -230,7 +230,7 @@
 				deploy-mirv
 			end
 			bulletindex += BULLETSTRIDE
-			i := bulletindex
+			i := bulletindex-buffer
 			save bulletindex - bulletcount
 	again
 ;
@@ -426,7 +426,7 @@
 	currbyte -= currbit
 ;
 : rem-bullet
-	i := bulletindex
+	i := bulletindex-buffer
 	load bulletindex - bulletcount
 	bulletcount += -BULLETSTRIDE
 	if bulletcount == 0 begin #no bullets left
@@ -458,7 +458,7 @@
 		end
 	end
 	if bulletindex == bulletcount begin #we are removing the last element
-		i := bulletcount
+		i := bulletcount-buffer
 		save bulletcount - bulletcount
 		return
 	else #we are removing some middle element
@@ -470,7 +470,7 @@
 		i := bulletarray
 		i += bulletindex
 		save ypos
-		i := bulletindex
+		i := bulletindex-buffer
 		save bulletindex - bulletcount
 	end
 ;
@@ -636,7 +636,7 @@
 		i := bullet #draw
 		sprite xpos ypos 1
 		temp1 := BULLETSTRIDE
-		i := bulletcount
+		i := bulletcount-buffer
 		save temp1 - temp1
 		i := shots-fired
 		load temp1 - temp1
@@ -706,7 +706,7 @@
 	sprite xpos ypos 1
 
 	v0 := BULLETSTRIDE
-	i := bulletcount
+	i := bulletcount-buffer
 	save v0
 
 ;
@@ -1110,7 +1110,7 @@
 ;
 : draw-score
 	leadingzero := 1
-	i := score
+	i := score-buffer
 	load v1
 	i := bcd-buff
 	bcd v0
@@ -1128,7 +1128,7 @@
 	sprite xpos ypos 5
 ;
 : addscore
-	i := score
+	i := score-buffer
 	load v0 - v1
 	v1 += temp1
 	if vf != 0 begin
@@ -1291,7 +1291,7 @@
 	v2 := 1
 	v3 := 0
 	save v3
-	i := score
+	i := score-buffer
 	v0 := 0
 	v1 := 0
 	save v1
@@ -1359,7 +1359,7 @@
 
 : ammo-player
 99 3 1 0
-: score
+: score-buffer
 0 0
 : levels-unlocked
 0
@@ -1371,7 +1371,7 @@
 0
 : wind-dir
 0
-: wind
+: wind-buffer
 90
 : wind-timer
 0
@@ -1381,9 +1381,9 @@
 : bfg-unlocked
 0
 #bullets
-: bulletindex
+: bulletindex-buffer
 0
-: bulletcount
+: bulletcount-buffer
 9
 # bullets have 9 fields
 : bulletarray
