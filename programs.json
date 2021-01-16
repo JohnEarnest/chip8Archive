@@ -1880,5 +1880,34 @@
 			"logicQuirks": 0,
 			"fontStyle": "octo"
 		}
+	},
+	"spockpaperscissors": {
+		"title":    "Spock Paper Scissors",
+		"authors":  ["fontz"],
+		"images":   ["spockpaperscissors.gif"],
+		"desc":     "Intergalactic Rock Paper Scissors.",
+		"event":    "Octojam7",
+		"release":  "2020-11-01",
+		"platform": "chip8",
+		"options": {
+			"tickrate": 15,
+			"fillColor": "#B4B4B4",
+			"fillColor2": "#FF6600",
+			"blendColor": "#662200",
+			"backgroundColor": "#323232",
+			"buzzColor": "#FFAA00",
+			"quietColor": "#000000",
+			"shiftQuirks": false,
+			"loadStoreQuirks": false,
+			"vfOrderQuirks": false,
+			"clipQuirks": false,
+			"vBlankQuirks": false,
+			"jumpQuirks": false,
+			"logicQuirks": false,
+			"screenRotation": 0,
+			"maxSize": 3584,
+			"touchInputMode": "none",
+			"fontStyle": "octo"
+		}
 	}
 }
