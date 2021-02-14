@@ -43,7 +43,7 @@ Dyads
 | :---------------------------- | :----- | :------------------------------------------------------------------------------------------------ |
 | ![+ ](font-chars/char_25.png) | Plus*  | Add two unsigned bytes.                                                                           |
 | ![- ](font-chars/char_26.png) | Minus* | Subtract two unsigned bytes.                                                                      |
-| ![^ ](font-chars/char_27.png) | XOR*   | Bitwise Exclusive OR of two unsigned bytes.                                                       |
+| ![\^](font-chars/char_27.png) | XOR*   | Bitwise Exclusive OR of two unsigned bytes.                                                       |
 | ![& ](font-chars/char_20.png) | Min*   | Minimum of two unsigned bytes.                                                                    |
 | ![\|](font-chars/char_21.png) | Max*   | Maximum of two unsigned bytes.                                                                    |
 | ![< ](font-chars/char_28.png) | Less*  | 1 if X is less than Y; otherwise 0.                                                               |
