@@ -1,0 +1,1342 @@
+###########################################
+#
+#  Applejak
+#
+#  by John Earnest
+#
+#  A teeny-tiny APL-ish interpreter
+#  that runs on SuperCHIP.
+#
+###########################################
+
+# register conventions for the main program:
+:alias stack-ptr-a  ve # offset from STACK_A
+:alias stack-ptr-b  vd # offset from STACK_B
+:alias line-off     vc # row offset into OUTPUT buffer
+:alias cursor-off   vb # col/char offset into OUTPUT buffer
+:alias cursor-x     va # text output cursor x, in pixels
+:alias cursor-index v9 # where are we in the current menu?
+:alias cursor-max   v8 # how many items are in the current menu?
+:alias input        v7 # stash for input
+:alias invert       v6 # invert cursor?
+
+# register conventions used within primitives:
+:alias val-x        v1 # left arg
+:alias val-i        v2 # loop index
+:alias val-y        v3 # right arg
+:alias val-r        v4 # return value
+:alias top-level    v5 # are we at the top level of a recursive procedure?
+
+# datatypes
+:const TYPE_NUM     0
+:const TYPE_LIST    1
+
+# occupy 0x000-0x1FF with scratchpad buffers,
+# to save as much RAM as possible for code+data.
+# note that this all starts uninitialized:
+:const slot-count 64
+:calc STACK_A {                     0 } # a 22b stack
+:calc DYAD    { STACK_A +          22 } # 2b trampoline for dyad dispatch
+:calc STASH   { STACK_A +          24 } # 8b register buffer for leaf functions
+:calc DECODE  { STASH                 } # 3b bcd decode buffer (overlaid on above)
+:calc STACK_B { STACK_A +          32 } # a 32b secondary stack
+:calc TYPES   { STACK_B +          32 } # 64 typecodes for vector slots
+:calc SIZES   {   TYPES +  slot-count } # 64 item counts for vector slots
+:calc REFS    {   SIZES +  slot-count } # 64 refcounts for vector slots
+:calc OUTPUT  {    REFS +  slot-count } # 256 byte framebuffer
+
+: VARS        -1 -1 -1 -1 -1 -1         # 6 slot indices of xyzabc or -1
+
+: workspace
+	# 64 "vector slots" which are 16b apiece
+	# for storing working values (including scalars)
+	# overwrite the startup logo to save a few bytes:
+: logo-and-version
+	0x00 0x10 0x00 0x20 0x01 0xD8 0x03 0xFC 0x03 0xFC 0x03 0xFC 0x03 0xFC 0x01 0xF8
+	0x00 0xF0 0x00 0x00 0x00 0x00 0x07 0x1C 0x05 0x04 0x05 0x1C 0x55 0x04 0x27 0x5C
+	:macro vs { 0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0 }
+	      vs vs  vs vs vs vs  vs vs vs vs  vs vs vs vs
+	vs vs vs vs  vs vs vs vs  vs vs vs vs  vs vs vs vs
+	vs vs vs vs  vs vs vs vs  vs vs vs vs  vs vs vs vs
+	vs vs vs vs  vs vs vs vs  vs vs vs vs  vs vs vs vs
+
+:macro init-workspace {
+	loop
+		i := REFS
+		i += v1
+		save v0
+		v1 += 1
+		if v1 != slot-count then
+	again
+}
+
+:macro show-logo {
+	i := logo-and-version
+	v0 := 112
+	sprite v0 vf 0
+}
+
+:macro slot-of REG {
+	i := workspace
+	:assert "slot arg cannot be v0." { REG != v0 }
+	v0 := REG # * 1
+	v0 += v0  # * 2
+	v0 += v0  # * 4
+	i += v0
+	i += v0
+	i += v0
+	i += v0
+}
+
+# recovering from internal errors would add too much complexity.
+# instead, just display an error message and panic:
+
+: err-ws  0x8B 0x8A 0xAB 0xA9 0xFB
+: err-len 0xB6 0xA5 0xB5 0xA5 0xF5
+: err-typ 0xEE 0x55 0x55 0x56 0x54
+
+: do-panic
+	vf := 3
+	clear
+	sprite vf vf 5
+	loop again
+
+:macro panic MESSAGE {
+	i := MESSAGE
+	jump do-panic
+}
+
+:macro stack PUSH POP PTR BASE {
+	: PUSH  i := BASE  i += PTR  save v0  PTR += 1 ;
+	: POP   i := BASE  PTR -= 1  i += PTR  load v0 ;
+}
+stack push-a pop-a stack-ptr-a STACK_A
+stack push-b pop-b stack-ptr-b STACK_B
+
+###########################################
+#
+#  Memory Management
+#
+#  All of the "exposed" functions here are
+#  written to avoid modifying any caller
+#  registers except v0, which is used for
+#  threading in some arguments/results,
+#  and explicitly noted IO registers.
+#
+###########################################
+
+: alloc-save     i := STASH save v7 ;
+: alloc-restore  i := STASH load v7 ;
+: slot-v1        slot-of v1 ;
+: slot-v0
+	i := workspace
+	input := v0
+	input += input # *2
+	input += input # *4
+	i += input
+	i += input
+	i += input
+	i += input
+;
+
+: alloc
+	# return first available slot in v1
+	# (this should always be abstracted
+	# via type-specific constructors, as below)
+	v1 := 0
+	loop
+		i := REFS
+		i += v1
+		load v0
+		if v0 == 0 begin
+			i := REFS
+			i += v1
+			v0 := 1
+			save v0
+			return
+		end
+		v1 += 1
+		if v1 != slot-count then
+	again
+	panic err-ws
+
+: ref
+	# increments refcount of top item on stack-a
+	pop-a
+	alloc-save
+	v1 := v0
+	i := REFS
+	i += v1
+	load v0
+	v0 += 1
+	i := REFS
+	i += v1
+	save v0
+	alloc-restore
+	jump push-a
+
+: free
+	# decrements refcount on slot in v0
+	alloc-save
+: free-recursive
+	v1 := v0
+	i := REFS
+	i += v1
+	load v0
+	if v0 != 0 then v0 -= 1 # saturate at zero
+	i := REFS
+	i += v1
+	save v0
+	if v0 == 0 begin
+		# free child objects, if any
+		i := TYPES
+		i += v1
+		load v0
+		if v0 == TYPE_LIST begin
+			v2 := 0
+			loop
+				i := SIZES
+				i += v1
+				load v0
+				while v2 != v0
+				v0 := v1 push-b # source list
+				v0 := v2 push-b # list index
+				slot-v1
+				i += v2
+				load v0
+				free-recursive
+				pop-b v2 := v0
+				pop-b v1 := v0
+				v2 += 1
+			again
+		end
+	end
+	jump alloc-restore
+
+: alloc-num
+	# take value in v0, return slot on stack-a
+	alloc-save
+	v2 := v0 # value
+	alloc
+	i := TYPES
+	i += v1 # target
+	v0 := TYPE_NUM
+	save v0 # set type
+	i := SIZES
+	i += v1
+	v0 := 1
+	save v0 # set size
+	slot-v1
+	v0 := v2
+	save v0 # set value
+	v0 := v1
+	push-a
+	jump alloc-restore
+
+: alloc-list
+	# return empty list in val-r
+	alloc-save
+	alloc
+	val-r := v1
+	i := TYPES
+	i += val-r
+	v0 := TYPE_LIST
+	save v0
+	i := SIZES
+	i += val-r
+	v0 := 0
+	save v0
+	vf := val-r
+	alloc-restore
+	val-r := vf
+	return
+
+: append-r
+	# take value on stack-a, append to list in val-r
+	alloc-save
+	pop-a
+	val-x := val-r
+	val-y := v0 # value
+	val-x-size
+	val-i := v0 # size
+	i := err-len
+	if val-i == 16 then jump do-panic
+	slot-v1 # slot of vx...
+	i += val-i
+	v0 := val-y
+	save v0 # append value
+	i := SIZES
+	i += val-x
+	v0 := val-i
+	v0 += 1
+	save v0 # increment size
+	jump alloc-restore
+
+###########################################
+#
+#  Primitive Helpers
+#
+###########################################
+
+:macro stack-push PTR BASE SIZE {
+	:alias stack_range { SIZE }
+	i := BASE  i += PTR  save stack_range  PTR += SIZE
+}
+:macro stack-pop PTR BASE SIZE {
+	:alias stack_range { SIZE }
+	i := BASE  PTR -= SIZE  i += PTR  load stack_range
+}
+
+: val-x-size   i := SIZES    i += val-x  load v0 ;
+: val-y-size   i := SIZES    i += val-y  load v0 ;
+: val-x-type   i := TYPES    i += val-x  load v0 ;
+: val-y-type   i := TYPES    i += val-y  load v0 ;
+: val-x-at     slot-v1       i += val-i  load v0  jump push-a
+: val-y-at     slot-of val-y i += val-i  load v0  jump push-a
+: free-x       v0 := val-x  jump free
+: free-y       v0 := val-y  jump free
+: push-rec     v0 := v1 v1 := v2 v2 := v3 v3 := v4 v4 := v5  stack-push stack-ptr-b STACK_B 5 ;
+: pop-rec      stack-pop stack-ptr-b STACK_B 5  v5 := v4 v4 := v3 v3 := v2 v2 := v1 v1 := v0  ;
+
+: pop-y-x
+	pop-a
+	val-y := v0
+	pop-a
+	val-x := v0	
+;
+
+: num-to-x
+	pop-a
+	free
+	val-x := v0
+	val-x-type
+	i := err-typ
+	if v0 != TYPE_NUM then do-panic
+	v0 := val-x
+	slot-v0
+	load v0
+	val-x := v0
+;
+: num-to-y
+	pop-a
+	free
+	val-y := v0
+	val-y-type
+	i := err-typ
+	if v0 != TYPE_NUM then do-panic
+	v0 := val-y
+	slot-v0
+	load v0
+	val-y := v0
+;
+: list-to-x
+	pop-a
+	val-x := v0
+	val-x-type
+	if v0 == TYPE_LIST then return
+	panic err-typ
+
+: list-to-y
+	pop-a
+	val-y := v0
+	val-y-type
+	if v0 == TYPE_LIST then return
+	panic err-typ
+
+: push-r
+	v0 := val-r
+	jump push-a
+
+: as-list-a
+	pop-a
+	vf := v0
+	i := TYPES
+	i += v0
+	load v0
+	if v0 == TYPE_LIST begin
+		v0 := vf
+		jump push-a
+	end
+	v0 := vf
+	push-a
+	push-rec
+	monad-enlist
+	jump pop-rec
+
+: swap-a
+	pop-a
+	v1 := v0
+	pop-a
+	v2 := v0
+	v0 := v1
+	push-a
+	v0 := v2
+	jump push-a
+
+: dup-a
+	pop-a
+	push-a
+	jump push-a
+
+###########################################
+#
+#  Monadic Verbs
+#
+###########################################
+
+: monad-iota
+	num-to-x
+	val-i := 0
+	alloc-list
+	loop
+		while val-i != val-x
+		v0 := val-i
+		alloc-num
+		append-r
+		val-i += 1
+	again
+	jump push-r
+
+: monad-random
+	num-to-x
+	alloc-list
+	loop
+		while val-x != 0
+		v0 := random 0xFF
+		alloc-num
+		append-r
+		val-x -= 1
+	again
+	jump push-r
+
+: monad-where
+	as-list-a
+	list-to-x
+	val-i := 0
+	alloc-list
+	loop
+		val-x-size
+		while val-i != v0
+		val-x-at
+		ref
+		num-to-y
+		loop
+			while val-y != 0
+			v0 := val-i
+			alloc-num
+			append-r
+			val-y += -1
+		again
+		val-i += 1
+	again
+	push-r
+	jump free-x
+
+: monad-reverse
+	list-to-x
+	val-x-size
+	val-i := v0
+	alloc-list
+	loop
+		while val-i != 0
+		val-i -= 1
+		val-x-at
+		ref
+		append-r
+	again
+	push-r
+	jump free-x
+
+: monad-not
+	top-level := 1
+: monad-not-recursive
+	pop-a
+	val-x := v0
+	val-x-type
+	if v0 == TYPE_LIST begin
+		alloc-list
+		val-i := 0
+		loop
+			val-x-size
+			while val-i != v0
+			val-x-at
+			push-rec
+			top-level := 0
+			monad-not-recursive
+			pop-rec
+			append-r
+			val-i += 1
+		again
+		if top-level == 1 then free-x
+		jump push-r
+	end
+	v0 := val-x
+	push-a
+	if top-level == 0 then ref
+	num-to-x
+	if val-x != 0 then val-x := 1
+	vf := 1
+	val-x ^= vf
+	v0 := val-x
+	jump alloc-num
+
+: monad-first
+	as-list-a
+	list-to-x
+	val-i := 0
+	val-x-at
+	ref
+	jump free-x
+
+: monad-enlist
+	alloc-list
+	append-r
+	jump push-r
+
+: monad-count
+	pop-a
+	val-x := v0
+	val-x-size
+	alloc-num
+	jump free-x
+
+: monads
+	jump monad-iota
+	jump monad-first
+	jump monad-count
+	jump monad-reverse
+	jump monad-where
+	jump monad-not
+	jump monad-enlist
+	jump monad-random
+
+###########################################
+#
+#  Dyadic Verbs
+#
+###########################################
+
+:alias atomic-x v0
+:alias atomic-y val-y
+
+: dyad-math-plus  atomic-x += atomic-y ;
+: dyad-math-minus atomic-x -= atomic-y ;
+: dyad-math-xor   atomic-x ^= atomic-y ;
+: dyad-math-min   if atomic-y < atomic-x then atomic-x := atomic-y ;
+: dyad-math-max   if atomic-y > atomic-x then atomic-x := atomic-y ;
+: dyad-math-less  if atomic-x < atomic-y begin atomic-x := 1 else atomic-x := 0 end ;
+: dyad-math-more  if atomic-x > atomic-y begin atomic-x := 1 else atomic-x := 0 end ;
+: dyad-math-equal if atomic-x == atomic-y begin atomic-x := 1 else atomic-x := 0 end ;
+
+: dyads-math
+	dyad-math-plus
+	dyad-math-minus
+	dyad-math-xor
+	dyad-math-min
+	dyad-math-max
+	dyad-math-less
+	dyad-math-more
+	dyad-math-equal
+
+: body-conform
+	push-rec
+	top-level := 0
+	do-math-recursive
+	pop-rec
+	append-r
+	val-i += 1
+;
+
+: finish-conform
+	if top-level == 1 then free-x
+	if top-level == 1 then free-y
+	jump push-r
+
+:macro conform SIZE VALUES {
+	alloc-list
+	loop
+		SIZE
+		while val-i != v0
+		VALUES
+		body-conform
+	again
+	jump finish-conform
+}
+:macro val-each-dyad  { val-x-at           val-y-at }
+:macro val-each-left  { val-x-at v0 := val-y push-a }
+:macro val-each-right { v0 := val-x push-a val-y-at }
+
+: do-math # (any, any)
+	top-level := 1
+: do-math-recursive
+	pop-y-x
+	val-x-type
+	val-i := 0
+	if v0 == TYPE_LIST begin
+		val-y-type
+		if v0 == TYPE_LIST begin conform val-x-size val-each-dyad end
+		conform val-x-size val-each-left
+	end
+	val-y-type
+	if v0 == TYPE_LIST begin conform val-y-size val-each-right end
+	# unpack raw atom values
+	v0 := val-y
+	if top-level == 1 then free
+	slot-v0
+	load v0
+	atomic-y := v0
+	v0 := val-x
+	if top-level == 1 then free
+	slot-v0
+	load v0
+	: dyad-math-slot 0x00 0x00
+	jump alloc-num
+
+: dyad-join # (any,any)
+	swap-a
+	alloc-list
+	dyad-join-half
+	dyad-join-half
+	jump push-r
+: dyad-join-half
+	as-list-a
+	list-to-x
+	val-i := 0
+	loop
+		val-x-size
+		while val-i != v0
+		val-x-at
+		ref
+		append-r
+		val-i += 1
+	again
+	jump free-x
+
+: dyad-take # (num,any)
+	as-list-a
+	list-to-y
+	num-to-x
+	val-i := 0
+	alloc-list
+	loop
+		while val-x != 0
+		val-y-at
+		ref
+		append-r
+		val-i += 1
+		val-y-size
+		if val-i == v0 then val-i := 0
+		val-x -= 1
+	again
+	push-r
+	jump free-y
+
+: dyad-match # (any,any)
+	top-level := 1
+: dyad-match-recursive
+	pop-y-x
+	val-y-size
+	vf := v0
+	val-x-size
+	if vf != v0 begin
+		v0 := 0
+		jump dyad-match-finish
+	end
+	val-y-type
+	vf := v0
+	val-x-type
+	if vf != v0 begin
+		v0 := 0
+		jump dyad-match-finish
+	end
+	val-r := 1 # return flag...
+	val-i := 0
+	if v0 == TYPE_NUM begin
+		val-x-at
+		val-y-at
+		pop-a
+		val-i := v0
+		pop-a
+		if val-i != v0 then val-r := 0
+	else
+		loop
+			val-x-size
+			while val-i != v0
+			val-x-at
+			val-y-at
+			push-rec
+			top-level := 0
+			dyad-match-recursive
+			vf := v0
+			pop-rec
+			if vf != 1 then val-r := 0
+			val-i += 1
+		again
+	end
+	v0 := val-r
+: dyad-match-finish
+	if top-level == 1 begin
+		alloc-num
+		free-x
+		free-y
+	end
+	return
+
+: dyad-drop # (num,list)
+	list-to-y
+	num-to-x
+	val-i := val-x
+	alloc-list
+	loop
+		val-y-size
+		while val-i < v0
+		val-y-at
+		ref
+		append-r
+		val-i += 1
+	again
+	push-r
+	jump free-y
+
+: dyad-at # (list,any)
+	top-level := 1
+	swap-a
+	list-to-x
+: dyad-at-recursive
+	pop-a
+	val-y := v0
+	val-y-type
+	if v0 == TYPE_LIST begin
+		val-i := 0
+		alloc-list
+		loop
+			val-y-size
+			while val-i != v0
+			val-y-at
+			push-rec
+			v1 := v0 # preserve val-x on the recursive call...
+			top-level := 0
+			dyad-at-recursive
+			pop-rec
+			append-r
+			val-i += 1
+		again
+		if top-level == 1 then free-x
+		if top-level == 1 then free-y
+		jump push-r
+	end
+	v0 := val-y
+	push-a
+	if top-level == 0 then ref
+	num-to-y
+	val-i := val-y
+	val-x-at
+	ref
+	if top-level == 1 then free-x
+	return
+
+: dyad-find
+	pop-a
+	val-y := v0
+	list-to-x
+	val-i := 0
+	loop
+		val-x-size
+		while val-i != v0
+		val-x-at
+		v0 := val-y
+		push-a
+		push-rec
+		top-level := 0
+		dyad-match-recursive
+		vf := v0
+		pop-rec
+		if vf == 1 then jump dyad-find-finish
+		val-i += 1
+	again
+: dyad-find-finish
+	v0 := val-i
+	alloc-num
+	free-x
+	jump free-y
+
+: dyads
+	jump dyad-join
+	jump dyad-take
+	jump dyad-drop
+	jump dyad-at
+	jump dyad-match
+	jump dyad-find
+	jump do-math
+
+###########################################
+#
+#  Adverbs
+#
+###########################################
+
+: adverb-over
+	list-to-y
+	val-i := 0
+	loop
+		val-y-size
+		while val-i != v0
+		val-y-at
+		ref
+		push-rec
+		DYAD
+		pop-rec
+		val-i += 1
+	again
+	jump free-y
+
+: adverb-scan
+	list-to-y
+	alloc-list
+	val-i := 0
+	loop
+		val-y-size
+		while val-i != v0
+		val-y-at
+		ref
+		push-rec
+		DYAD
+		pop-rec
+		dup-a
+		ref
+		append-r
+		val-i += 1
+	again
+	pop-a
+	free
+	free-y
+	jump push-r
+
+: adverb-zip
+	list-to-y
+	list-to-x
+	alloc-list
+	val-i := 0
+	loop
+		val-x-size
+		while val-i != v0
+		val-y-size
+		while val-i != v0
+		val-x-at
+		ref
+		val-y-at
+		ref
+		push-rec
+		DYAD
+		pop-rec
+		append-r
+		val-i += 1
+	again
+	free-x
+	free-y
+	jump push-r
+
+###########################################
+#
+#  Text Output
+#
+###########################################
+
+: invert-char
+	0xF0 0xF0 0xF0 0xF0 0xF0 0xF0 0xF0
+
+: font # 4x6 characters
+	:macro char NAME { :calc NAME { CALLS * 5 } }
+	char CHAR_0    0xE0 0xA0 0xA0 0xA0 0xE0
+	char CHAR_1    0xC0 0x40 0x40 0x40 0xE0
+	char CHAR_2    0xE0 0x20 0xE0 0x80 0xE0
+	char CHAR_3    0xE0 0x20 0x60 0x20 0xE0
+	char CHAR_4    0xA0 0xA0 0xE0 0x20 0x20
+	char CHAR_5    0xE0 0x80 0xE0 0x20 0xE0
+	char CHAR_6    0x80 0x80 0xE0 0xA0 0xE0
+	char CHAR_7    0xE0 0x20 0x20 0x20 0x20
+	char CHAR_8    0xE0 0xA0 0xE0 0xA0 0xE0
+	char CHAR_9    0xE0 0xA0 0xE0 0x20 0x20
+	char CHAR_x    0xA0 0xA0 0x40 0xA0 0xA0
+	char CHAR_y    0xA0 0xA0 0xE0 0x20 0xE0
+	char CHAR_z    0xE0 0x20 0x40 0x80 0xE0
+	char CHAR_a    0xE0 0xA0 0xE0 0xA0 0xA0
+	char CHAR_b    0xE0 0xA0 0xC0 0xA0 0xE0
+	char CHAR_c    0x60 0x80 0x80 0x80 0x60
+	char CHAR_*    0xA0 0x40 0xE0 0x40 0xA0
+	char CHAR_IOTA 0x00 0xC0 0x40 0x40 0x20
+	char CHAR_&    0xC0 0xC0 0xE0 0xA0 0xE0
+	char CHAR_|    0x40 0x40 0x40 0x40 0x40
+	char CHAR_~    0x00 0x20 0xE0 0x80 0x00
+	char CHAR_,    0x00 0x00 0x00 0x40 0x80
+	char CHAR_RHO  0x40 0xA0 0xA0 0xC0 0x80
+	char CHAR_+    0x00 0x40 0xE0 0x40 0x00
+	char CHAR_-    0x00 0x00 0xE0 0x00 0x00
+	char CHAR_^    0x00 0x40 0xA0 0x00 0x00
+	char CHAR_<    0x20 0x40 0x80 0x40 0x20
+	char CHAR_>    0x80 0x40 0x20 0x40 0x80
+	char CHAR_=    0x00 0xE0 0x00 0xE0 0x00
+	char CHAR__    0x00 0x00 0x00 0x00 0xE0
+	char CHAR_?    0xE0 0x20 0x60 0x00 0x40
+	char CHAR_@    0x60 0xA0 0xA0 0x80 0x60
+	char CHAR_.    0x00 0x00 0x00 0x40 0x00
+	char CHAR_'    0x40 0x40 0x00 0x00 0x00
+	char CHAR_/    0x20 0x40 0x40 0x40 0x80
+	char CHAR_\    0x80 0x40 0x40 0x40 0x20
+	char CHAR_:    0x00 0x40 0x00 0x40 0x00
+	char CHAR_(    0x40 0x80 0x80 0x80 0x40
+	char CHAR_)    0x40 0x20 0x20 0x20 0x40
+	char CHAR_;    0x00 0x40 0x00 0x40 0x80
+	:calc CHAR_SPC { CHAR_= + 4 }
+
+:stringmode apl "0123456789xyzabc*!&|~,#+-^<>=_?@.'/\\:();" { :byte { VALUE * 5 } }
+:stringmode apl " " { :byte CHAR_SPC }
+
+# 32 cols x 10 lines theoretical display size, by resolution
+# 32 cols x  8  lines means the display buffer fits in one page
+:const CHARS_PER_LINE 32
+
+:macro init-terminal {
+	hires
+	# clear the framebuffer
+	v0 := CHAR_SPC # value
+	v1 := 0        # index
+	loop
+		i := OUTPUT
+		i += v1
+		save v0
+		v1 += 1
+		if v1 != 0 then
+	again
+	scroll-terminal
+	cursor-x   := 0
+	cursor-off := 0
+}
+
+: scroll-terminal
+	v0 := CHAR_SPC
+	v1 := 0
+	loop
+		i := OUTPUT
+		i += line-off
+		i += v1
+		save v0
+		v1 += 1
+		if v1 != CHARS_PER_LINE then
+	again
+	line-off += CHARS_PER_LINE
+	clear
+	v2 := 0
+	v3 := 1
+	v1 := line-off
+	loop
+		i := OUTPUT
+		i += v1
+		v1 += 1
+		load v0
+		i := font
+		i += v0
+		sprite v2 v3 5
+		v2 += 4
+		if v2 == 128 then v3 += 8
+		if v2 == 128 then v2 := 0
+		if v3 != 65 then
+	again
+;
+
+: output-addr
+	i := OUTPUT
+	line-off -= CHARS_PER_LINE
+	line-off += cursor-off
+	i += line-off
+	line-off -= cursor-off
+	line-off += CHARS_PER_LINE
+;
+: output-char
+	i := font
+	i += v0
+	:calc LAST_ROW { 64 - 7 }
+	vf := LAST_ROW
+	sprite cursor-x vf 5
+	if invert == 0 then return
+	:calc LAST_ROW_INV { LAST_ROW - 1 }
+	vf := LAST_ROW_INV
+	i := invert-char
+	sprite cursor-x vf 7
+;
+
+: print-char # char in v0
+	alloc-save
+	output-addr
+	save v0
+	output-char
+	cursor-off += 1
+	cursor-x   += 4
+	alloc-restore
+	if cursor-off != CHARS_PER_LINE then return
+: print-newline
+	alloc-save
+	scroll-terminal
+	cursor-off := 0
+	cursor-x   := 0
+	jump alloc-restore
+
+: erase-char
+	alloc-save
+	if cursor-off == 0 then return
+	cursor-off -= 1
+	cursor-x   -= 4
+	output-addr
+	load v0
+	output-char
+	v0 := CHAR_SPC
+	output-addr
+	save v0
+	jump alloc-restore
+
+: print-num # destroys v0-v3
+	i := DECODE
+	bcd v0
+	v3 := v0
+	i := DECODE
+	load v2
+	if v0 == 1 then v0 := CHAR_1
+	if v0 == 2 then v0 := CHAR_2
+	if v0 != 0 then print-char
+	v0 := v1
+	v0 += v0
+	v0 += v0
+	v0 += v1 # * 5
+	if v3 > 9 then print-char
+	v0 := v2
+	v0 += v0
+	v0 += v0
+	v0 += v2 # * 5
+	jump print-char
+
+:macro erase-num REG {
+	if REG > 99 then erase-char
+	if REG > 9 then erase-char
+	erase-char
+}
+
+: print-value
+	pop-a # arg comes on stack-a
+	free
+	push-a
+: print-value-recursive
+	pop-a
+	val-x := v0
+	val-i := 0
+	val-x-type
+	if v0 == TYPE_NUM begin
+		val-x-at
+		jump print-num
+	end
+	val-x-size
+	if v0 == 1 begin
+		v0 := CHAR_,
+		print-char
+		val-x-at
+		jump print-value-recursive
+	end
+	v0 := CHAR_(
+	print-char
+	loop
+		val-x-size
+		while val-i != v0
+		# separator
+		v0 := CHAR_;
+		if val-i != 0 then print-char
+		# recursively print.
+		val-x-at
+		push-rec
+		print-value-recursive
+		pop-rec
+		val-i += 1
+	again
+	v0 := CHAR_)
+	jump print-char
+
+###########################################
+#
+#  Text Input / Evaluation
+#
+###########################################
+
+: tokens # 8x7 placeholder tokens
+	:macro tok NAME { :calc NAME { CALLS * 7 } }
+	tok TOK_NUM     0x7C 0xCE 0xEE 0xEE 0xEE 0xC6 0x7C # number
+	tok TOK_VAR     0x7C 0xD6 0xD6 0xEE 0xD6 0xD6 0x7C # variable reference
+	tok TOK_SET     0x7E 0xD7 0xD5 0xEF 0xD5 0xD7 0x7E # var : expr...
+	tok TOK_LIST    0x7E 0xFF 0x9F 0xBF 0x95 0xFF 0x7E # ( expr ; expr ; ... )
+	tok TOK_MVERB   0x7E 0xFF 0xFF 0xCF 0xFB 0xFF 0x7E # verb expr...
+	tok TOK_DVERB   0x7E 0xFF 0xFF 0xE7 0xBD 0xFF 0x7E # ( expr... ) verb expr...
+	tok TOK_DADVERB 0x7E 0xFF 0xDD 0x8B 0xDB 0xF7 0x7E # ( expr... ) verb adverb expr...
+
+: options-name   apl "xyzabc"
+: options-monad  apl "!*#|&~,?"
+: options-dyad   apl "+-^&|<>=,#_@~?"
+: options-adverb apl "/\\'"
+: options-list   apl ";)"
+
+: options # { i := table-base, max-index }
+	i := options-name    5
+	i := options-monad   7
+	i := options-dyad   13
+	i := options-adverb  2
+	i := options-list    1
+
+:macro input-name   { v0 :=  0 input-option }
+:macro input-monad  { v0 :=  3 input-option }
+:macro input-dyad   { v0 :=  6 input-option }
+:macro input-adverb { v0 :=  9 input-option }
+:macro input-list   { v0 := 12 input-option }
+
+: move-cursor
+	if input == OCTO_KEY_W begin
+		cursor-index -= 1
+		if cursor-index == -1 then cursor-index := cursor-max
+	end
+	if input == OCTO_KEY_S begin
+		cursor-index += 1
+		if cursor-index > cursor-max then cursor-index := 0
+	end
+;
+
+: fetch-option
+	i := 0x000
+	i += cursor-index
+	load v0
+;
+: input-option
+	:calc LAST_SAFE_COL { 32 - 4 }
+	if cursor-off >= LAST_SAFE_COL then print-newline
+	i := options
+	i += v0
+	load v2
+	cursor-max := v2
+	i := fetch-option
+	save v1
+	cursor-index := 0
+	invert := 1
+	loop
+		fetch-option
+		print-char
+		input := key
+		erase-char
+		while input != OCTO_KEY_D
+		move-cursor
+	again
+	invert := 0
+	fetch-option
+	print-char
+	v0 := cursor-index
+;
+
+:macro input-number {
+	if cursor-off >= LAST_SAFE_COL then print-newline
+	cursor-index := 0
+	invert := 1
+	loop
+		v0 := cursor-index
+		print-num
+		input := key
+		erase-num cursor-index
+		while input != OCTO_KEY_D
+		if input == OCTO_KEY_W then cursor-index += 1
+		if input == OCTO_KEY_S then cursor-index -= 1
+	again
+	invert := 0
+	v0 := cursor-index
+	print-num
+	v0 := cursor-index
+	jump alloc-num
+}
+
+: dyad-dispatch
+	pop-b
+	if v0 <= 7 begin
+		# "math" dyad
+		i := dyads-math
+		i += v0
+		i += v0
+		load v1
+		i := dyad-math-slot
+		save v1
+		v0 := 6
+	else
+		v0 -= 8
+	end
+	# "other" dyad
+	i := dyads
+	i += v0
+	i += v0
+	load v1
+	i := DYAD
+	save v1
+;
+
+: options-tokens
+	:byte TOK_NUM   :byte TOK_VAR   :byte TOK_SET
+	:byte TOK_MVERB :byte TOK_DVERB :byte TOK_DADVERB
+	:byte TOK_LIST
+: input-subex
+	v0 := CHAR_(
+	print-char
+	input-expr
+	v0 := CHAR_)
+	jump print-char
+
+: input-expr
+	cursor-index := 0
+	loop
+		i := options-tokens
+		i += cursor-index
+		load v0
+		i := tokens
+		i += v0
+		:calc LAST_ROW_TOK { LAST_ROW - 1 }
+		vf := LAST_ROW_TOK
+		sprite cursor-x vf 7
+		input := key
+		vf := LAST_ROW_TOK
+		sprite cursor-x vf 7
+		while input != OCTO_KEY_D
+		cursor-max := 6
+		move-cursor
+	again
+	if cursor-index == 0 begin # numeric literals
+		input-number
+	end
+	if cursor-index == 1 begin # name references
+		input-name
+		i := VARS
+		i += v0
+		load v0
+		i := err-typ
+		if v0 == -1 then do-panic
+		push-a
+		jump ref
+	end
+	if cursor-index == 2 begin # assignments
+		input-name
+		push-b
+		v0 := CHAR_:
+		print-char
+		input-expr
+		ref
+		val-x := v0 # new value
+		pop-b
+		val-y := v0 # var name
+		i := VARS
+		i += val-y
+		load v0
+		if v0 != -1 then free # release old binding
+		i := VARS
+		i += val-y
+		v0 := val-x
+		save v0
+		return
+	end
+	if cursor-index == 3 begin # monadic verbs
+		input-monad
+		push-b
+		input-expr
+		pop-b
+		i := monads
+		i += v0
+		i += v0
+		load v1
+		i := monad-slot
+		save v1
+		: monad-slot 0x00 0x00
+	end
+	if cursor-index == 4 begin # dyadic verbs
+		input-subex
+		input-dyad
+		push-b
+		input-expr
+		dyad-dispatch
+		jump DYAD
+	end
+	if cursor-index == 5 begin # dyad + adverb
+		input-subex
+		input-dyad
+		push-b
+		input-adverb
+		push-b
+		input-expr
+		pop-b
+		push-a
+		dyad-dispatch
+		pop-a
+		if v0 == 0 then jump adverb-over
+		if v0 == 1 then jump adverb-scan
+		jump adverb-zip
+	end
+	# list literal
+	v0 := CHAR_(
+	print-char
+	alloc-list
+	loop
+		v0 := val-r
+		push-b
+		input-expr
+		pop-b
+		val-r := v0
+		append-r
+		input-list
+		if v0 == 0 then
+	again
+	jump push-r
+
+###########################################
+#
+#  Entrypoint
+#
+###########################################
+
+: main
+	init-workspace
+	init-terminal
+	show-logo
+	loop
+		v0 := CHAR_SPC
+		print-char
+		input-expr
+		print-newline
+		print-value
+		print-newline
+	again
+
+###########################################
+#
+#  changelog:
+#
+#  v0.1:
+#  - initial release
+#
+#  v0.2:
+#  - input characters are drawn inverted
+#    until confirmed, making expression
+#    entry somewhat clearer.
+#  - unified atomic and misc. dyads,
+#    simplifying UI and implementation.
+#  - added the dyad "match"
+#
+#  v0.3:
+#  - removed the F and G variable slots
+#  - removed unnecessary NYI error message
+#  - added the dyad "find"
+#  - corrected a serious error in the
+#    internal list append routine,
+#    which was interfering with the creation
+#    of length-16 lists and other complex
+#    in-memory structures.
+#
+###########################################
+
+:calc first-slots { 16 * 8 }
+:monitor workspace first-slots
+:monitor REFS 8

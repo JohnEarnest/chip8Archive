@@ -1909,5 +1909,34 @@
 			"logicQuirks": 0,
 			"fontStyle": "octo"
 		}
+	},
+	"applejak": {
+		"title":    "Applejak",
+		"authors":  ["JohnEarnest"],
+		"images":   ["recording.gif"],
+		"desc":     "Interpreter for a subset of APL/K.",
+		"event":    "Octojam7",
+		"release":  "2020-10-07",
+		"platform": "schip",
+		"options": {
+			"tickrate": 100,
+			"fillColor": "#B00000",
+			"fillColor2": "#FF6600",
+			"blendColor": "#662200",
+			"backgroundColor": "#001000",
+			"buzzColor": "#FFAA00",
+			"quietColor": "#000000",
+			"shiftQuirks": 1,
+			"loadStoreQuirks": 1,
+			"vfOrderQuirks": false,
+			"clipQuirks": 1,
+			"vBlankQuirks": 0,
+			"jumpQuirks": 1,
+			"screenRotation": 0,
+			"maxSize": 3583,
+			"touchInputMode": "none",
+			"logicQuirks": 0,
+			"fontStyle": "octo"
+		}
 	}
 }
