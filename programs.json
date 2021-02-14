@@ -1823,6 +1823,35 @@
 			"displayScale":"6"
 		}
 	},
+	"expedition": {
+		"title":    "Expedition.",
+		"authors":  ["JohnEarnest"],
+		"images":   ["recording.gif"],
+		"desc":     "A short narrative about going outside.",
+		"event":    "NokiaJam",
+		"release":  "2021-01-06",
+		"platform": "xochip",
+		"options":{
+			"tickrate": 1000,
+			"fillColor": "#43523d",
+			"fillColor2": "#43523d",
+			"blendColor": "#43523d",
+			"backgroundColor": "#c7f0d8",
+			"buzzColor": "#43523d",
+			"quietColor": "#43523d",
+			"shiftQuirks": false,
+			"loadStoreQuirks": false,
+			"vfOrderQuirks": false,
+			"clipQuirks": false,
+			"vBlankQuirks": false,
+			"jumpQuirks": false,
+			"screenRotation": 0,
+			"maxSize": "65024",
+			"touchInputMode": "none",
+			"logicQuirks": false,
+			"fontStyle": "octo"
+		}
+	},
 	"OctoPartyMix": {
 		"title":    "Octo Party Mix!",
 		"authors":  ["ConnorGilhulyOrCratmang"],
