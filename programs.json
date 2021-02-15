@@ -1967,6 +1967,35 @@
 			"fontStyle": "octo"
 		}
 	},
+	"squad": {
+		"title":    "Squad",
+		"authors":  ["JohnEarnest"],
+		"images":   ["fibs.gif"],
+		"desc":     "Interpreter for a regular-sized Forth.",
+		"event":    "Octojam7",
+		"release":  "2020-10-25",
+		"platform": "schip",
+		"options": {
+			"tickrate": 500,
+			"fillColor": "#FFAF00",
+			"fillColor2": "#FD8100",
+			"blendColor": "#FD8100",
+			"backgroundColor": "#663300",
+			"buzzColor": "#F9FFB3",
+			"quietColor": "#000000",
+			"shiftQuirks": 1,
+			"loadStoreQuirks": 1,
+			"vfOrderQuirks": false,
+			"clipQuirks": 1,
+			"vBlankQuirks": 0,
+			"jumpQuirks": 1,
+			"screenRotation": 0,
+			"maxSize": 3583,
+			"touchInputMode": "none",
+			"logicQuirks": 0,
+			"fontStyle": "octo"
+		}
+	},
 	"spockpaperscissors": {
 		"title":    "Spock Paper Scissors",
 		"authors":  ["fontz"],

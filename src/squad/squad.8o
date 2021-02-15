@@ -1,0 +1,881 @@
+###########################################
+#
+#  S-Quad
+#
+#  It's Forth, on SCHIP. Nifty, eh?
+#  Not even especially small for a Forth,
+#  if I'm being honest.
+#
+###########################################
+
+# interpreter
+:alias stack-ptr-p  vd # offset from STACK_P
+:alias stack-ptr-r  vc # offset from STACK_R
+:alias pc-lo        vb # 16-bit program counter for interpreter
+:alias pc-hi        va # high bits of above
+
+# terminal output
+:alias line-off     v9 # row offset into OUTPUT buffer
+:alias cursor-off   v8 # col/char offset into OUTPUT buffer
+:alias cursor-x     v7 # text output cursor x, in pixels
+:alias invert       v6 # invert cursor?
+
+# terminal input
+:alias input        v5 # input buffer
+:alias word-type    v4 # type filter (for word list)
+
+# ve,vf reserved as temporaries
+# v0-v3 reserved as temporaries
+
+:calc STACK_P {            0 } # 64b parameter stack
+:calc STACK_R { STACK_P + 64 } # 64b return stack
+:calc DECODE  { STACK_R + 64 } # 3b bcd buffer
+:calc THERE   { DECODE  +  3 } # 2b end of workspace pointer
+:calc HEAD    { THERE   +  2 } # 2b most recent dict pointer
+:calc MODE    { HEAD    +  2 } # 2b interpret=0 compile=1
+:calc STASH   { MODE    +  2 } # 8b lookaside register buffer
+:calc OUTPUT  { STASH   +  8 } # 256b framebuffer
+
+:macro stack PUSH POP PTR BASE {
+	: PUSH  i := BASE  i += PTR  save v1  PTR += 2 ;
+	: POP   i := BASE  PTR -= 2  i += PTR  load v1 ;
+}
+stack push-p pop-p stack-ptr-p STACK_P
+stack push-r pop-r stack-ptr-r STACK_R
+
+: a>b       v2 := v0  v3 := v1 ;
+: b>a       v0 := v2  v1 := v3 ;
+: >pc       pc-hi := v0  pc-lo := v1 ;
+: 2arg      pop-p a>b jump pop-p
+: push-0    v0 := 0  v1 := 0  jump push-p
+: push-1    v0 := 0  v1 := 1  jump push-p
+: push-2    v0 := 0  v1 := 2  jump push-p
+: push-4    v0 := 0  v1 := 4  jump push-p
+: pop-addr  pop-p  vf := 0xA0  v0 |= vf ;
+: pop-call  pop-p  vf := 0x20  v0 |= vf ;
+
+: peek
+	i := STACK_P
+	v0 := stack-ptr-p
+	v0 -= 2
+	i += v0
+	load v1
+;
+: false
+	v0 := 0
+	v1 := 0
+	jump push-p
+: true
+	v0 := 0
+	v1 := 1
+	jump push-p
+
+: stash-save     i := STASH save v5 ;
+: stash-restore  i := STASH load v5 ;
+
+:macro pointer ADDR { :byte { ADDR >> 8 } :byte { ADDR } }
+:macro push-imm ADDR {
+	:calc hi { 0xFF & ADDR >> 8 }  v0 := hi
+	:calc lo { 0xFF & ADDR }       v1 := lo
+	push-p
+}
+
+:stringmode str "0123456789abcdefghijklmnopqrstuvwxyz+-<>=!@.,:;[] " { :byte { VALUE * 5 } }
+:stringmode str "\0" { :byte 0xFF }
+:macro defchar NAME { :calc NAME { ( HERE - 5 ) - font } }
+
+:const TYPE_ANY       0x0000
+:const TYPE_IO        0x0001
+:const TYPE_BASICS    0x0002
+:const TYPE_COMPILER  0x0003
+:const TYPE_IMMEDATE  0x0104
+:const TYPE_ENV       0x0005
+:const TYPE_SYNTH     0x0006
+:const TYPE_SYNTH_IMM 0x0106
+
+:calc prev-entry   { 0 }
+:calc longest-name { 0 }
+:macro prim NAME TYPE {
+	:calc LAST_WORD { HERE }
+	# link to previous header:
+	:byte { prev-entry >> 8 }
+	:byte { prev-entry }
+	:calc prev-entry { HERE - 2 }
+	# type
+	:byte { TYPE >> 8 }
+	:byte { TYPE }
+	# name text
+	str NAME
+	:byte 0xFF
+	:calc longest-name { longest-name max strlen NAME }
+	# body...
+}
+
+###########################################
+#
+#  Text IO
+#
+###########################################
+
+:macro io NAME { prim NAME TYPE_IO }
+
+: invert-char
+	0xF0 0xF0 0xF0 0xF0 0xF0 0xF0 0xF0
+: font
+	0xE0 0xA0 0xA0 0xA0 0xE0
+	0xC0 0x40 0x40 0x40 0xE0
+	0xE0 0x20 0xE0 0x80 0xE0
+	0xE0 0x20 0x60 0x20 0xE0
+	0xA0 0xA0 0xE0 0x20 0x20
+	0xE0 0x80 0xE0 0x20 0xE0
+	0x80 0x80 0xE0 0xA0 0xE0
+	0xE0 0x20 0x20 0x20 0x20
+	0xE0 0xA0 0xE0 0xA0 0xE0
+	0xE0 0xA0 0xE0 0x20 0x20
+	0xE0 0xA0 0xE0 0xA0 0xA0 defchar CHAR_A
+	0xE0 0xA0 0xC0 0xA0 0xE0
+	0x60 0x80 0x80 0x80 0x60
+	0xC0 0xA0 0xA0 0xA0 0xE0
+	0xE0 0x80 0xC0 0x80 0xE0
+	0xE0 0x80 0xC0 0x80 0x80
+	0x60 0x80 0x80 0xA0 0xE0
+	0xA0 0xA0 0xE0 0xA0 0xA0
+	0xE0 0x40 0x40 0x40 0xE0
+	0xE0 0x40 0x40 0x40 0xC0
+	0xA0 0xA0 0xC0 0xA0 0xA0
+	0x80 0x80 0x80 0x80 0xE0
+	0xE0 0xE0 0xA0 0xA0 0xA0
+	0xC0 0xA0 0xA0 0xA0 0xA0
+	0x60 0xA0 0xA0 0xA0 0xC0
+	0xE0 0xA0 0xE0 0x80 0x80
+	0x40 0xA0 0xA0 0xC0 0x60
+	0xE0 0xA0 0xC0 0xA0 0xA0
+	0x60 0x80 0xE0 0x20 0xC0
+	0xE0 0x40 0x40 0x40 0x40
+	0xA0 0xA0 0xA0 0xA0 0x60
+	0xA0 0xA0 0xA0 0xE0 0x40
+	0xA0 0xA0 0xA0 0xE0 0xE0
+	0xA0 0xA0 0x40 0xA0 0xA0
+	0xA0 0xA0 0xE0 0x20 0xE0
+	0xE0 0x20 0x40 0x80 0xE0
+	0x00 0x40 0xE0 0x40 0x00
+	0x00 0x00 0xE0 0x00 0x00
+	0x20 0x40 0x80 0x40 0x20
+	0x80 0x40 0x20 0x40 0x80
+	0x00 0xE0 0x00 0xE0 0x00
+	0x40 0x40 0x40 0x00 0x40
+	0x40 0xA0 0xA0 0x80 0x60
+	0x00 0x00 0x00 0x00 0x40
+	0x00 0x00 0x00 0x40 0x80
+	0x00 0x40 0x00 0x40 0x00
+	0x00 0x40 0x00 0x40 0x80
+	0xC0 0x80 0x80 0x80 0xC0
+	0x60 0x20 0x20 0x20 0x60
+	0x00 0x00 0x00 0x00 0x00 defchar CHAR_SPACE
+
+# 32 cols x 10 lines theoretical display size, by resolution
+# 32 cols x  8  lines means the display buffer fits in one page
+:const CHARS_PER_LINE 32
+
+:macro init-terminal {
+	hires
+	v0 := CHAR_SPACE # value
+	v1 := 0          # index
+	loop
+		i := OUTPUT
+		i += v1
+		save v0
+		v1 += 1
+		if v1 != 0 then
+	again
+	scroll-terminal
+	cursor-x   := 0
+	cursor-off := 0
+}
+
+: scroll-terminal
+	v0 := CHAR_SPACE
+	v1 := 0
+	loop
+		i := OUTPUT
+		i += line-off
+		i += v1
+		save v0
+		v1 += 1
+		if v1 != CHARS_PER_LINE then
+	again
+	line-off += CHARS_PER_LINE
+	clear
+	v2 := 0
+	v3 := 1
+	v1 := line-off
+	loop
+		i := OUTPUT
+		i += v1
+		v1 += 1
+		load v0
+		i := font
+		i += v0
+		sprite v2 v3 5
+		v2 += 4
+		if v2 == 128 then v3 += 8
+		if v2 == 128 then v2 := 0
+		if v3 == 65 then return
+	again
+
+: output-addr
+	i := OUTPUT
+	line-off -= CHARS_PER_LINE
+	line-off += cursor-off
+	i += line-off
+	line-off -= cursor-off
+	line-off += CHARS_PER_LINE
+;
+: output-char
+	i := font
+	i += v0
+	:calc LAST_ROW { 64 - 7 }
+	vf := LAST_ROW
+	sprite cursor-x vf 5
+	if invert == 0 then return
+	:calc LAST_ROW_INV { LAST_ROW - 1 }
+	vf := LAST_ROW_INV
+	i := invert-char
+	sprite cursor-x vf 7
+;
+
+io "emit" : emit
+	stash-save
+	pop-p
+	v0 := v1
+	output-addr
+	save v0
+	output-char
+	cursor-off += 1
+	cursor-x   += 4
+	stash-restore
+	if cursor-off == CHARS_PER_LINE then jump cr
+	return
+
+io "space" : space
+	v0 := 0
+	v1 := CHAR_SPACE
+	push-p
+	jump emit
+
+io "cr" : cr
+	stash-save
+	scroll-terminal
+	cursor-off := 0
+	cursor-x   := 0
+	jump stash-restore
+
+io "erase" : erase
+	if cursor-off == 0 then return
+	stash-save
+	cursor-off -= 1
+	cursor-x   -= 4
+	output-addr
+	load v0
+	output-char
+	v0 := CHAR_SPACE
+	output-addr
+	save v0
+	jump stash-restore
+
+io "type" : type
+	pop-addr
+	i := type-slot
+	save v1
+	ve := 0
+	loop
+		: type-slot 0x00 0x00
+		i += ve
+		ve += 1
+		load v0
+		if v0 == 0xFF then return
+		v1 := v0
+		v0 := 0
+		push-p
+		emit
+	again
+
+io "untype" : untype
+	pop-addr
+	i := untype-slot
+	save v1
+	ve := 0
+	loop
+		: untype-slot 0x00 0x00
+		i += ve
+		ve += 1
+		load v0
+		if v0 == 0xFF then return
+		erase
+	again
+
+io "num" : num
+	:calc LAST_NUMCOL { CHARS_PER_LINE - 5 }
+	if cursor-off >= LAST_NUMCOL then cr
+	invert := 1
+	push-0
+	loop
+		dup dot erase
+		v2 := key
+		erase erase erase erase
+		while v2 != OCTO_KEY_D
+		while v2 != OCTO_KEY_E
+		if v2 == OCTO_KEY_W begin
+			push-1 plus
+			jump num-keys-done
+		end
+		if v2 == OCTO_KEY_2 begin
+			v0 := 1 v1 := 0 push-p plus
+			jump num-keys-done
+		end
+		if v2 == OCTO_KEY_S begin
+			push-1 minus
+			jump num-keys-done
+		end
+		if v2 == OCTO_KEY_X begin
+			v0 := 1 v1 := 0 push-p minus
+		end
+		: num-keys-done
+	again
+	invert := 0
+	dup
+	jump dot
+
+io "name" : name # a new name
+	:calc LAST_NAMECOL { CHARS_PER_LINE - longest-name }
+	if cursor-off >= LAST_NAMECOL then cr
+	invert := 1
+	loop
+		push-imm CHAR_A
+		loop
+			dup emit
+			ve := key
+			erase
+			while ve != OCTO_KEY_D
+			while ve != OCTO_KEY_E
+			if ve == OCTO_KEY_Q begin
+				invert := 0 erase invert := 1
+				here get push-1 minus here set
+			end
+			pop-p
+			if ve == OCTO_KEY_W then v1 += 5
+			if ve == OCTO_KEY_S then v1 -= 5
+			if v1 == 255 then v1 := 0
+			if v1 == -5 then  v1 := 250
+			push-p
+		again
+		pop-p
+		while v1 != CHAR_SPACE
+		push-p
+		push-p
+		invert := 0
+		emit
+		invert := 1
+		,c
+		while ve != OCTO_KEY_E
+	again
+	invert := 0
+	space
+	push-imm 0xFF
+	jump ,c
+
+# these traversals could be *dramatically* faster
+# if the dictionary entries were a doubly-linked list,
+# but it would be trickier to update.
+# in this case, the painfully simple approach wins:
+
+: firstword # ( -- xt )
+	head get
+	return
+
+: nextword # ( xt -- xt )
+	loop
+		get
+		dup push-0 equal pop-p
+		if v1 == 1 begin drop firstword end
+		if word-type == 0 then return
+		dup >type get pop-p
+		if word-type == v1 then return
+	again
+
+: prev-stash 0 0
+: prevword # ( xt -- xt )
+	dup
+	loop
+		dup pop-p i := prev-stash save v1
+		nextword
+		over over equal pop-p
+		if v1 == 1 begin
+			drop drop
+			i := prev-stash load v1 push-p
+			return
+		end
+	again
+
+io "word" : word # an existing name ( type -- xt )
+	pop-p
+	word-type := v1
+	if cursor-off >= LAST_NAMECOL then cr
+	invert := 1
+	firstword nextword
+	loop
+		dup >name type
+		input := key
+		dup >name untype
+		while input != OCTO_KEY_D
+		while input != OCTO_KEY_E
+		if input == OCTO_KEY_W then nextword
+		if input == OCTO_KEY_S then prevword
+	again
+	invert := 0
+	dup >name type
+	jump space
+
+: opt-num  str "num\0"
+: opt-io   str "io\0"
+: opt-core str "core\0"
+: opt-mem  str "mem\0"
+: opt-flow str "flow\0"
+: opt-env  str "env\0"
+: opt-str  str "user\0"
+: options
+	pointer opt-num
+	pointer opt-io
+	pointer opt-core
+	pointer opt-mem
+	pointer opt-flow
+	pointer opt-env
+	pointer opt-str
+: stack-prompt str ".s\0"
+
+io "token" : token
+	# ( -- num 0 ) for a number
+	# ( -- xt  1 ) for a word
+	:calc LAST_NAMECOL { CHARS_PER_LINE - longest-name }
+	if cursor-off >= LAST_NAMECOL then cr
+	invert := 1
+	v2 := 0
+	loop
+		i := options
+		i += v2
+		i += v2
+		load v1
+		push-p
+		dup type
+		input := key
+		untype
+		if input == OCTO_KEY_Z begin
+			push-imm stack-prompt type
+			invert := 0
+			show-stack
+			invert := 1
+		end
+		while input != OCTO_KEY_D
+		while input != OCTO_KEY_E
+		if input == OCTO_KEY_W then v2 += 1
+		if input == OCTO_KEY_S then v2 -= 1
+		if v2 == -1 then v2 := 6
+		if v2 ==  7 then v2 := 0
+	again
+	if v2 == 0 begin
+		num push-0 return
+	end
+	v0 := 0
+	v1 := v2
+	push-p word
+	jump push-1
+
+: dot-high
+	ve >>= ve # /2
+	ve >>= ve # /4
+	ve >>= ve # /8
+	ve >>= ve # /16
+: dot-both
+	v0 := 0
+	v1 := ve # 1*
+	ve += ve # 2*
+	ve += ve # 4*
+	v1 += ve # 5*
+	push-p
+	jump emit
+: dot-low
+	vf := 0xF
+	ve &= vf
+	jump dot-both
+io "." : dot
+	peek  ve := v0 dot-high
+	peek  ve := v0 dot-low
+	peek  ve := v1 dot-high
+	pop-p ve := v1 dot-low
+	jump space
+
+###########################################
+#
+#  Basic Primitives
+#
+###########################################
+
+:macro basic NAME { prim NAME TYPE_BASICS }
+
+basic "dup" : dup
+	pop-p
+	push-p
+	jump push-p
+
+basic "drop" : drop
+	jump pop-p
+
+basic "over" : over
+	i  := STACK_P
+	v0 := stack-ptr-p
+	v0 -= 4
+	i  += v0
+	load v1
+	jump push-p
+
+basic "swap" : swap
+	pop-p
+	push-r
+	pop-p
+	a>b
+	pop-r
+	push-p
+	b>a
+	jump push-p
+
+basic "r>" : r>
+	pop-r
+	jump push-p
+
+basic ">r" : >r
+	pop-p
+	jump push-r
+
+basic "!" : set
+	pop-addr
+	i := set-slot
+	save v1
+	pop-p
+	: set-slot 0x00 0x00
+	save v1
+	return
+
+basic "c!" : setc
+	pop-addr
+	i := setc-slot
+	save v1
+	pop-p
+	v0 := v1
+	: setc-slot 0x00 0x00
+	save v0
+	return
+
+basic "@" : get
+	pop-addr
+	i := get-slot
+	save v1
+	: get-slot 0x00 0x00
+	load v1
+	jump push-p
+
+basic "c@" : getc
+	pop-addr
+	i := getc-slot
+	save v1
+	: getc-slot 0x00 0x00
+	load v0
+	v1 := v0
+	v0 := 0
+	jump push-p
+
+basic "not" : not
+	pop-p
+	if v0 != 0 then jump false
+	if v1 != 0 then jump false
+	jump true
+
+basic ">" : more
+	2arg
+	if v0 <  v2 then jump false
+	if v1 <= v3 then jump false
+	jump true
+
+basic "<" : less
+	2arg
+	if v0 >  v2 then jump false
+	if v1 >= v3 then jump false
+	jump true
+
+basic "=" : equal
+	2arg
+	if v0 != v2 then jump false
+	if v1 != v3 then jump false
+	jump true
+
+basic "xor" : xor
+	2arg
+	v1 ^= v3
+	v0 ^= v2
+	jump push-p
+
+basic "or" : or
+	2arg
+	v1 |= v3
+	v0 |= v2
+	jump push-p
+
+basic "and" : and
+	2arg
+	v1 &= v3
+	v0 &= v2
+	jump push-p
+
+basic "-" : minus
+	2arg
+	v1 -= v3
+	if vf == 0 then v0 -= 1
+	v0 -= v2
+	jump push-p
+
+basic "+" : plus
+	2arg
+	v1 += v3
+	v0 += vf
+	v0 += v2
+	jump push-p
+
+###########################################
+#
+#  Interpreter Entrails
+#
+###########################################
+
+: inner-FETCH
+	v0 := pc-hi
+	v1 := pc-lo
+	vf := 0xA0 # i := NNN
+	v0 |= vf
+	i := interpreter-fetch
+	save v1
+	vf := 2
+	pc-lo += vf
+	pc-hi += vf
+	: interpreter-fetch 0x00 0x00
+	load v1
+;
+
+: inner-LIT
+	inner-FETCH
+	jump push-p
+
+: inner-CALL
+	inner-FETCH
+	a>b
+	v0 := pc-hi
+	v1 := pc-lo
+	push-r
+	b>a
+	jump >pc
+
+: inner-RET
+	pop-r
+	jump >pc
+
+: inner-JUMP
+	inner-FETCH
+	jump >pc
+
+: inner-JUMP0
+	pop-p
+	a>b
+	inner-FETCH
+	if v2 != 0 then return
+	if v3 != 0 then return
+	jump >pc
+
+: inner-interpreter
+	loop
+		inner-FETCH
+		i := interpreter-exec
+		save v1
+		: interpreter-exec 0x00 0x00
+		if stack-ptr-r == 0 then return
+	again
+
+###########################################
+#
+#  Compiler and Memory
+#
+###########################################
+
+:macro comp NAME { prim NAME TYPE_COMPILER }
+:macro imm  NAME { prim NAME TYPE_IMMEDATE }
+:macro xt LABEL { :unpack 0x2 LABEL }
+
+comp "here"   : here     :unpack 0 THERE jump push-p
+comp "head"   : head     :unpack 0 HEAD  jump push-p
+comp "mode"   : mode     :unpack 0 MODE  jump push-p
+comp ","      : append   here get set   here get push-2 plus here jump set
+comp ",c"     : ,c       here get setc  here get push-1 plus here jump set
+comp ",lit"   : literal  xt inner-LIT   push-p append jump append
+comp ",jump"  : c-jump   xt inner-JUMP  push-p append jump append
+comp ",jump0" : c-jump0  xt inner-JUMP0 push-p append jump append
+comp ">type"  : >type    pop-p vf := 2 v1 += vf v0 += vf jump push-p
+comp ">name"  : >name    pop-p vf := 4 v1 += vf v0 += vf jump push-p
+comp ">body"  : >body    >name loop dup getc pop-p while v1 != 0xFF push-1 plus again push-1 jump plus
+
+# a CALL followed immediately by a RET in threaded code
+# is a tail call, and can be converted into a JUMP, saving rstack entries.
+# false-positives are possible here, but very unlikely:
+comp ",ret" : ret
+	here get push-4 minus get xt inner-CALL push-p equal pop-p if v1 == 1 begin
+		xt inner-JUMP push-p here get push-4 minus jump set
+	end
+	xt inner-RET push-p jump append
+
+comp "create" : create
+	here get  head get append  head set # prev link + head
+	push-imm TYPE_SYNTH append          # type
+	jump name                           # entry name
+
+comp ",call" : c-call
+	dup >type get pop-p if v1 == TYPE_SYNTH begin
+		xt inner-CALL push-p append  >body jump append
+	end
+	>body pop-call push-p jump append # primitive
+
+comp "exec" : exec
+	dup >type get pop-p if v1 == TYPE_SYNTH begin
+		>body pop-p >pc   push-0 >r   jump inner-interpreter
+	end
+	>body pop-call i := prim-slot save v1 : prim-slot 0x00 0x00 ; # primitive
+
+imm "if"      : c-if     push-0 c-jump0 here get push-2 jump minus
+imm "else"    : c-else   push-0 c-jump  here get swap set here get push-2 jump minus
+imm "then"    : c-then   here get swap jump set
+imm "loop"    : c-loop   here jump get
+imm "again"   : c-again  jump c-jump
+imm "until"   : c-until  jump c-jump0
+imm "while"   : c-while  xt not push-p jump c-jump0
+imm ":imm"    : imm      create push-imm TYPE_SYNTH_IMM head get >type set jump c-]
+imm "exit"    : c-exit   jump ret
+imm "["       : c-[      push-0 mode jump set
+imm "]"       : c-]      push-1 mode jump set
+imm ":"       : c-colon  create jump c-]
+imm ";"       : c-semi   ret c-[ jump cr
+
+: outer-interpreter
+	loop
+		token
+		i := MODE load v1 v2 := v1 # compiling?
+		pop-p
+		if v1 == 0 begin # number
+			if v2 != 0 then literal
+		else # word
+			dup >type get pop-p
+			if v0 != 0 then jump call-word # immediate word
+			if v2 != 0 begin
+				c-call # compile word
+			else : call-word
+				exec # interpret word
+			end
+		end
+	again
+
+###########################################
+#
+#  Environment
+#
+###########################################
+
+:macro env NAME { prim NAME TYPE_ENV }
+
+env "free"   : free    push-imm 4095  here get  minus ;
+env "forget" : forget  push-0 word  dup here set  get head set ;
+
+env ".s" : show-stack
+	cr space word-type := 0
+	loop
+		while word-type != stack-ptr-p
+		i := STACK_P
+		i += word-type
+		load v1
+		push-p dot
+		word-type += 2
+	again
+	jump cr
+
+env "words" : words
+	head
+	loop
+		get peek
+		if v0 == 0 begin
+			if v1 == 0 begin
+				drop return
+			end
+		end
+		dup >name type space
+	again
+
+###########################################
+#
+#  Non-Primitive Words
+#
+###########################################
+
+:macro user     NAME { prim NAME TYPE_SYNTH     }
+:macro user-imm NAME { prim NAME TYPE_SYNTH_IMM }
+
+user "1+" : oneplus
+	inner-LIT 0x00 0x01
+	plus
+	inner-RET
+
+user-imm "quote"
+	inner-LIT 0x00 0x00
+	word
+	inner-RET
+
+###########################################
+#
+#  Entrypoint
+#
+###########################################
+
+: WORKSPACE
+	# all remaining free RAM can be used
+	# as storage for the Forth dictionary,
+	# as well as the init logic,
+	# which only needs to run once:
+
+: prompt
+	str "                     squad v0.1\0"
+
+: main
+	v0 := 0
+	v1 := 0
+	i := MODE
+	save v1
+	:unpack 0 LAST_WORD
+	i := HEAD
+	save v1
+	:unpack 0 WORKSPACE
+	i := THERE
+	save v1
+	init-terminal
+	push-imm prompt type cr
+	jump outer-interpreter
+
+:monitor WORKSPACE   32
+:monitor THERE       "%2i"
+:monitor HEAD        "%2i"
+:monitor MODE        "%2i"
+:monitor STACK_P     "%2x %2x %2x %2x %2x %2x"
+:monitor stack-ptr-p 1
+:monitor STACK_R     "%2x %2x %2x %2x %2x %2x"
+:monitor stack-ptr-r 1
