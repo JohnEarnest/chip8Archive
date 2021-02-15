@@ -1,0 +1,1192 @@
+###########################################
+#
+#  Bulb
+#
+#  A teeny-tiny implementation of
+#  the toenail-clippings language
+#  people are always raving about
+#
+###########################################
+
+# register conventions
+:alias stack-ptr-a  ve # offset from STACK_A
+:alias stack-ptr-b  vd # offset from STACK_B
+:alias env-ptr      vc # offset from ENV
+
+:alias line-off     vb # row offset into OUTPUT buffer
+:alias cursor-off   va # col/char offset into OUTPUT buffer
+:alias cursor-x     v9 # text output cursor x, in pixels
+:alias invert       v8 # invert cursor?
+:alias menu-index   v7 # selected item in an input menu
+:alias input        v6 # user key input stash
+
+:alias val-y        v2
+:alias val-x        v1
+
+# datatypes
+:const TYPE_NUM    0
+:const TYPE_SYMBOL 1
+:const TYPE_PAIR   2
+
+# workspace
+:calc STACK_A   {             0 } # 64b stack (overwrite interpreter RAM)
+:calc STACK_B   { STACK_A +  64 } # 64b secondary stack
+:calc ENV       { STACK_B +  32 } # 128b stack of name/val pairs for environment bindings
+:calc OUTPUT    { ENV     + 128 } # 256b framebuffer
+: DECODE                          # 3b decode buffer (overlaid on below)
+: STASH         0 0 0 0 0 0 0 0   # 8b register buffer for leaf functions
+: REC_STASH     0                 # 1b root object buffer for top-level eval
+
+# these could potentially have gone in interpreter RAM,
+# but by placing them in normal CHIP-8 RAM it is possible
+# to pre-initialize structures in the workspace:
+: HEADS # 256b
+	0x44 0x06 0x00 0x3F 0x2C 0x23 0x27 0x4C 0x01 0x02 0x03 7    2    14   3    18
+	2    21   4    2    10   5    24   29   1    26   6    2    8    1    31   6
+	2    9
+	    0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0
+	0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0
+	0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0
+	0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0
+	0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0
+	0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0
+: startup-logo # (overwritten by heads after startup)
+	0x00 0x00 0x1D 0xC0 0x0F 0x20 0x04 0x90 0x06 0x50 0x05 0xD0 0x06 0x34 0x03 0xF8
+	0x00 0x00 0x00 0x00 0x00 0x00 0x07 0x18 0x05 0x08 0x05 0x08 0x55 0x08 0x27 0x5C
+: TAILS # 256b
+	0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 12   13   0    15   16
+	17   0    19   20   0    22   23   0    25   0    27   28   0    30   0    32
+	33   0
+	0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0
+	0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0
+	0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0
+	0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0
+	0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0
+	0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0
+	0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0
+	0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0
+: TYPES # 256b
+	0x01 0x01 0x01 0x01 0x01 0x01 0x01 0x01 0x00 0x00 0x00 0x02 0x02 0x02 0x02 0x02
+	0x02 0x02 0x02 0x02 0x02 0x02 0x02 0x02 0x02 0x02 0x02 0x02 0x02 0x02 0x02 0x02
+	0x02 0x02
+	    0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0
+	0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0
+	0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0
+	0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0
+	0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0
+	0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0
+	0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0
+: REFS # 256b (refcounts mean no cyclic refs, so no set! for you)
+	0x08 0x02 0x05 0x01 0x01 0x01 0x02 0x01 0x01 0x01 0x01 0x01 0x01 0x01 0x01 0x01
+	0x01 0x01 0x01 0x01 0x01 0x01 0x01 0x01 0x01 0x01 0x01 0x01 0x01 0x01 0x01 0x01
+	0x01 0x01
+	    0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0
+	0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0
+	0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0
+	0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0
+	0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0
+	0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0
+	0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0
+
+:macro init-workspace {
+	val-x := 0x06 # f
+	v0    := 11   # root of fibs
+	push-a
+	env-set
+}
+
+:const CHAR_SPACE 0xFE
+:stringmode chars "0123456789abcdefghijklmnopqrstuvwxyzλ.?'()" { :byte { 5 * VALUE } }
+:stringmode chars " " { :byte CHAR_SPACE }
+:calc sym-count { 0 }
+:macro sym NAME VALUE {
+	:calc NAME { HERE - SYMBOLS }
+	:calc sym-count { sym-count + 1 }
+	chars VALUE
+	:byte 0xFF # null terminator
+}
+: SYMBOLS
+	sym SYM_X      "x"    # reserved for user names
+	sym SYM_Y      "y"    # reserved for user names
+	sym SYM_Z      "z"    # reserved for user names
+	sym SYM_F      "f"    # reserved for user names
+	sym SYM_G      "g"    # reserved for user names
+	sym SYM_CONS   "cons" # make a pair
+	sym SYM_CAR    "car"  # first of pair
+	sym SYM_CDR    "cdr"  # rest of pair
+	sym SYM_NOT    "not"  # 0 is falsey, everything else is truthy.
+	sym SYM_ATOM   "atom" # is this a number or symbol?
+	sym SYM_EQ     "eq"   # compare numbers, pairs, etc
+	sym SYM_SUM    "sum"  # x + y
+	sym SYM_DIFF   "diff" # x - y
+	sym SYM_LESS   "less" # x < y
+	sym SYM_MORE   "more" # x > y
+	sym SYM_SHOW   "show" # side-effecting print with newline
+	sym SYM_DEF    "def"  # bind a symbol x to a value y
+	sym SYM_IF     "if"   # (if COND TRUE FALSE)
+	sym SYM_QUOTE  "'"    # return x without evaluating it
+	sym SYM_NIL    "()"   # anything -> nil (for completeness)
+	sym SYM_IOTA   "iota" # generate a list [0,n)
+	sym SYM_LAMBDA "λ"    # (λ SYMBOL EXPR)
+
+: ERRORS
+:macro err NAME VALUE {
+	:calc NAME { HERE - SYMBOLS }
+	chars VALUE
+	:byte 0xFF # null terminator
+}
+	err ERR_WSFULL  "workspace full"
+	err ERR_NO_PAIR " is not a pair"
+	err ERR_NO_NUM  " is not a number"
+
+: symbol-indices
+	:byte SYM_X
+	:byte SYM_Y
+	:byte SYM_Z
+	:byte SYM_F
+	:byte SYM_G
+	:byte SYM_CONS
+	:byte SYM_CAR
+	:byte SYM_CDR
+	:byte SYM_NOT
+	:byte SYM_ATOM
+	:byte SYM_EQ
+	:byte SYM_SUM
+	:byte SYM_DIFF
+	:byte SYM_LESS
+	:byte SYM_MORE
+	:byte SYM_SHOW
+	:byte SYM_DEF
+	:byte SYM_IF
+	:byte SYM_QUOTE
+	:byte SYM_NIL
+	:byte SYM_IOTA
+	:byte SYM_LAMBDA
+
+: symbol-valences
+	1 # x
+	1 # y
+	1 # z
+	1 # f
+	1 # g
+	2 # cons
+	1 # car
+	1 # cdr
+	1 # not
+	1 # atom
+	2 # eq
+	2 # sum
+	2 # diff
+	2 # less
+	2 # more
+	1 # show
+	2 # def
+	3 # if
+	1 # quote
+	1 # nil
+	1 # iota
+	2 # lambda
+
+###########################################
+#
+#  Helpers
+#
+###########################################
+
+:macro stack PUSH POP PTR BASE SIZE {
+	:alias reg-range { SIZE - 1 }
+	: PUSH  i := BASE  i += PTR  save reg-range  PTR += SIZE ;
+	: POP   i := BASE  PTR -= SIZE  i += PTR  load reg-range ;
+}
+stack push-a   pop-a   stack-ptr-a STACK_A 1
+stack push-b   pop-b   stack-ptr-b STACK_B 1
+stack push-rec pop-rec stack-ptr-b STACK_B 3 # v0, v1, v2
+
+: stash-save     i := STASH save v7 ;
+: stash-restore  i := STASH load v7 ;
+
+: val-head    i := HEADS  i += v0     load v0 ;
+: val-tail    i := TAILS  i += v0     load v0 ;
+: val-x-type  i := TYPES  i += val-x  load v0 ;
+: val-x-head  i := HEADS  i += val-x  load v0 ;
+: val-x-tail  i := TAILS  i += val-x  load v0 ;
+: val-y-type  i := TYPES  i += val-y  load v0 ;
+: val-y-head  i := HEADS  i += val-y  load v0 ;
+: val-y-tail  i := TAILS  i += val-y  load v0 ;
+
+: panic # arg in v0
+	print-sym
+	loop again
+
+: return-x
+	v0 := val-x
+	push-a
+	jump ref
+
+: pop-pair
+	pop-a
+	vf := v0
+	i := TYPES
+	i += v0
+	load v0
+	if v0 != TYPE_PAIR begin
+		v0 := vf
+		push-a
+		print-value
+		v0 := ERR_NO_PAIR
+		panic
+	end
+	v0 := vf
+;
+
+: pop-num
+	pop-a
+	free
+	vf := v0
+	i := TYPES
+	i += v0
+	load v0
+	if v0 != TYPE_NUM begin
+		v0 := vf
+		push-a
+		print-value
+		v0 := ERR_NO_NUM
+		panic
+	end
+	i := HEADS
+	i += vf
+	load v0
+;
+
+: build-list
+	v0 := SYM_NIL
+	alloc-sym
+	loop
+		pop-b
+		if v0 == 0 then return
+		v0 -= 1
+		push-b
+		alloc-pair
+	again
+
+###########################################
+#
+#  Memory Management
+#
+###########################################
+
+: alloc
+	# return first available slot in v1
+	v1 := 0
+	loop
+		i := REFS
+		i += v1
+		load v0
+		if v0 == 0 begin
+			i := REFS
+			i += v1
+			v0 := 1
+			save v0
+			return
+		end
+		v1 += 1
+		if v1 != 0 then
+	again
+	v0 := ERR_WSFULL
+	panic
+
+: ref
+	# increments refcount of top item on stack-a
+	pop-a
+	stash-save
+	v1 := v0
+	i := REFS
+	i += v1
+	load v0
+	v0 += 1
+	i := REFS
+	i += v1
+	save v0
+	stash-restore
+	jump push-a
+
+: free
+	# decrements refcount on slot in v0
+	stash-save
+: free-recursive
+	v1 := v0 # object
+	i := REFS
+	i += v1
+	load v0
+	v0 -= 1
+	i := REFS
+	i += v1
+	save v0
+	if v0 == 0 begin
+		val-x-type
+		if v0 == TYPE_PAIR begin
+			v0 := v1
+			push-b
+			val-head
+			free-recursive
+			pop-b
+			val-tail
+			jump free-recursive
+		end
+	end
+	jump stash-restore
+
+:macro alloc-atom TYPE {
+	# take value in v0, return slot on stack-a
+	stash-save
+	v2 := v0 # value
+	# todo: optionally, we could search the heap
+	# for a pre-existing atom w/ appropriate type/value
+	# and just increment that sucker's refcount.
+	# it's a tradeoff between speed and storage,
+	# and presently 256 atoms feels pretty roomy
+	# even without this enhancement...
+	alloc
+	i := TYPES
+	i += v1 # target
+	v0 := TYPE
+	save v0 # set type
+	i := HEADS
+	i += v1
+	v0 := v2
+	save v0 # set value
+	v0 := v1
+	push-a
+	jump stash-restore
+}
+
+: alloc-num
+	alloc-atom TYPE_NUM
+
+: alloc-sym
+	alloc-atom TYPE_SYMBOL
+
+: alloc-pair
+	# ( head tail -- pair ) on stack-a
+	stash-save
+	alloc
+	i := TYPES
+	i += v1
+	v0 := TYPE_PAIR
+	save v0
+	pop-a
+	i := TAILS
+	i += v1
+	save v0
+	pop-a
+	i := HEADS
+	i += v1
+	save v0
+	v0 := v1
+	push-a
+	jump stash-restore
+
+###########################################
+#
+#  Primitives
+#
+###########################################
+
+: car
+	pop-pair
+	val-x := v0
+	val-x-head
+: car-finish
+	push-a
+	ref
+	v0 := val-x
+	jump free
+
+: cdr
+	pop-pair
+	val-x := v0
+	val-x-tail
+	jump car-finish
+
+: atom
+	pop-a
+	free
+	val-x := v0
+	val-x-type
+	vf := 1
+	if v0 == TYPE_PAIR then vf := 0
+	v0 := vf
+	jump alloc-num
+
+: eq
+	pop-a
+	free
+	val-x := v0
+	pop-a
+	free
+	val-y := v0
+	val-x-type
+	if v0 == TYPE_PAIR begin
+		: eq-false
+		v0 := 0
+		jump alloc-num
+	end
+	vf := v0
+	val-y-type
+	if v0 != vf then jump eq-false
+	val-x-head
+	vf := v0
+	val-y-head
+	if v0 != vf then jump eq-false
+	v0 := 1
+	jump alloc-num
+
+: not
+	v0 := 0
+	alloc-num
+	eq
+	pop-num
+	vf := 1
+	if v0 == 0 then vf := 0
+	v0 := vf
+	jump alloc-num
+
+: sum
+	pop-num
+	val-x := v0
+	pop-num
+	v0 += val-x
+	jump alloc-num
+
+: diff
+	pop-num
+	val-x := v0
+	pop-num
+	v0 -= val-x
+	jump alloc-num
+
+: less
+	pop-num
+	val-x := v0
+	pop-num
+	val-y := 0
+	if v0 < val-x then val-y := 1
+	v0 := val-y
+	jump alloc-num
+
+: more
+	pop-num
+	val-x := v0
+	pop-num
+	val-y := 0
+	if v0 > val-x then val-y := 1
+	v0 := val-y
+	jump alloc-num
+
+: show
+	ref
+	pop-a
+	push-a
+	push-a
+	print-value
+	jump print-newline
+
+: tonil
+	pop-a
+	free
+	v0 := SYM_NIL
+	jump alloc-sym
+
+: iota # ( number -- list )
+	pop-num
+	val-x := v0
+	push-b
+	val-y := 0
+	loop
+		if val-y == val-x then jump build-list
+		v0 := val-y
+		alloc-num
+		val-y += 1
+	again
+
+###########################################
+#
+#  Evaluator
+#
+###########################################
+
+: env-lookup
+	val-x-head
+	val-x := v0
+: env-lookup-raw
+	val-y := env-ptr
+	loop
+		while val-y != 0
+		val-y -= 2
+		i := ENV
+		i += val-y
+		load v0
+		if v0 == val-x begin
+			val-y += 1
+			i := ENV
+			i += val-y
+			load v0
+			push-a
+			jump ref
+		end
+	again
+	# missing binding
+	v0 := SYM_NIL
+	jump alloc-sym
+
+: env-set
+	# takes name in val-x
+	# takes new value on stack
+	val-y := env-ptr
+	loop
+		while val-y != 0
+		val-y -= 2
+		i := ENV
+		i += val-y
+		load v0
+		while v0 != 0xFF # end of current activation record
+		if v0 == val-x begin # found existing binding?
+			val-y += 1
+			i := ENV
+			i += val-y
+			load v0
+			free # free the old one
+			pop-a
+			i := ENV
+			i += val-y
+			save v0 # update the entry
+			return
+		end
+	again
+	# otherwise allocate a new binding
+	pop-a
+	vf := v0
+	i := ENV
+	i += env-ptr
+	v0 := val-x
+	v1 := vf
+	save v1
+	env-ptr += 2
+	return
+
+:macro eval {
+	pop-a
+	push-a
+	i := REC_STASH
+	save v0
+	eval-recursive
+	i := REC_STASH
+	load v0
+	free
+}
+
+:macro eval-subexpr {
+	push-a
+	push-rec
+	eval-recursive
+	pop-rec
+}
+
+: eval-recursive
+	pop-a
+	val-x := v0
+	val-x-type
+	if v0 == TYPE_SYMBOL then jump env-lookup
+	if v0 == TYPE_NUM    then jump return-x
+	val-x-head
+	val-y := v0 # the leading list element
+	val-y-type
+	if v0 != TYPE_SYMBOL then jump return-x
+	val-y-head
+	val-y := v0 # the leading symbol
+	if val-y == SYM_LAMBDA then jump return-x
+	if val-y == SYM_QUOTE begin
+		val-x-tail
+		val-head
+		push-a
+		jump ref
+	end
+	if val-y == SYM_DEF begin
+		# (def SYMBOL VALUE)
+		val-x-tail # 2nd list node
+		val-tail   # 3rd list node
+		val-head   # binding expression
+		eval-subexpr
+		ref
+		pop-a
+		push-a     # leave a copy of binding val as result
+		push-a
+		val-x-tail # 2nd list node
+		val-head   # symbol
+		val-head   # symbol value
+		val-x := v0
+		jump env-set
+	end
+	if val-y == SYM_IF begin
+		# (if COND TRUE FALSE)
+		val-x-tail # 2nd list node
+		val-head   # cond expression
+		eval-subexpr
+		pop-num
+		if v0 != 0 begin
+			# truthy
+			val-x-tail # 2nd list node
+			val-tail   # 3rd list node
+			val-head   # true expression
+		else
+			# falsey
+			val-x-tail # 2nd list node
+			val-tail   # 3rd list node
+			val-tail   # 4th list node
+			val-head   # false expression
+		end
+		push-a
+		jump eval-recursive
+	end
+	val-x-tail
+	push-rec
+	loop
+		val-x := v0
+		val-x-type
+		while v0 == TYPE_PAIR
+		val-x-head
+		eval-subexpr
+		val-x-tail
+	again
+	pop-rec
+	if val-y == SYM_CAR  then jump car
+	if val-y == SYM_CDR  then jump cdr
+	if val-y == SYM_CONS then jump alloc-pair
+	if val-y == SYM_ATOM then jump atom
+	if val-y == SYM_EQ   then jump eq
+	if val-y == SYM_NOT  then jump not
+	if val-y == SYM_SUM  then jump sum
+	if val-y == SYM_DIFF then jump diff
+	if val-y == SYM_LESS then jump less
+	if val-y == SYM_MORE then jump more
+	if val-y == SYM_SHOW then jump show
+	if val-y == SYM_NIL  then jump tonil
+	if val-y == SYM_IOTA then jump iota
+	val-x := val-y
+	env-lookup-raw
+	free # cancel extra ref from lookup
+	pop-a
+	val-y := v0 # lambda
+	pop-a
+	v3 := v0 # input
+	# 0) create a new activation record
+	v0 := 0xFF
+	v1 := 0x00 # if I wanted to compact tail calls, this could be a reference to the lambda...
+	i := ENV
+	i += env-ptr
+	save v1
+	env-ptr += 2
+	# 1) bind the argument to its value
+	val-y-tail
+	val-head
+	val-head # symbol val
+	v1 := v3 # input
+	i := ENV
+	i += env-ptr
+	save v1
+	env-ptr += 2
+	# 2) evaluate the body in this context
+	val-y-tail
+	val-tail
+	val-head
+	push-a
+	eval-recursive
+	# 3) dismantle activation record
+	v0 := v0
+	loop
+		env-ptr -= 2
+		i := ENV
+		i += env-ptr
+		load v1
+		if v0 == 0xFF then return
+		v0 := v1
+		free
+	again
+
+###########################################
+#
+#  Text Output
+#
+###########################################
+
+: invert-char
+	0xF0 0xF0 0xF0 0xF0 0xF0 0xF0 0xF0
+
+:macro defchar NAME { :calc NAME { ( HERE - 5 ) - font } }
+
+: font
+	0xE0 0xA0 0xA0 0xA0 0xE0
+	0xC0 0x40 0x40 0x40 0xE0 defchar CHAR_1
+	0xE0 0x20 0xE0 0x80 0xE0 defchar CHAR_2
+	0xE0 0x20 0x60 0x20 0xE0
+	0xA0 0xA0 0xE0 0x20 0x20
+	0xE0 0x80 0xE0 0x20 0xE0
+	0x80 0x80 0xE0 0xA0 0xE0
+	0xE0 0x20 0x20 0x20 0x20
+	0xE0 0xA0 0xE0 0xA0 0xE0
+	0xE0 0xA0 0xE0 0x20 0x20
+	0xE0 0xA0 0xE0 0xA0 0xA0
+	0xE0 0xA0 0xC0 0xA0 0xE0
+	0x60 0x80 0x80 0x80 0x60
+	0xC0 0xA0 0xA0 0xA0 0xE0
+	0xE0 0x80 0xC0 0x80 0xE0
+	0xE0 0x80 0xC0 0x80 0x80
+	0x60 0x80 0x80 0xA0 0xE0
+	0xA0 0xA0 0xE0 0xA0 0xA0
+	0xE0 0x40 0x40 0x40 0xE0
+	0xE0 0x40 0x40 0x40 0xC0
+	0xA0 0xA0 0xC0 0xA0 0xA0
+	0x80 0x80 0x80 0x80 0xE0
+	0xE0 0xE0 0xA0 0xA0 0xA0
+	0xC0 0xA0 0xA0 0xA0 0xA0
+	0x60 0xA0 0xA0 0xA0 0xC0
+	0xE0 0xA0 0xE0 0x80 0x80
+	0x40 0xA0 0xA0 0xC0 0x60
+	0xE0 0xA0 0xC0 0xA0 0xA0
+	0x60 0x80 0xE0 0x20 0xC0
+	0xE0 0x40 0x40 0x40 0x40
+	0xA0 0xA0 0xA0 0xA0 0x60
+	0xA0 0xA0 0xA0 0xE0 0x40
+	0xA0 0xA0 0xA0 0xE0 0xE0
+	0xA0 0xA0 0x40 0xA0 0xA0
+	0xA0 0xA0 0xE0 0x20 0xE0
+	0xE0 0x20 0x40 0x80 0xE0
+	0x80 0x40 0x40 0xA0 0xA0
+	0x00 0x00 0x00 0x40 0x00 defchar CHAR_DOT
+	0xE0 0x20 0x60 0x00 0x40
+	0x40 0x40 0x00 0x00 0x00
+	0x40 0x80 0x80 0x80 0x40 defchar CHAR_OPEN
+	0x40 0x20 0x20 0x20 0x40 defchar CHAR_CLOSE
+
+# 32 cols x 10 lines theoretical display size, by resolution
+# 32 cols x  8  lines means the display buffer fits in one page
+:const CHARS_PER_LINE 32
+:calc  LAST_SAFE_COL { CHARS_PER_LINE - 4 }
+
+:macro init-terminal {
+	hires
+	# clear the framebuffer
+	v0 := CHAR_SPACE # value
+	v1 := 0          # index
+	loop
+		i := OUTPUT
+		i += v1
+		save v0
+		v1 += 1
+		if v1 != 0 then
+	again
+	scroll-terminal
+	cursor-x   := 0
+	cursor-off := 0
+
+	i := startup-logo
+	v0 := 112
+	vf := 0
+	sprite v0 vf 0
+}
+
+: scroll-terminal
+	v0 := CHAR_SPACE
+	v1 := 0
+	loop
+		i := OUTPUT
+		i += line-off
+		i += v1
+		save v0
+		v1 += 1
+		if v1 != CHARS_PER_LINE then
+	again
+	line-off += CHARS_PER_LINE
+	clear
+	v2 := 0
+	v3 := 1
+	v1 := line-off
+	loop
+		i := OUTPUT
+		i += v1
+		v1 += 1
+		load v0
+		i := font
+		i += v0
+		if v0 != CHAR_SPACE then sprite v2 v3 5
+		v2 += 4
+		if v2 == 128 then v3 += 8
+		if v2 == 128 then v2 := 0
+		if v3 != 65 then
+	again
+;
+
+: output-addr
+	i := OUTPUT
+	line-off -= CHARS_PER_LINE
+	line-off += cursor-off
+	i += line-off
+	line-off -= cursor-off
+	line-off += CHARS_PER_LINE
+;
+: output-char
+	if v0 == CHAR_SPACE then return
+	i := font
+	i += v0
+	:calc LAST_ROW { 64 - 7 }
+	vf := LAST_ROW
+	sprite cursor-x vf 5
+	if invert == 0 then return
+	:calc LAST_ROW_INV { LAST_ROW - 1 }
+	vf := LAST_ROW_INV
+	i := invert-char
+	sprite cursor-x vf 7
+;
+
+: print-space
+	v0 := CHAR_SPACE
+: print-char # char in v0
+	stash-save
+	output-addr
+	save v0
+	output-char
+	cursor-off += 1
+	cursor-x   += 4
+	stash-restore
+	if cursor-off != CHARS_PER_LINE then return
+: print-newline
+	stash-save
+	scroll-terminal
+	cursor-off := 0
+	cursor-x   := 0
+	jump stash-restore
+
+: erase-char
+	stash-save
+	if cursor-off == 0 then return
+	cursor-off -= 1
+	cursor-x   -= 4
+	output-addr
+	load v0
+	output-char
+	v0 := CHAR_SPACE
+	output-addr
+	save v0
+	jump stash-restore
+
+: print-num # destroys v0-v3, arg in v0
+	i := DECODE
+	bcd v0
+	v3 := v0
+	i := DECODE
+	load v2
+	if v0 == 1 then v0 := CHAR_1
+	if v0 == 2 then v0 := CHAR_2
+	if v0 != 0 then print-char
+	v0 := v1
+	v0 += v0
+	v0 += v0
+	v0 += v1 # * 5
+	if v3 > 9 then print-char
+	v0 := v2
+	v0 += v0
+	v0 += v0
+	v0 += v2 # * 5
+	jump print-char
+
+: erase-num
+	if menu-index > 99 then erase-char
+	if menu-index > 9 then erase-char
+	jump erase-char
+
+: print-sym # destroys v0-v1, arg in v0
+	v1 := v0
+	loop
+		i := SYMBOLS
+		i += v1
+		load v0
+		while v0 != 0xFF
+		print-char
+		v1 += 1
+	again
+;
+
+: erase-sym
+	v1 := v0
+	loop
+		i := SYMBOLS
+		i += v1
+		load v0
+		while v0 != 0xFF
+		erase-char
+		v1 += 1
+	again
+;
+
+: print-value
+	pop-a
+	free
+: print-value-recursive
+	val-x := v0
+	val-x-type
+	if v0 == TYPE_NUM begin
+		val-x-head
+		jump print-num
+	end
+	if v0 == TYPE_SYMBOL begin
+		val-x-head
+		jump print-sym
+	end
+	v0 := CHAR_OPEN
+	print-char
+	loop
+		val-x-head
+		push-rec
+		print-value-recursive
+		pop-rec
+		val-x-tail
+		val-x := v0
+		val-x-type
+		if v0 != TYPE_PAIR begin
+			# null terminator?
+			if v0 == TYPE_SYMBOL begin
+				val-x-head
+				if v0 == SYM_NIL then jump print-value-finish
+			end
+			# raw pair
+			print-space
+			v0 := CHAR_DOT
+			print-char
+			print-space
+			v0 := val-x
+			print-value-recursive
+			jump print-value-finish
+		end
+		print-space
+	again
+: print-value-finish
+	v0 := CHAR_CLOSE
+	jump print-char
+
+###########################################
+#
+#  Text Input
+#
+###########################################
+
+:macro input-number {
+	if cursor-off >= LAST_SAFE_COL then print-newline
+	menu-index := 0
+	invert     := 1
+	loop
+		v0 := menu-index
+		print-num
+		input := key
+		erase-num
+		while input != OCTO_KEY_D
+		if input == OCTO_KEY_W then menu-index += 1
+		if input == OCTO_KEY_S then menu-index -= 1
+	again
+	invert := 0
+	v0 := menu-index
+	print-num
+	v0 := menu-index
+	jump alloc-num
+}
+
+: symbol-by-index
+	i := symbol-indices
+	i += menu-index
+	load v0
+;
+: input-symbol
+	if cursor-off >= LAST_SAFE_COL then print-newline
+	menu-index := 0
+	invert     := 1
+	loop
+		symbol-by-index
+		print-sym
+		input := key
+		symbol-by-index
+		erase-sym
+		while input != OCTO_KEY_D
+		if input == OCTO_KEY_W then menu-index += 1
+		if input == OCTO_KEY_S then menu-index -= 1
+		:calc last-symbol { sym-count - 1 }
+		if menu-index == -1        then menu-index := last-symbol
+		if menu-index == sym-count then menu-index := 0
+	again
+	invert := 0
+	symbol-by-index
+	print-sym
+	symbol-by-index
+	jump alloc-sym
+
+:macro defform NAME { :calc NAME { CALLS } }
+: forms
+	0x7C 0xD6 0xD6 0xEE 0xD6 0xD6 0x7C defform TOK_SYMBOL
+	0x7C 0xCE 0xEE 0xEE 0xEE 0xC6 0x7C defform TOK_NUMBER
+	0x7C 0xEE 0xEE 0xEE 0xFE 0xEE 0x7C defform TOK_DEF
+	0x7C 0xDE 0xEE 0xEE 0xD6 0xD6 0x7C defform TOK_LAMBDA
+	0x7E 0xDF 0xBF 0xBF 0xBF 0xD5 0x7E defform TOK_LIST
+	0x7E 0xDF 0xB5 0xBB 0xB5 0xDF 0x7E defform TOK_CALL
+	0x7C 0xEE 0xF6 0xF6 0xF6 0xEE 0x7C defform TOK_CLOSE
+: draw-form
+	i := forms
+	i += menu-index
+	i += menu-index
+	i += menu-index
+	i += menu-index
+	i += menu-index
+	i += menu-index
+	i += menu-index
+	:calc FORM_Y { LAST_ROW - 1 }
+	vf := FORM_Y
+	sprite cursor-x vf 7
+;
+:macro input-form CAN_CLOSE {
+	if cursor-off >= LAST_SAFE_COL then print-newline
+	menu-index := 0
+	loop
+		draw-form
+		input := key
+		draw-form
+		while input != OCTO_KEY_D
+		if input == OCTO_KEY_W then menu-index += 1
+		if input == OCTO_KEY_S then menu-index -= 1
+		:calc last-form { 5 + CAN_CLOSE }
+		if menu-index == -1 then menu-index := last-form
+		:calc end-form { 6 + CAN_CLOSE }
+		if menu-index == end-form  then menu-index := 0
+	again
+	v0 := menu-index
+}
+
+: input-expr
+	input-form 0
+: process-expr
+	if v0 == TOK_SYMBOL then jump input-symbol
+	if v0 == TOK_NUMBER begin
+		input-number
+	end
+	if v0 == TOK_DEF begin # (def SYMBOL EXPR)
+		v0 := CHAR_OPEN
+		print-char
+		v0 := SYM_DEF
+		: binding-expr
+		alloc-sym
+		print-sym
+		print-space
+		input-symbol
+		v0 := 2
+		push-b
+		v0 := 1
+		push-b
+		jump known-valence
+	end
+	if v0 == TOK_LAMBDA begin # (λ SYMBOL EXPR)
+		v0 := CHAR_OPEN
+		print-char
+		v0 := SYM_LAMBDA
+		jump binding-expr
+	end
+	if v0 == TOK_LIST begin # ('(EXPR...))
+		v0 := CHAR_OPEN
+		print-char
+		v0 := SYM_QUOTE
+		alloc-sym
+		print-sym
+		v0 := CHAR_OPEN
+		print-char
+		v0 := 0
+		push-b
+		loop
+			pop-b
+			push-b
+			if v0 != 0 then print-space
+			input-form 1
+			while v0 != TOK_CLOSE
+			process-expr
+			pop-b
+			v0 += 1
+			push-b
+		again
+		build-list
+		v0 := CHAR_CLOSE
+		print-char
+		v0 := 2
+		push-b
+		build-list
+		v0 := CHAR_CLOSE
+		jump print-char
+	end
+	# (SYMBOL EXPR...)
+	v0 := CHAR_OPEN
+	print-char
+	input-symbol
+	i := symbol-valences
+	i += menu-index
+	load v0
+	push-b # final valence - 1
+	push-b # remaining args
+	: known-valence
+	loop
+		pop-b
+		while v0 != 0
+		v0 -= 1
+		push-b
+		print-space
+		input-expr
+	again
+	pop-b
+	v0 += 1
+	push-b
+	build-list
+	v0 := CHAR_CLOSE
+	jump print-char
+
+###########################################
+#
+#  Entrypoint
+#
+###########################################
+
+: main
+	init-workspace
+	init-terminal
+	loop
+		v0 := CHAR_SPACE
+		print-char
+		input-expr
+		print-newline
+		eval
+		print-value
+		print-newline
+	again
+
+:monitor HEADS 16
+:monitor TAILS 16
+:monitor TYPES 16
+:monitor REFS  16
+:monitor ENV   16
+
+# (f 2) returns 2 (no corruption)
+# (f 3) returns 3 (no corruption)
+# (f 4) returns 0 and leaves env-ptr at 0x3C. stack-b overflow is a possible explanation...
+# additionally, it appears that the true branch of the conditional is never taken...
+# tearing down the frame pointer is failing somehow; this results in the environment eating itself...
+# instrumenting SUM, it appears we're always summing 0 and 0, which is totally wrong.
+# instrumenting DIFF, values look correct. this suggests the recursive calls to F are not leaving results on the stack?
+# improving tail recursion in eval just allowed successful computation of (f 4), while (f 5) is broken.
+#   this strongly suggests that I'm simply blowing one or more stacks...
+# doubling the size of STACK_A, STACK_B, and ENV still don't get (f 5) working.
+# ok, so next theory: push-rec/pop-rec are somehow wreaking havoc somewhere?
+# removing them from another place they aren't *strictly* needed gets me to (f 5); (f 6) is broken...
+# 278 bytes free
+# 321 bytes free (minor rearrangement, got rid of IF input form)
+# 319 bytes free (fixed a bug in lambda retension)

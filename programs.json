@@ -1938,6 +1938,35 @@
 			"logicQuirks": 0
 		}
 	},
+	"bulb": {
+		"title":    "Bulb",
+		"authors":  ["JohnEarnest"],
+		"images":   ["llama.gif"],
+		"desc":     "Interpreter for a language which resembles toenail clippings.",
+		"event":    "Octojam7",
+		"release":  "2020-10-15",
+		"platform": "schip",
+		"options": {
+			"tickrate": 100,
+			"fillColor": "#1E90FF",
+			"fillColor2": "#ABCC47",
+			"blendColor": "#00131A",
+			"backgroundColor": "#F9FFB3",
+			"buzzColor": "#F9FFB3",
+			"quietColor": "#000000",
+			"shiftQuirks": 1,
+			"loadStoreQuirks": 1,
+			"vfOrderQuirks": false,
+			"clipQuirks": 1,
+			"vBlankQuirks": 0,
+			"jumpQuirks": 1,
+			"screenRotation": 0,
+			"maxSize": 3583,
+			"touchInputMode": "none",
+			"logicQuirks": 0,
+			"fontStyle": "octo"
+		}
+	},
 	"spockpaperscissors": {
 		"title":    "Spock Paper Scissors",
 		"authors":  ["fontz"],
