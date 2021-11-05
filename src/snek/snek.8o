@@ -1,0 +1,46 @@
+###########################################
+#
+#  Simple Snek
+#
+#  An extremely minimalist interpretation
+#  of the perennial classic, Snake.
+#
+###########################################
+
+: main
+	i := registers
+	load v7
+	clear
+	loop
+		loop
+			vf := delay
+			if vf != 0 then
+		again
+		delay := v3
+
+		if v4 key then v2 := 0
+		if v5 key then v2 := 1
+		if v6 key then v2 := 2
+		if v7 key then v2 := 3
+		if v2 == 0 then v0 += 1
+		if v2 == 1 then v1 -= 1
+		if v2 == 2 then v0 -= 1
+		if v2 == 3 then v1 += 1
+		
+		sprite v0 v1 1
+		if vf == 0 then
+	again
+	vf := key
+	jump main
+
+: registers
+	32               # v0 - x position
+	16               # v1 - y position
+	 0               # v2 - direction
+	 1               # v3 - interframe delay
+	:byte OCTO_KEY_D # v4
+	:byte OCTO_KEY_W # v5
+	:byte OCTO_KEY_A # v6
+	:byte OCTO_KEY_S # v7
+: pixel
+	0x80

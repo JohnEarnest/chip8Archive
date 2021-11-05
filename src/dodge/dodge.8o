@@ -1,0 +1,43 @@
+###########################################
+#
+#  Simple Dodge
+#
+#  An extremely minimalist interpretation
+#  of an asteroid-dodging shmup.
+#
+###########################################
+
+: main
+	i := registers
+	load v5
+	clear
+	loop
+		loop
+			vf := delay
+			if vf != 0 then
+		again
+		delay := v3
+		
+		scroll-down 4
+		vf := random 63
+		i := rock
+		sprite vf v2 5
+		if v4 key then v0 -= 3
+		if v5 key then v0 += 3
+		i := ship
+		sprite v0 v1 3
+		if vf == 0 then
+	again
+	vf := key
+	jump main
+
+: registers
+	32               # v0 - ship x position
+	28               # v1 - ship y position
+	 0               # v2 - rock spawn y position
+	 6               # v3 - interframe delay
+	:byte OCTO_KEY_A # v4
+	:byte OCTO_KEY_D # v5
+
+: ship 0x20 0x70 0xF8
+: rock 0x70 0xD8 0xE8 0xB8 0x70
