@@ -1883,7 +1883,7 @@
 	},
 	"OctoPartyMix": {
 		"title":    "Octo Party Mix!",
-		"authors":  ["ConnorGilhulyOrCratmang"],
+		"authors":  ["Cratmang"],
 		"images":   ["recording.gif"],
 		"desc":     "It's basically Warioware. But with cute octo buddies!",
 		"event":    "Octojam7",
@@ -2142,6 +2142,64 @@
 			"logicQuirks":0,
 			"fontStyle":"fish",
 			"displayScale":"4"
+		}
+	},
+	"OrdinaryIdleGarden": {
+		"title":    "Ordinary Idle Garden",
+		"authors":  ["Cratmang"],
+		"images":   ["recording.gif"],
+		"desc":     "Grow a tiny garden filled with dandelions, pumpkins... lanturns... skeletons?",
+		"event":    "NokiaJam",
+		"release":  "2021-02-05",
+		"platform": "xochip",
+		"options": {
+			"tickrate": 200,
+			"fillColor": "#43523d",
+			"fillColor2": "#43523d",
+			"blendColor": "#43523d",
+			"backgroundColor": "#c7f0d8",
+			"buzzColor": "#43523d",
+			"quietColor": "#43523d",
+			"shiftQuirks": false,
+			"loadStoreQuirks": false,
+			"vfOrderQuirks": false,
+			"clipQuirks": false,
+			"vBlankQuirks": false,
+			"jumpQuirks": false,
+			"screenRotation": 0,
+			"maxSize": 65024,
+			"touchInputMode": "none",
+			"logicQuirks": false,
+			"fontStyle": "fish"
+		}
+	},
+	"Octoma": {
+		"title":    "Octoma",
+		"authors":  ["Cratmang"],
+		"images":   ["recording.gif"],
+		"desc":     "A simplified clone of Ultima. Go forth and save the Octo Princess!",
+		"event":    "Octojam8",
+		"release":  "2021-10-25",
+		"platform": "xochip",
+		"options": {
+			"tickrate": 10000,
+			"fillColor": "#FF00FF",
+			"fillColor2": "#00FFFF",
+			"blendColor": "#FFFFFF",
+			"backgroundColor": "#000000",
+			"buzzColor": "#000000",
+			"quietColor": "#000000",
+			"shiftQuirks": false,
+			"loadStoreQuirks": false,
+			"vfOrderQuirks": false,
+			"clipQuirks": false,
+			"vBlankQuirks": false,
+			"jumpQuirks": false,
+			"screenRotation": 0,
+			"maxSize": 65024,
+			"touchInputMode": "none",
+			"logicQuirks": false,
+			"fontStyle": "fish"
 		}
 	}
 }
