@@ -2144,7 +2144,7 @@
 			"displayScale":"4"
 		}
 	},
-	"OrdinaryIdleGarden": {
+	"ordinaryidlegarden": {
 		"title":    "Ordinary Idle Garden",
 		"authors":  ["Cratmang"],
 		"images":   ["recording.gif"],
@@ -2173,7 +2173,7 @@
 			"fontStyle": "fish"
 		}
 	},
-	"Octoma": {
+	"octoma": {
 		"title":    "Octoma",
 		"authors":  ["Cratmang"],
 		"images":   ["recording.gif"],
