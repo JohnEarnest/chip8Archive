@@ -1511,7 +1511,7 @@
 		"desc":     "Classic Snake game without walls.",
 		"event":    "Octojam1",
 		"release":  "2014-10-11",
-		"platform": "chip8",
+		"platform": "schip",
 		"options": {
 			"tickrate":15,
 			"fillColor":"#84a174",
