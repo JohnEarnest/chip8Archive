@@ -1,0 +1,270 @@
+: ball 0x80
+
+: paddle1 0x80 0x80 0x80 0x80 0x80 0x80
+
+: paddle2 0xFC
+
+: border-vert 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80
+
+: border-hori 0xFF
+
+: bcd-digits 0 0 0
+
+: title-image
+	0xFF 0x8A 0xBA 0x8A 0xEA 0xEA 0x88 0xFF 0x22 0x2A 0x22 0x2E 0x2E 0x2E 0x3F
+	0xFF 0x88 0xAB 0x88 0xBB 0xBB 0xB8 0xFF 0x22 0xAA 0xAA 0x2A 0x2A 0x2A 0xFF
+	0xF8 0x88 0xA8 0x88 0x98 0xA8 0xA8 0xF8 0x20 0xE0 0xA0 0xA0 0xA0 0x20 0xE0
+
+: game-over-image
+	0xFF 0x88 0xBA 0xA8 0xAA 0xAA 0x8A 0xFF
+	0xFF 0x84 0x95 0x94 0xB5 0xB5 0xB4 0xFF
+	0xFF 0x45 0xD5 0x55 0xC5 0xC5 0x46 0xFF
+	0xFF 0x44 0x5D 0x44 0x5C 0x5D 0xC5 0xFF
+	0xC0 0x40 0x40 0x40 0xC0 0x40 0x40 0xC0
+
+: keyprompt	0xFE 0x62 0x2E 0x26 0x2E 0x22 0x3E
+
+:alias ball-x v3
+:alias ball-y v4
+:alias ball-speed-x v5
+:alias ball-speed-y v6
+
+:alias paddle-top-x v7
+:alias paddle-bot-x v8
+:alias paddle-vert-y v9
+
+:alias paddle-hori-x va
+:alias paddle-left-y vb
+:alias paddle-right-y vc
+
+:alias score vd
+
+: main
+	title-screen
+	clear-screen
+
+	loop
+		sync
+		draw
+		ball-x += ball-speed-x
+		ball-y += ball-speed-y
+		ve := 5 if ve key then paddle-vert-y -= 2
+		ve := 8 if ve key then paddle-vert-y += 2
+		ve := 7 if ve key then paddle-hori-x -= 2
+		ve := 9 if ve key then paddle-hori-x += 2
+		draw
+		if vf != 0 then collide
+		if ball-x == 63 then game-over
+		if ball-x == 0 then game-over
+		if ball-y == 31 then game-over
+		if ball-y == 0 then game-over
+		ve := 6 if ve key then clear-screen
+	again
+
+: draw
+	i := paddle1
+	sprite paddle-top-x paddle-vert-y 6
+	sprite paddle-bot-x paddle-vert-y 6
+	i := paddle2
+	sprite paddle-hori-x paddle-left-y 1
+	sprite paddle-hori-x paddle-right-y 1
+	i := ball
+	sprite ball-x ball-y 1
+;
+
+:	collide
+	draw-score
+	ve := random 3
+	if ball-x == 1 begin
+		ball-speed-x := 1
+		paddle-hori-collide
+	end
+	if ball-x == 62 begin
+		ball-speed-x := -1
+		paddle-hori-collide
+	end
+	if ball-y == 1 begin
+		ball-speed-y := 1
+		paddle-vert-collide
+	end
+	if ball-y == 30 begin
+		ball-speed-y := -1
+		paddle-vert-collide
+	end
+	draw-score
+;
+
+: paddle-hori-collide
+	if ve == 0 then ball-speed-y := 0
+	if ve != 0 begin
+		ve := paddle-vert-y
+		ve += 3
+		if ball-y <= ve then ball-speed-y := -1
+		if ball-y > ve then ball-speed-y := 1
+	end
+	score += 1
+;
+
+: paddle-vert-collide
+	if ve == 0 then ball-speed-x := 0
+	if ve != 0 begin
+		ve := paddle-hori-x
+		ve += 3
+		if ball-x <= ve then ball-speed-x := -1
+		if ball-x > ve then ball-speed-x := 1
+	end
+	score += 1
+;
+
+: reset
+	ball-x := 32
+	ball-y := 16
+	paddle-top-x := 1
+	paddle-bot-x := 62
+	paddle-vert-y := 13
+	paddle-hori-x := 29
+	paddle-left-y := 1
+	paddle-right-y := 30
+	score := 0
+
+	ve := random 1
+	if ve == 0 begin
+		ball-speed-x := 1
+	end
+	if ve == 1 begin
+		ball-speed-x := -1
+	end
+
+	ve := random 3
+	if ve == 0 then ball-speed-y := 0
+	if ve == 1 then ball-speed-y := -1
+	if ve > 1 then ball-speed-y := 1
+;
+
+: clear-screen
+	clear
+	border
+	reset
+	draw-score
+	draw
+;
+
+: draw-score
+	i := bcd-digits
+	bcd score
+	load v2
+	v0 := 27
+	ve := 13
+	i := hex v1
+	sprite v0 ve 5
+	v0 += 5
+	i := hex v2
+	sprite v0 ve 5
+;
+
+: sync
+	loop
+		ve := delay
+		if ve != 0 then
+	again
+
+	if score < 6 then ve := 3
+	if score > 5 begin
+		if score < 11  then ve := 2
+	end
+	if score > 10 begin
+		if score < 16 then ve := 1
+	end
+	if score > 15 then ve := 0
+	delay := ve
+;
+
+: game-over
+	clear
+	draw-score
+	border
+	sync
+	border
+	sync
+	border
+	sync
+	border
+	border
+	draw-game-over
+	draw-keyprompt
+
+	loop
+		ve := key
+			if ve != 6 then
+	again
+	clear-screen
+;
+
+: draw-game-over
+	i := game-over-image
+	vd := 15
+	ve := 3
+	v0 := 8
+	loop
+		sprite vd ve 8
+		i += v0
+		vd += 8
+		if vd != 55 then
+	again
+;
+
+: border
+	vd := 0
+	ve := 1
+	i := border-vert
+	sprite vd ve 15
+	ve += 15
+	sprite vd ve 15
+	vd := 63
+	sprite vd ve 15
+	ve -= 15
+	sprite vd ve 15
+
+	ve := 0
+	draw-hori-border
+	ve += 31
+	draw-hori-border
+;
+
+: draw-hori-border
+	vd := 0
+	i := border-hori
+	loop
+		sprite vd ve 1
+		vd += 8
+		if vd != 64 then
+	again
+;
+
+: title-screen
+	border
+	i := title-image
+	vd := 21
+	ve := 8
+	v0 := 15
+	sprite vd ve 15
+	vd += 8
+	i += v0
+	sprite vd ve 15
+	vd += 8
+	i += v0
+	sprite vd ve 15
+
+	draw-keyprompt
+	loop
+		ve := key
+			if ve != 6 then
+	again
+;
+
+: draw-keyprompt
+	i := keyprompt
+	vd := 55
+	ve := 23
+	sprite vd ve 7
+;

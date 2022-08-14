@@ -2201,5 +2201,35 @@
 			"logicQuirks": false,
 			"fontStyle": "fish"
 		}
+	},
+	"superpong": {
+		"title":    "Super Pong",
+		"authors":  ["offstatic"],
+		"images":   ["superpong.gif"],
+		"desc":     "A fast pong-like.",
+		"event":    "Octojam8",
+		"release":  "2021-10-15",
+		"platform": "chip8",
+		"options": {
+			"tickrate": 30,
+			"fillColor": "#43523d",
+			"fillColor2": "#ff6600",
+			"blendColor": "#662200",
+			"backgroundColor": "#c7f0d8",
+			"buzzColor": "#FFAA00",
+			"quietColor": "#000000",
+			"shiftQuirks": false,
+			"loadStoreQuirks": false,
+			"vfOrderQuirks": false,
+			"clipQuirks": false,
+			"vBlankQuirks": false,
+			"jumpQuirks": false,
+			"logicQuirks": false,
+			"screenRotation": 0,
+			"maxSize": 3584,
+			"touchInputMode": "none",
+			"fontStyle": "octo"
+
+		}
 	}
 }
