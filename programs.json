@@ -196,6 +196,35 @@
 			"fontStyle":"fish"
 		}
 	},
+	"octojam9title": {
+		"title":    "Octojam 9 Title",
+		"authors":  ["JohnEarnest"],
+		"images":   ["octojam9title.gif"],
+		"desc":     "Greetings program for the ninth annual 2022 Octojam.",
+		"event":    "Octojam9",
+		"release":  "2022-10-01",
+		"platform": "chip8",
+		"options": {
+			"tickrate":15,
+			"fillColor":"#FFCC00",
+			"fillColor2":"#FF6600",
+			"blendColor":"#662200",
+			"backgroundColor":"#996600",
+			"buzzColor":"#FFAA00",
+			"quietColor":"#000000",
+			"shiftQuirks":false,
+			"loadStoreQuirks":false,
+			"vfOrderQuirks":false,
+			"clipQuirks":false,
+			"vBlankQuirks":true,
+			"jumpQuirks":false,
+			"logicQuirks":false,
+			"screenRotation":0,
+			"maxSize":3584,
+			"touchInputMode":"none",
+			"fontStyle":"octo"
+		}
+	},
 	"garlicscape": {
 		"title":    "Into The GarlicScape",
 		"authors":  ["JohnEarnest"],
@@ -2230,6 +2259,35 @@
 			"touchInputMode": "none",
 			"fontStyle": "octo"
 
+		}
+	},
+	"wdl": {
+		"title":    "WDL",
+		"authors":  ["JohnEarnest"],
+		"images":   ["wdl.gif"],
+		"desc":     "That word game, but shorter.",
+		"event":    "Octojam9",
+		"release":  "2022-10-10",
+		"platform": "chip8",
+		"options": {
+			"tickrate":15,
+			"fillColor":"gray",
+			"fillColor2":"#FF6600",
+			"blendColor":"#662200",
+			"backgroundColor":"lightgray",
+			"buzzColor":"red",
+			"quietColor":"#000000",
+			"shiftQuirks":false,
+			"loadStoreQuirks":false,
+			"vfOrderQuirks":false,
+			"clipQuirks":true,
+			"vBlankQuirks":true,
+			"jumpQuirks":false,
+			"screenRotation":0,
+			"maxSize":3215,
+			"touchInputMode":"swipe",
+			"logicQuirks":true,
+			"fontStyle":"octo"
 		}
 	}
 }

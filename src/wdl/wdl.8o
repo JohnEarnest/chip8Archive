@@ -1,0 +1,684 @@
+#######################################
+#
+#  WDL
+#
+#  VIP-ready CHIP-8 demake of wordle,
+#  made for OctoJam 9, 2022.
+#
+#  by John Earnest
+#
+#######################################
+
+# reserve v0,v1,v2,v3,v4 vf,ve
+:alias kb-current vd
+:alias guess-row  vc
+:alias guess-col  vb
+:alias key-up     va # constant 
+:alias key-dn     v9 # constant
+:alias key-lf     v8 # constant
+:alias key-rt     v7 # constant
+:alias key-yes    v6 # constant
+:alias key-no     v5 # constant
+:const key-delete 26
+:const key-enter  27
+:const key-space  29
+
+: main
+	jump intro
+: init
+	clear
+	# set up global registers
+	kb-current := 0
+	guess-row  := 0
+	guess-col  := 0
+	key-up     := OCTO_KEY_W
+	key-dn     := OCTO_KEY_S
+	key-lf     := OCTO_KEY_A
+	key-rt     := OCTO_KEY_D
+	key-yes    := OCTO_KEY_E
+	key-no     := OCTO_KEY_Q
+	# clear the nixed/found characters
+	v0 := 0
+	v1 := 0
+	i  := nixed
+	loop
+		save v0
+		v1 += 1
+		if v1 != 56 then
+	again
+	# pick a word from the dictionary
+	i  := wordlist
+	v0 := random 0xFF
+	i  += v0
+	i  += v0
+	v0 := random 0b1000000
+	i  += v0
+	i  += v0
+	i  += v0
+	i  += v0
+	load v1
+	word-to-chars
+	i := word
+	save v2
+	# draw the keyboard
+	v2 := 0 # pos offset
+	v3 := 0 # char offset
+	loop
+		i := kb-pos
+		i += v2
+		load v1
+		i := chars
+		i += v3
+		sprite v0 v1 5
+		v2 += 2
+		v3 += 5
+		if v2 != 56 then
+	again
+	# draw the slots
+	i := underline
+	:calc sx0 { 2 }
+	:calc sx1 { sx0 + 3 * 7 }
+	:calc sy0 { 1 }
+	:calc sy1 { sy0 + 5 * 6 }
+	v1 := sy0
+	loop
+		v0 := sx0
+		sprite v0 v1 6
+		v0 += 7
+		sprite v0 v1 6
+		v0 += 7
+		sprite v0 v1 6
+		v1 += 6
+		if v1 != sy1 then
+	again
+
+	# main game loop
+	loop
+		: keyboard-input
+		loop
+			:macro debounce REG { loop while REG key again }
+			:macro key-move REG TABLE {
+				if REG key begin
+					debounce REG
+					i := TABLE
+					i += kb-current
+					load v0
+					kb-current := v0
+				end
+			}
+			key-move key-lf kb-lf
+			key-move key-rt kb-rt
+			key-move key-up kb-up
+			key-move key-dn kb-dn
+			if key-no key begin
+				debounce key-no
+				delete-char
+			end
+			if key-yes key begin
+				debounce key-yes
+				if kb-current <  key-delete then append-char
+				if kb-current == key-delete then delete-char
+				if kb-current == key-enter begin
+					if guess-col == 3 begin
+						valid-word
+						if vf != 0 begin
+							jump score-word
+						else
+							vf := 30
+							buzzer := vf
+						end
+					end
+				end
+			end
+			i := nixed
+			i += kb-current
+			load v0
+			if v0 == 1 begin
+				get-key-pos
+				i := nochar
+				sprite v0 v1 5
+				frame
+				sprite v0 v1 5
+			else
+				draw-key frame draw-key
+			end
+		again
+		: score-word
+		i := validate-stash
+		save vf
+		i := guess
+		load v2
+		v3 := v0
+		v4 := v1
+		v5 := v2 # v3,4,5 : guess
+		i := word
+		load v2
+		v6 := v0
+		v7 := v1
+		v8 := v2 # v6,7,8 : word
+		v9 := 0  # correct letters
+		:macro mark-guess COL SPRITE {
+			guess-col := COL
+			pos-char
+			i := SPRITE
+			sprite v1 v2 6
+		}
+		:macro test-array BASE OFFSET {
+			i := BASE
+			i += OFFSET
+			load v0
+		}
+		:macro set-array BASE OFFSET {
+			i := BASE
+			i += OFFSET
+			v0 := 1
+			save v0
+		}
+		:macro test-letter G W {
+			if G == W begin
+				v9 += 1
+				# outline the letter
+				mark-guess CALLS correct
+				# is the letter already found?
+				test-array found G
+				if v0 == 0 begin
+					set-array found G
+					# outline the key
+					i := kb-pos
+					i += G
+					i += G # *2
+					load v1
+					v0 -= 1
+					v1 -= 1
+					i := solid
+					sprite v0 v1 6
+				end
+			else
+				v0 := 0
+				if G == v6 then v0 := 1
+				if G == v7 then v0 := 1
+				if G == v8 then v0 := 1
+				if v0 == 1 begin
+					# letter is in the word
+					mark-guess CALLS dotted
+				else
+					mark-guess CALLS underline
+					# letter is not in the word
+					test-array nixed G
+					if v0 == 0 begin
+						set-array nixed G
+						# remove the key
+						i := kb-pos
+						i += G
+						i += G # *2
+						load v1
+						i := chars
+						i += G
+						i += G
+						i += G
+						i += G
+						i += G # *5
+						sprite v0 v1 5
+					end
+				end
+			end
+		}
+		test-letter v3 v6
+		test-letter v4 v7
+		test-letter v5 v8
+		if v9 == 3 then jump game-win
+		i := validate-stash
+		load va
+		guess-col := 0
+		guess-row += 1
+		if guess-row == 5 then jump game-lose
+		# pick the first valid key:
+		kb-current := 0
+		loop
+			test-array nixed kb-current
+			while v0 != 0
+			kb-current += 1
+		again
+	again
+
+#######################################
+#
+#  Game Logic
+#
+#######################################
+
+: delete-char
+	if guess-col == 0 then return
+	guess-col -= 1
+	i := guess
+	i += guess-col
+	load v0
+	draw-char
+;
+
+: append-char
+	if guess-col == 3 then return
+	i := nixed
+	i += kb-current
+	load v0
+	if v0 != 0 then return
+	draw-key
+	draw-pressed-key
+	v0 := kb-current
+	i := guess
+	i += guess-col
+	save v0
+	draw-char
+	guess-col += 1
+	frame
+	draw-pressed-key
+	draw-key
+;
+
+: erase-keyboard
+	v2 := 0 # pos offset
+	v3 := 0 # char offset
+	v4 := 0 # 
+	loop
+		test-array nixed v4
+		if v0 == 0 begin
+			test-array found v4
+			if v0 == 1 begin
+				# erase the block
+				i := kb-pos
+				i += v2
+				load v1
+				v0 -= 1
+				v1 -= 1
+				i := solid
+				sprite v0 v1 6
+			end
+			i := kb-pos
+			i += v2
+			load v1
+			i := chars
+			i += v3
+			sprite v0 v1 5
+		end
+		v2 += 2
+		v3 += 5
+		v4 += 1
+		if v4 != 28 then
+	again
+;
+
+: print-char
+	i := chars
+	i += v0
+	i += v0
+	i += v0
+	i += v0
+	i += v0
+	sprite v1 v2 4
+	v1 += 6
+;
+
+:stringmode print "abcdefghijklmnopqrstuvwxyz" {
+	v0 := VALUE
+	print-char
+}
+
+: game-win
+	erase-keyboard
+	v1 := 36
+	v2 := 8
+	print "you"
+	v1 := 36
+	v2 += 6
+	print "win"
+	v0 := key
+	jump init
+
+: game-lose
+	erase-keyboard
+	i := word
+	load v2
+	v3 := v0
+	v4 := v1
+	v5 := v2
+	v1 := 36
+	v2 := 8
+	print "was"
+	v1 := 36
+	v2 += 6
+	v0 := v3 print-char
+	v0 := v4 print-char
+	v0 := v5 print-char
+	v0 := key
+	jump init
+
+#######################################
+#
+#  Title Sequence
+#
+#######################################
+
+:stringmode tw "abcdefghijklmnopqrstuvwxyz" { :byte VALUE     }
+:stringmode tw " "                          { :byte key-space }
+
+: w1 tw "word warm what woolywhilewith wood web  "
+: w2 tw "drivedemondank dark dull desk dupe dread"
+: w3 tw "life lemonlove link lark labelleaf lice "
+: ws 0 0 0
+
+:macro draw-title-char {
+	i := w3
+	if guess-col == 0 then i := w1
+	if guess-col == 1 then i := w2
+	i += vd
+	i += guess-row
+	load v0
+	draw-char
+	vf := 5
+	iwait
+}
+
+: iwait
+	delay := vf
+	loop
+		vf := OCTO_KEY_E
+		if vf key then jump init
+		vf := delay
+		if vf == 0 then return
+	again
+
+: replace-vert
+	guess-row := 4
+	i := ws
+	i += guess-col
+	load v0
+	vd := v0
+	loop
+		draw-title-char
+		guess-row -= 1
+		if guess-row != -1 then
+	again
+: draw-vert
+	guess-row := 0
+	v0 := random 0b111
+	v1 := v0 # *1
+	v1 += v0 # *2
+	v1 += v1 # *4
+	v0 += v1 # *5
+	i := ws
+	i += guess-col
+	save v0
+	vd := v0
+	loop
+		draw-title-char
+		guess-row += 1
+		if guess-row != 5 then
+	again
+;
+
+: intro
+	guess-col := 0
+	draw-vert
+	guess-col := 1
+	draw-vert
+	guess-col := 2
+	draw-vert
+	vf := 60
+	iwait
+	v1 := 32
+	v2 := 8
+	print "press"
+	v1 := 44
+	v2 += 12
+	print "e"
+	loop
+		guess-col := random 0b11
+		if guess-col != 3 then replace-vert
+		vf := 60
+		iwait
+	again
+
+#######################################
+#
+#  Word Lookup
+#
+#######################################
+
+: validate-stash
+	0 0 0 0  0 0 0 0
+	0 0 0 0  0 0 0 0
+: valid-word
+	# given the contents of guess,
+	# return with vf as 1 iff the word was valid
+	i := validate-stash
+	save vf
+	:alias lo-guess vc
+	:alias hi-guess vd
+	i := guess
+	load v2
+	lo-guess <<= v0
+	lo-guess <<= lo-guess	
+	ve       >>= v1
+	ve       >>= ve
+	ve       >>= ve
+	lo-guess |=  ve # low byte
+	hi-guess <<= v1
+	hi-guess <<= hi-guess
+	hi-guess <<= hi-guess
+	hi-guess <<= hi-guess
+	hi-guess <<= hi-guess
+	hi-guess |=  v2 # high byte
+
+	# this uses an unrolled linear search.
+	# since the wordlist is ordered, a binary search *might*
+	# be faster, but would be much more complex:
+	i := wordlist
+	loop
+		load vb
+		while v0 != 0xFF # sentinel check
+		:macro match-word A B {
+			if A == lo-guess begin
+				if B == hi-guess then jump good-word
+			end
+		}
+		match-word v0 v1
+		match-word v2 v3
+		match-word v4 v5
+		match-word v6 v7
+		match-word v8 v9
+		match-word va vb
+	again
+: bad-word
+	i := validate-stash
+	load vf
+	vf := 0
+;
+: good-word
+	i := validate-stash
+	load vf
+	vf := 1
+;
+
+#######################################
+#
+#  Utility Routines
+#
+#######################################
+
+: get-key-pos
+	i := kb-pos
+	i += kb-current
+	i += kb-current # *2
+	load v1
+;
+: draw-pressed-key
+	get-key-pos
+	v1 += 1
+	jump draw-key-char
+: draw-key
+	get-key-pos
+: draw-key-char
+	i := chars
+	i += kb-current
+	i += kb-current
+	i += kb-current
+	i += kb-current
+	i += kb-current # *5
+	sprite v0 v1 5
+;
+
+: pos-char
+	# result in v1/v2
+	v1 <<= guess-col # *2
+	v1 +=  guess-col # *3
+	v1 <<= v1        # *6
+	v1 +=  guess-col # *7
+	v1 +=  2
+	v2 <<= guess-row # *2
+	v2 +=  guess-row # *3
+	v2 <<= v2        # *6
+	v2 +=  1
+;
+
+: draw-char
+	i := chars
+	i  += v0
+	v0 += v0
+	v0 += v0
+	i  += v0
+	pos-char
+	v1 += 1
+	v2 += 1
+	sprite v1 v2 5
+;
+
+: frame
+	loop
+		vf := delay
+		if vf != 0 then
+	again
+	vf := 1
+	delay := vf
+;
+
+: word-to-chars
+	# given a packed word in v0,v1
+	# unpack into v0,v1,v2
+	# destroys ve/vf
+	v2 :=  v1
+	vf :=  0b11111
+	v2 &=  vf # finished letter 2
+	v1 >>= v1
+	v1 >>= v1
+	v1 >>= v1
+	v1 >>= v1
+	v1 >>= v1 # low bits of letter 1
+	ve <<= v0
+	ve <<= ve
+	ve <<= ve
+	v1 |=  ve
+	vf :=  0b11111
+	v1 &=  vf # finished letter 1
+	v0 >>= v0
+	v0 >>= v0 # finished letter 0
+;
+
+#######################################
+#
+#  Data
+#
+#######################################
+
+:calc l1 { 0 } :calc l2 { 0 }
+:stringmode wds "abcdefghijklmnopqrstuvwxyz" {
+	:calc l0 { l1 }
+	:calc l1 { l2 }
+	:calc l2 { VALUE }
+}
+:stringmode wds "." { # pack each letter into 5 bits
+	:byte { ( l0 << 2 ) | ( l1 >> 3 ) }
+	:byte { ( l1 << 5 ) | l2 }
+}
+
+: wordlist # 512 words, with some duplicates:
+	wds abs.ace.ace.ace.ace.ace.act.add.ado.ads.adz.aft.age.ago.aid.ail.
+	wds aim.air.ale.all.alp.amp.and.ant.any.ape.ape.app.apt.arc.are.ark.
+	wds arm.art.ash.ask.asp.ass.ate.awe.awl.axe.aye.bad.bag.ban.bar.bat.
+	wds bay.bed.bee.beg.bet.bib.bid.big.bim.bim.bim.bim.bin.bit.boa.bod.
+	wds bog.boo.bop.bot.bow.box.boy.bra.bud.bug.bum.bun.bur.bus.but.bye.
+	wds cab.cad.cam.can.cap.car.cat.caw.cel.chi.cob.cod.cog.cop.cot.cow.
+	wds cry.cub.cud.cue.cup.cur.cut.dab.dad.dag.dam.day.den.dew.dib.did.
+	wds die.dig.dim.din.dip.doe.dog.don.dot.dry.dub.dud.due.dug.duo.dye.
+	wds dye.ear.ear.eat.ebb.eel.egg.ego.eke.elf.elk.ell.elm.emu.end.eon.
+	wds era.era.ere.erg.err.eta.eve.ewe.eye.fad.fan.far.fat.fax.fed.fee.
+	wds few.fey.fez.fib.fig.fin.fir.fit.fix.flu.fly.fob.foe.fog.for.fox.
+	wds fro.fry.fun.fur.gab.gag.gap.gas.gay.gel.gem.get.ghi.gib.gig.gin.
+	wds gnu.god.goo.got.gum.gun.gut.gym.had.hag.ham.has.hat.hay.hem.hen.
+	wds hen.hen.hen.her.hew.hex.hey.hid.him.hip.his.hit.hob.hoe.hog.hop.
+	wds hot.how.hub.hue.hug.hum.ice.icy.ide.ilk.ill.imp.ink.inn.ins.ion.
+	wds ire.irk.its.ivy.jab.jam.jar.jaw.jay.jet.jib.jig.job.jog.jot.joy.
+	wds jug.jut.jut.kea.keg.ken.key.kid.kin.kit.koi.lab.lad.lag.lam.lap.
+	wds law.lax.lay.led.leg.lid.lie.lip.lit.lob.log.loo.lot.low.lox.lug.
+	wds lux.lye.mad.man.map.mat.maw.may.men.met.mic.mix.moa.mob.mod.moe.
+	wds mom.mop.mow.mud.mug.nab.nag.nap.new.nib.nil.nip.nit.nod.not.now.
+	wds nub.nun.nut.oaf.oak.oar.oat.odd.ode.off.oft.ohm.ohm.oil.old.one.
+	wds opt.orb.orc.ore.our.out.owl.own.pad.pan.pat.paw.pea.pee.peg.pen.
+	wds pep.pet.phi.pie.pig.pin.pip.pit.ply.pod.poo.pop.pot.pow.pox.pry.
+	wds psi.pub.pug.pun.pup.pus.put.rad.rag.ram.ran.rap.rat.raw.ray.red.
+	wds rev.rex.rho.rib.rid.rig.rim.rip.rob.rod.roe.rot.row.rub.rue.rug.
+	wds rum.run.rut.rye.sad.sap.sat.saw.say.sea.see.set.sew.sex.she.shy.
+	wds sic.sim.sin.sip.sir.sit.six.ska.ski.sky.sly.sob.sod.sog.sol.son.
+	wds sop.sow.soy.spa.spy.sty.sue.sum.sun.sup.tab.tag.tan.tao.tap.tar.
+	wds tau.tax.tea.tee.ten.the.tic.tie.tin.tip.tit.toe.ton.too.top.tot.
+	wds tow.toy.try.tub.tug.two.urn.use.van.vat.vet.vex.via.vie.vim.vow.
+	wds vox.wad.wan.war.was.wax.way.web.wed.wet.who.why.wig.win.wit.woe.
+	wds wok.woo.won.wry.yak.yam.yaw.yes.yet.you.yum.zap.zig.zip.zit.zoo.
+	0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF # sentinel bytes
+	0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF
+
+# game state:
+#        A  B  C  D  E  F  G  H  I  J  K  L  M  N  O  P  Q  R  S  T  U  V  W  X  Y  Z  d  e
+: nixed  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0
+: found  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0
+: word   0  0  0
+: guess  0  0  0
+
+# relative moves on the keyboard:
+#        A  B  C  D  E  F  G  H  I  J  K  L  M  N  O  P  Q  R  S  T  U  V  W  X  Y  Z  d  e
+: kb-up  0  1  2  3  4  5  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 20 21 19 22
+: kb-dn  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 26 26 24 25 27 27 24 25 26 27 
+: kb-lf  0  0  1  2  3  4  6  6  7  8  9 10 12 12 13 14 15 16 18 18 19 20 21 22 26 24 26 25
+: kb-rt  1  2  3  4  5  5  7  8  9 10 11 11 13 14 15 16 17 17 19 20 21 22 23 23 25 27 24 27
+
+# key positions:
+:macro kp {
+	:byte { 27 + 6 *       ( CALLS % 6 ) } # x
+	:byte {  1 + 6 * floor ( CALLS / 6 ) } # y
+}
+#         A  B  C  D  E  F  G  H  I  J  K  L  M  N  O  P  Q  R  S  T  U  V  W  X
+: kb-pos  kp kp kp kp kp kp kp kp kp kp kp kp kp kp kp kp kp kp kp kp kp kp kp kp 
+:byte { 27 + 6 * 2 } :byte { 1 + 6 * 4 } # Y
+:byte { 27 + 6 * 3 } :byte { 1 + 6 * 4 } # Z
+:byte { 27         } :byte { 1 + 6 * 4 } # delete
+:byte { 64 - 9     } :byte { 1 + 6 * 4 } # enter
+
+: chars # 4x4 characters A-Z padded to 4x5
+	0x60 0x90 0xF0 0x90 0x00  0xE0 0xF0 0x90 0xF0 0x00  0x70 0x80 0x80 0x70 0x00  0xE0 0x90 0x90 0xE0 0x00  # ABCD
+	0xF0 0xE0 0x80 0xF0 0x00  0xF0 0xC0 0x80 0x80 0x00  0x70 0x80 0x90 0x70 0x00  0x90 0xF0 0x90 0x90 0x00  # EFGH
+	0xF0 0x40 0x40 0xF0 0x00  0xF0 0x20 0x20 0xC0 0x00  0x90 0xE0 0x90 0x90 0x00  0x80 0x80 0x80 0xF0 0x00  # IJKL
+	0xF0 0xF0 0x90 0x90 0x00  0xE0 0x90 0x90 0x90 0x00  0x60 0x90 0x90 0x60 0x00  0xE0 0x90 0xE0 0x80 0x00  # MNOP
+	0xF0 0x90 0xB0 0xF0 0x00  0xE0 0x90 0xE0 0x90 0x00  0xF0 0xC0 0x30 0xF0 0x00  0xF0 0x40 0x40 0x40 0x00  # QRST
+	0x90 0x90 0x90 0x70 0x00  0x90 0x90 0xA0 0x40 0x00  0x90 0x90 0xF0 0xF0 0x00  0x90 0x60 0x60 0x90 0x00  # UVWX
+	0x90 0xF0 0x10 0xF0 0x00  0xF0 0x30 0xC0 0xF0 0x00  # YZ
+: delete    0x3F 0x75 0xFB 0x75 0x3F
+: enter     0xFC 0xF6 0xAF 0xDE 0xFC
+: nochar    0x00 0x00 0x20 0x00 0x00
+: space     0x00 0x00 0x00 0x00 0x00
+: correct   0xFC 0xFC 0xFC 0xFC 0xFC 0x00
+: solid     0xFC 0xFC 0xFC 0xFC 0xFC 0xFC
+: outline   0xFC 0x84 0x84 0x84 0x84 0xFC
+: underline 0x00 0x00 0x00 0x00 0x00 0xFC
+: dotted    0x00 0x00 0x00 0x00 0x00 0xA8
+
+:monitor word  "%i %i %i"
+:monitor guess "%i %i %i"
