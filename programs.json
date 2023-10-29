@@ -225,6 +225,35 @@
 			"fontStyle":"octo"
 		}
 	},
+	"octojam10title": {
+		"title":    "Octojam 10 Title",
+		"authors":  ["JohnEarnest"],
+		"images":   ["octojam10title.gif"],
+		"desc":     "Greetings program for the tenth annual 2023 Octojam.",
+		"event":    "Octojam10",
+		"release":  "2023-10-01",
+		"platform": "chip8",
+		"options": {
+			"tickrate": 7,
+			"fillColor": "#FFAA00",
+			"fillColor2": "#FF6600",
+			"blendColor": "#662200",
+			"backgroundColor": "#662200",
+			"buzzColor": "#FFAA00",
+			"quietColor": "#000000",
+			"shiftQuirks": false,
+			"loadStoreQuirks": false,
+			"vfOrderQuirks": false,
+			"clipQuirks": false,
+			"vBlankQuirks": false,
+			"jumpQuirks": false,
+			"screenRotation": 0,
+			"maxSize": 3584,
+			"touchInputMode": "none",
+			"logicQuirks": false,
+			"fontStyle": "octo"
+		}
+	},
 	"garlicscape": {
 		"title":    "Into The GarlicScape",
 		"authors":  ["JohnEarnest"],
@@ -2288,6 +2317,35 @@
 			"touchInputMode":"swipe",
 			"logicQuirks":true,
 			"fontStyle":"octo"
+		}
+	},
+	"knumberknower": {
+		"title":    "Knumber Knower",
+		"authors":  ["JohnEarnest"],
+		"images":   ["knumberknower.gif"],
+		"desc":     "A game of bad typography.",
+		"event":    "Octojam10",
+		"release":  "2023-10-28",
+		"platform": "chip8",
+		"options": {
+			"tickrate": 15,
+			"fillColor": "black",
+			"fillColor2": "#FF6600",
+			"blendColor": "#662200",
+			"backgroundColor": "white",
+			"buzzColor": "#FFAA00",
+			"quietColor": "#000000",
+			"shiftQuirks": 0,
+			"loadStoreQuirks": 0,
+			"vfOrderQuirks": false,
+			"clipQuirks": 1,
+			"vBlankQuirks": 1,
+			"jumpQuirks": 0,
+			"screenRotation": 0,
+			"maxSize": 3232,
+			"touchInputMode": "none",
+			"logicQuirks": 1,
+			"fontStyle": "octo"
 		}
 	}
 }
