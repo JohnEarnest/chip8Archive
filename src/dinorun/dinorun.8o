@@ -1,0 +1,288 @@
+###########################################
+#
+#  Dino Run
+#
+#  André Moreira
+#
+###########################################
+
+:alias ground_x v0
+:alias ground_y v1
+:alias player_x v2
+:alias player_y v3
+:alias cactus_x v4
+:alias cactus_y v5
+:alias score_d  v6
+:alias c_speed  v7
+:alias v_delay  v8
+:alias s_jump   v9
+:alias score_x  vA
+:alias score_y  vB
+:alias score_u  vC
+:alias cloud_x  vD
+:alias p_frame  vE
+
+: ground 0xF0 0xF0 0xF0 0xF0
+: player1 0x0F 0x0B 0x0F 0x8C 0xF8 0x78 0x10
+: player2 0x0F 0x0B 0x0F 0x8C 0xF8 0x78 0x40
+: cactus 0x0C 0x18 0x08
+: cloud 0x1C 0x7E 0x38
+: sky_tile1 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF
+: sky_tile2 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF
+
+: draw_sky_macro1
+    save v0
+
+    v8 := 0
+    ground_x := 0
+    i := sky_tile1
+    loop
+        sprite ground_x v8 15
+        ground_x += 8
+        if ground_x != 64 then
+    again
+
+    load v0
+return
+
+: draw_sky_macro2
+    save v0
+
+    v8 := 15
+    ground_x := 0
+    i := sky_tile2
+    loop
+        sprite ground_x v8 13
+        ground_x += 8
+        if ground_x != 64 then
+    again
+
+    load v0
+return
+
+: draw_ground_macro
+    save v0
+
+    ground_x := 0
+    ground_y := 28
+
+    i := ground
+    loop
+        sprite ground_x ground_y 4
+        ground_x += 4
+        if ground_x != 64 then
+    again
+    
+    load v0
+return
+
+: start_menu
+    clear
+
+    :call draw_ground_macro
+
+    player_x := 10
+    player_y := 21
+    
+    i := player1
+    sprite player_x player_y 7
+
+    score_x := 28
+    score_y := 5
+    v0 := 5
+    i := hex v0
+    sprite score_x score_y 5
+
+: wait_start
+    v0 := 5
+    if v0 key then jump main
+    jump wait_start
+
+: main
+    clear
+    ground_x := 0
+    ground_y := 28
+    player_x := 10
+    player_y := 21
+    cactus_x := 62
+    cactus_y := 25
+    cloud_x := 45
+    s_jump  := 0
+    score_d := 0
+    score_u := 0
+    c_speed := 2
+    score_y := 2
+    p_frame := 0
+
+    i := ground
+    loop
+        sprite ground_x ground_y 4
+        ground_x += 4
+        if ground_x != 64 then
+    again
+
+    i := player1
+    sprite player_x player_y 7
+    
+    i := cactus
+    sprite cactus_x cactus_y 3
+   
+    ground_y := 10
+    i := cloud
+    sprite cloud_x ground_y 3
+    
+    score_x := 2
+    i := hex score_d
+    sprite score_x score_y 5
+    
+    score_x := 7
+    i := hex score_u
+    sprite score_x score_y 5
+
+: game_loop
+    if p_frame == 0 begin
+        i := player1
+    end
+    if p_frame == 1 begin
+        i := player2
+    end
+    sprite player_x player_y 7
+    v0 := 5
+    if v0 key begin
+        if s_jump == 0 then s_jump := 1
+    end
+
+    ground_y := 10
+    v0 := cloud_x
+    cloud_x -= 1
+    if cloud_x > 240 begin
+        cloud_x := 63
+    end
+    if v0 != cloud_x begin
+        i := cloud
+        sprite v0 ground_y 3
+        sprite cloud_x ground_y 3
+    end
+    if s_jump == 1 begin
+        player_y -= 3
+        if player_y <= 9 then s_jump := 2
+    end
+    if s_jump == 2 begin
+        player_y += 4
+        if player_y >= 21 begin
+            player_y := 21
+            s_jump := 0
+        end
+    end
+
+    if s_jump == 0 begin
+        if p_frame == 0 begin
+            p_frame := 1
+        else
+            p_frame := 0
+        end
+    else
+        p_frame := 0
+    end
+
+    if p_frame == 0 begin
+        i := player1
+    end
+    if p_frame == 1 begin
+        i := player2
+    end
+    sprite player_x player_y 7
+
+    if cactus_x <= 14 begin
+        if cactus_x >= 8 begin
+            if player_y > 18 begin
+                jump game_over
+            end
+        end
+    end
+
+    v0 := cactus_x
+    cactus_x -= c_speed
+    if cactus_x > 64 begin
+        i := cactus
+        sprite v0 cactus_y 3
+        score_x := 2
+        i := hex score_d
+        sprite score_x score_y 5
+        score_x := 7
+        i := hex score_u
+        sprite score_x score_y 5
+        score_u += 1
+        v1 := 2
+        buzzer := v1
+        if score_u == 10 begin
+            score_u := 0
+            score_d += 1
+
+            :call draw_sky_macro1
+            :call draw_sky_macro2
+            :call draw_ground_macro
+
+            v1 := 25
+            buzzer := v1
+        end
+        score_x := 2
+        i := hex score_d
+        sprite score_x score_y 5
+        score_x := 7
+        i := hex score_u
+        sprite score_x score_y 5
+        cactus_x := 62
+        v0 := 62
+        i := cactus
+        sprite cactus_x cactus_y 3
+    end
+
+    if v0 != cactus_x begin
+        i := cactus
+        sprite v0 cactus_y 3
+        sprite cactus_x cactus_y 3
+    end
+
+    if score_d == 0 begin
+        if score_u == 3 then c_speed := 3
+        if score_u == 6 then c_speed := 4
+    end
+    if score_d == 1 begin
+        if score_u == 0 then c_speed := 5
+    end
+    if score_d == 2 begin
+        if score_u == 0 then c_speed := 6
+        if score_u == 5 then c_speed := 7
+    end
+    if score_d == 3 begin
+        if score_u == 0 then c_speed := 8
+        if score_u == 5 then c_speed := 9
+    end
+    if score_d == 4 begin
+        if score_u == 0 then c_speed := 10
+        #if score_u == 5 then c_speed := 11
+    end
+
+    v_delay := 4
+    delay := v_delay
+    loop
+        v_delay := delay
+        while v_delay != 0
+    again
+    jump game_loop
+
+: game_over
+    clear
+    score_y := 12
+    score_x := 28
+    i := hex score_d
+    sprite score_x score_y 5
+    score_x := 33
+    i := hex score_u
+    sprite score_x score_y 5
+
+: wait_restart
+    v0 := 5
+    if v0 key then jump main
+    jump wait_restart

@@ -2347,5 +2347,34 @@
 			"logicQuirks": 1,
 			"fontStyle": "octo"
 		}
-	}
+	},
+    "dinorun": {
+        "title": "Dino Run",
+        "authors": ["Andrezinrc"],
+        "images": ["screenshot.gif"],
+        "desc": "An endless runner game for Chip-8.",
+        "event": "",
+        "release": "2026-05-25",
+        "platform": "chip8",
+        "options": {
+            "tickrate": 15,
+            "backgroundColor": "#C7F0D8",
+            "fillColor": "#004020",
+            "fillColor2": "#004020",
+            "blendColor": "#000000",
+            "buzzColor": "#000000",
+            "quietColor": "#000000",
+            "shiftQuirks": 0,
+            "loadStoreQuirks": 0,
+            "vfOrderQuirks": false,
+            "clipQuirks": 1,
+            "vBlankQuirks": 1,
+            "jumpQuirks": 0,
+            "screenRotation": 0,
+            "maxSize": 3232,
+            "touchInputMode": "none",
+            "logicQuirks": 1,
+            "fontStyle": "octo"
+        }
+    }
 }
