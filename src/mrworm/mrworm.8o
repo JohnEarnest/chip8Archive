@@ -1,0 +1,260 @@
+# Chip8 Mr Worm
+# rmmh 2014
+
+:alias wafflex v4
+:alias waffley v5
+
+:alias headx v6
+:alias heady v7
+:alias headdir v8
+
+:alias tailx v9
+:alias taily vA
+:alias growth vB
+
+:proto queuedata
+:alias queuehead vC
+:alias queuetail vD
+
+:const STARTLENGTH 12
+:const NDIRS 12
+:const LASTDIR 11  # NDIRS - 1
+:const TAILHEIGHT 5
+
+: title-MrW 0xF8 0x04 0xA8 0x05 0xAB 0x85 0xAA 0x05 0xAA 0x05 0xAA 0x07 0x00 0x00 0x00 0x00 0x00 0x80 0x6D 0xCA 0xA6 0x8E 0xCA 0x8E 0x6E 0xCE 0x00 0x00 0x00 0x00 0x00 0x00 
+: title-orm 0x40 0x00 0x40 0x00 0x5D 0xDF 0x55 0x15 0x55 0x15 0xDD 0x15 0x00 0x00 0x00 0x00 0x05 0x40 0xCA 0x5B 0x7F 0x6A 0xAA 0x71 0xEA 0x5B 0x00 0x00 0x00 0x00 0x00 0x00 
+: dead-score 0xC0 0x00 0x80 0x00 0x80 0x00 0xDB 0xB7 0x52 0xA5 0x52 0xA7 0x52 0xA4 0xDB 0xA7 0x00 0x00 0x15 0x04 0x14 0x04 0x1D 0x77 0x15 0x55 0x15 0x75 0x00 0x10 0x00 0x70 
+
+:const WAFFLEHEIGHT 5
+: waffle-sprite 0xF8 0xA8 0xF8 0xA8 0xF8 
+
+: worm-dirtab
+# struct { char offx, offy, sprite[5], _padding, ; };
+: worm-ul  -1 -2  0x70 0xF8 0xC0 0x80 0x00  0
+: worm-u    0 -2  0x70 0xF8 0x88 0x00 0x00  0
+: worm-ur  +1 -2  0x70 0xF8 0x18 0x08 0x00  0
+: worm-ru  +2 -1  0x70 0x38 0x18 0x18 0x10  0
+: worm-r   +2  0  0x30 0x18 0x18 0x18 0x30  0
+: worm-rd  +2 +1  0x10 0x18 0x18 0x38 0x70  0
+: worm-dr  +1 +2  0x00 0x08 0x18 0xF8 0x70  0
+: worm-d    0 +2  0x00 0x00 0x88 0xF8 0x70  0
+: worm-dl  -1 +2  0x00 0x80 0xC0 0xF8 0x70  0
+: worm-ld  -2 +1  0x40 0xC0 0xC0 0xE0 0x70  0
+: worm-l   -2  0  0x60 0xC0 0xC0 0xC0 0x60  0
+: worm-lu  -2 -1  0x70 0xE0 0xC0 0xC0 0x40  0
+
+: queue-get  # ( -- v0=item )
+	i := queuedata
+	i += queuetail
+	load v0
+	queuetail += 1
+;
+
+: queue-put  # ( v0=item -- )
+	i := queuedata
+	i += queuehead
+	save v0
+	queuehead += 1
+;
+
+: queue-init  # ( -- )
+	queuehead := 0
+	queuetail := 0
+;
+
+:proto move-worm
+: place-waffle
+	i := waffle-sprite
+	loop
+		wafflex := random 0xFF
+		waffley := random 0xFF
+		sprite wafflex waffley WAFFLEHEIGHT
+		if vf == 0 then return
+		sprite wafflex waffley WAFFLEHEIGHT
+	again
+
+:proto score
+:proto hiscore
+: init
+	clear
+	hires
+
+	# clear score
+	i := score
+	v0 := 0
+	save v0
+	
+	# random ortho direction
+	# headdir = (rand in [0, 3]) * 3
+	v0 := random 0x3
+	headdir <<= v0
+	headdir += v0
+
+	# random pos
+	headx := random 0xFF
+	heady := random 0xFF
+
+	tailx := headx
+	taily := heady
+	growth := STARTLENGTH
+	
+	queue-init
+
+	move-worm
+	place-waffle
+;
+
+: hit-waffle?  # ( -- vF=collidedWithWaffle )
+	i := waffle-sprite
+	sprite wafflex waffley WAFFLEHEIGHT
+	sprite wafflex waffley WAFFLEHEIGHT
+;
+
+: eat-waffle
+	sprite wafflex waffley WAFFLEHEIGHT
+	place-waffle
+	growth += 3
+	i := score
+	load v0
+	v0 += 1
+	i := score
+	save v0
+;
+
+:const bcd-temp 0x400
+
+: draw-digits # ( v3=num, v4=x, v5=y )
+	i := bcd-temp
+	bcd v3
+	load v2
+	
+	:proto nohundred
+	:proto noten
+	
+	if v3 < 100 then jump nohundred
+	i := hex v0
+	sprite v4 v5 5
+	
+	: nohundred
+	i := hex v1
+	v4 += 5
+	if v3 < 10 then jump noten
+	sprite v4 v5 5
+	
+	: noten
+	v4 += 5
+	i := hex v2
+	sprite v4 v5 5
+;
+
+: set-hiscore  # ( v3=score -- v0=score )
+	i := hiscore
+	v0 := v3
+	save v0
+;
+
+: show-score
+	lores
+	i := dead-score
+	v4 := 15
+	v5 := 8
+	sprite v4 v5 0
+
+	v4 += 20
+	v5 += 3
+
+	:next score v3 := 0
+	draw-digits
+	
+	v4 += -10
+	v5 += 6
+	:next hiscore v0 := 0
+	
+	if v3 > v0 then set-hiscore
+	v3 := v0
+
+	draw-digits
+
+	# busy loop so score screen doesn't vanish 
+	# because player is still trying to play
+	v0 := 100
+	loop
+		v0 += -1
+	if v0 != 0 then again 
+
+	vF := key
+;
+ 
+: collision
+	hit-waffle?
+	if vF == 1 then jump eat-waffle
+	show-score
+	init
+;
+
+: load-direntry # ( v0=dir -- v0=offx, v1=offy, i=sprite )
+	# i = worm-dirtab + 8 * v0
+	i := worm-dirtab
+	v0 <<= v0
+	v0 <<= v0
+	v0 <<= v0
+	i += v0
+	load v1  # i now points at the sprite	
+;
+
+: remove-segment
+	queue-get
+
+	# move worm
+	load-direntry
+	tailx += v0
+	taily += v1
+
+	# draw segment
+	sprite tailx taily TAILHEIGHT
+;
+
+: move-worm
+	# remove tail ?
+	if growth == 0 then remove-segment
+	if growth != 0 then growth += -1
+
+	# store current dir for tail
+	v0 := headdir
+	queue-put
+
+	# move worm
+	load-direntry
+	headx += v0
+	heady += v1
+
+	# draw segment
+	sprite headx heady TAILHEIGHT
+	if vf == 1 then collision
+;
+
+: title
+	i := title-MrW
+	v0 := 16
+	v1 := 9
+	sprite v0 v1 0
+	i := title-orm
+	v0 += 16
+	sprite v0 v1 0
+	vF := key
+;
+
+: main
+	title
+	init
+	loop
+		v0 := 7
+		if v0 key then headdir += -1
+		v0 := 9
+		if v0 key then headdir += 1
+		if headdir == NDIRS then headdir := 0
+		if headdir == -1 then headdir := LASTDIR
+		move-worm
+	again
+
+: queuedata

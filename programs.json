@@ -2413,5 +2413,22 @@
 		"event": "GAMES MADE QVIICK???",
 		"release": "2023-01-14",
 		"platform": "chip8"
+	},
+	"mrworm": {
+		"title": "Mr Worm",
+		"authors": ["rmmh"],
+		"images": ["mrworm.gif"],
+		"desc": "A snake game with more degrees of freedom, inspired by the TI-89 game.",
+		"release": "2014-08-10",
+		"platform": "schip",
+		"options": {
+			"tickrate": "20",
+			"backgroundColor": "#640",
+			"fillColor": "#A5A",
+			"buzzColor": "#FFAA00",
+			"quietColor": "#000000",
+			"shiftQuirks": false,
+			"loadStoreQuirks": false
+		}
 	}
 }
