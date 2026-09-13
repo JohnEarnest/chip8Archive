@@ -1,0 +1,3 @@
+# Octo source is neither Roff nor undocumented. Octo describes itself as an
+# assembler for CHIP-8, so its files count as Assembly on the language bar.
+*.8o linguist-language=Assembly
